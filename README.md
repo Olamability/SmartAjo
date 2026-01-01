@@ -1,5 +1,7 @@
 # Ajo Secure
 
+> **🔧 Getting "Unable to Connect to Server" errors?** See [CONNECTION_FIX.md](./CONNECTION_FIX.md) for quick troubleshooting steps!
+
 A secure, automated escrow-based rotating savings and credit association (ROSCA) platform built with modern web technologies.
 
 ## 🎯 Project Overview
@@ -75,6 +77,8 @@ npm run dev
 
 The application will be available at `http://localhost:8080`
 
+> **⚠️ Important:** The frontend requires a backend API to work properly. See [Backend Quick Start](#-backend-quick-start-new) below to set up the backend server. Without the backend, you will get "unable to connect to server" errors.
+
 ## 📦 Available Scripts
 
 ```sh
@@ -95,6 +99,8 @@ npm run lint
 ```
 
 ## 🚀 Backend Quick Start (NEW!)
+
+**📍 Getting "unable to connect to server" errors? See [CONNECTION_FIX.md](./CONNECTION_FIX.md) for quick fix!**
 
 **📍 New to backend setup? See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for a detailed cloud database guide (no local installation required)!**
 
@@ -119,6 +125,10 @@ cp .env.example .env
 # Start development server
 npm run dev
 ```
+
+The backend will be available at `http://localhost:3000`
+
+**💡 Tip**: Use `npm start` for production-like start or `npm run dev` for development with auto-restart on file changes.
 
 **💡 Tip**: See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for complete Supabase setup instructions.
 
