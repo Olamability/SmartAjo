@@ -1,32 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
+const { paymentLimiter, readLimiter } = require('../middleware/rateLimiter');
+const paymentController = require('../controllers/paymentController');
 
-// TODO: Implement payment controller
-// const paymentController = require('../controllers/paymentController');
+// Protected routes - require authentication and rate limiting
+router.post('/initialize', authenticate, paymentLimiter, paymentController.initializePayment);
+router.get('/verify/:reference', authenticate, readLimiter, paymentController.verifyPayment);
 
-router.post('/initialize', authenticate, (req, res) => {
-  res.status(501).json({
-    success: false,
-    message: 'Payment initialization endpoint not yet implemented',
-    note: 'Please implement paymentController.initializePayment'
-  });
-});
-
-router.get('/verify/:reference', authenticate, (req, res) => {
-  res.status(501).json({
-    success: false,
-    message: 'Payment verification endpoint not yet implemented',
-    note: 'Please implement paymentController.verifyPayment'
-  });
-});
-
-router.post('/webhooks/paystack', (req, res) => {
-  res.status(501).json({
-    success: false,
-    message: 'Paystack webhook endpoint not yet implemented',
-    note: 'Please implement paymentController.handlePaystackWebhook'
-  });
-});
+// Webhook route - no authentication (verified by signature), but rate limited
+router.post('/webhooks/paystack', paymentLimiter, paymentController.handlePaystackWebhook);
 
 module.exports = router;
