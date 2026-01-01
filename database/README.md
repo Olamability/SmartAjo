@@ -19,7 +19,7 @@ Supabase is a hosted PostgreSQL database that's free to get started and requires
 #    - Click "Run" to execute the schema
 # 4. Go to Project Settings > Database to get your connection string
 # 5. Use the connection string in your backend .env file:
-#    DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@[YOUR-PROJECT-REF].supabase.co:5432/postgres
+#    DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
 ```
 
 **Advantages of Supabase:**

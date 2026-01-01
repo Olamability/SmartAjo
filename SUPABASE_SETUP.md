@@ -127,6 +127,18 @@ DATABASE_URL=postgresql://postgres:YOUR_ACTUAL_PASSWORD@db.abcdefghijklmno.supab
 # DATABASE_URL=postgresql://postgres:MySecureP@ssw0rd123@db.xyzabcdefghijklmno.supabase.co:5432/postgres
 ```
 
+**⚠️ Important Note about Special Characters in Passwords:**
+If your password contains special characters (like `@`, `#`, `$`, `%`, `/`, `?`, etc.), you need to URL-encode them in the connection string:
+- `@` becomes `%40`
+- `#` becomes `%23`
+- `$` becomes `%24`
+- `%` becomes `%25`
+- `/` becomes `%2F`
+- `?` becomes `%3F`
+- `&` becomes `%26`
+
+**Example**: If your password is `Pass@123#`, use `Pass%40123%23` in the connection string.
+
 **Security Notes:**
 - ⚠️ Never commit this connection string to Git
 - ⚠️ Never share it publicly
