@@ -1,7 +1,28 @@
 // API-based storage service for backend integration
 // This file provides API-based data access methods
-import { Transaction, Notification, Contribution } from '@/types';
+import { Transaction, Notification, Contribution, User } from '@/types';
 import { api } from './api';
+
+// User storage operations
+const CURRENT_USER_KEY = 'ajo_current_user';
+
+export const getCurrentUser = (): User | null => {
+  try {
+    const userData = localStorage.getItem(CURRENT_USER_KEY);
+    if (!userData) return null;
+    return JSON.parse(userData);
+  } catch {
+    return null;
+  }
+};
+
+export const setCurrentUser = (user: User | null): void => {
+  if (user) {
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+  } else {
+    localStorage.removeItem(CURRENT_USER_KEY);
+  }
+};
 
 // Transaction operations
 export const getUserTransactions = async (): Promise<Transaction[]> => {
