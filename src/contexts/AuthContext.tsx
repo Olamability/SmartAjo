@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
-import { getAuthUser, isAuthenticated as checkAuth } from '@/services/auth';
+import { getAuthUser, isAuthenticated as checkAuth, logout } from '@/services/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   setUser: (user: User | null) => void;
   refreshUser: () => void;
+  logoutUser: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,8 +22,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(currentUser);
   };
 
+  const logoutUser = () => {
+    logout();
+    setUser(null);
+  };
+
   useEffect(() => {
-    // Check for existing user on mount
     refreshUser();
     setLoading(false);
   }, []);
@@ -33,6 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loading,
     setUser,
     refreshUser,
+    logoutUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -40,8 +46,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };

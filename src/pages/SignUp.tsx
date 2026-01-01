@@ -9,8 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 import { signUp } from '@/services/auth';
+<<<<<<< HEAD
+=======
 import { useAuth } from '@/contexts/AuthContext';
+>>>>>>> ab8db2edc7e62e98d42bf4ccbf25b26da802bec5
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
@@ -20,7 +24,7 @@ const signUpSchema = z.object({
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ["confirmPassword"],
+  path: ['confirmPassword'],
 });
 
 type SignUpFormData = z.infer<typeof signUpSchema>;
@@ -30,11 +34,7 @@ const SignUp = () => {
   const navigate = useNavigate();
   const { setUser } = useAuth();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<SignUpFormData>({
+  const { register, handleSubmit, formState: { errors } } = useForm<SignUpFormData>({
     resolver: zodResolver(signUpSchema),
   });
 
@@ -42,17 +42,22 @@ const SignUp = () => {
     setIsLoading(true);
     try {
       const result = await signUp(data);
-      
+
       if (result.success && result.user) {
         setUser(result.user);
+<<<<<<< HEAD
+        toast.success('Account created successfully! Please check your email for OTP to verify your account.');
+        navigate('/verify-email'); // redirect user to email verification page
+=======
         toast.success('Account created successfully!');
         navigate('/dashboard');
+>>>>>>> ab8db2edc7e62e98d42bf4ccbf25b26da802bec5
       } else {
         toast.error(result.error || 'Failed to create account');
       }
     } catch (error) {
-      toast.error('An unexpected error occurred');
       console.error(error);
+      toast.error('An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
@@ -69,89 +74,47 @@ const SignUp = () => {
           </div>
           <CardTitle className="text-2xl text-center">Create an account</CardTitle>
           <CardDescription className="text-center">
-            Enter your details to get started with Smart Ajo
+            Enter your details to get started
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                placeholder="John Doe"
-                {...register('fullName')}
-                disabled={isLoading}
-              />
-              {errors.fullName && (
-                <p className="text-sm text-destructive">{errors.fullName.message}</p>
-              )}
+              <Input id="fullName" placeholder="John Doe" {...register('fullName')} disabled={isLoading} />
+              {errors.fullName && <p className="text-sm text-destructive">{errors.fullName.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="john@example.com"
-                {...register('email')}
-                disabled={isLoading}
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
+              <Input id="email" type="email" placeholder="john@example.com" {...register('email')} disabled={isLoading} />
+              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="+234 800 000 0000"
-                {...register('phone')}
-                disabled={isLoading}
-              />
-              {errors.phone && (
-                <p className="text-sm text-destructive">{errors.phone.message}</p>
-              )}
+              <Input id="phone" type="tel" placeholder="+234 800 000 0000" {...register('phone')} disabled={isLoading} />
+              {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register('password')}
-                disabled={isLoading}
-              />
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
-              )}
+              <Input id="password" type="password" placeholder="••••••••" {...register('password')} disabled={isLoading} />
+              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="••••••••"
-                {...register('confirmPassword')}
-                disabled={isLoading}
-              />
-              {errors.confirmPassword && (
-                <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>
-              )}
+              <Input id="confirmPassword" type="password" placeholder="••••••••" {...register('confirmPassword')} disabled={isLoading} />
+              {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating account...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating account...
                 </>
-              ) : (
-                'Create account'
-              )}
+              ) : 'Create account'}
             </Button>
           </form>
         </CardContent>
@@ -161,9 +124,6 @@ const SignUp = () => {
             <Link to="/login" className="text-primary hover:underline font-medium">
               Sign in
             </Link>
-          </div>
-          <div className="text-xs text-muted-foreground text-center">
-            By creating an account, you agree to our Terms of Service and Privacy Policy
           </div>
         </CardFooter>
       </Card>

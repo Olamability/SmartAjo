@@ -1,48 +1,111 @@
-// Authentication service with backend API integration
+// Authentication service for MVP (local storage based)
 import { User, SignUpFormData, LoginFormData } from '@/types';
-import { api, setAccessToken, setRefreshToken, clearTokens, getAccessToken } from './api';
+import { getCurrentUser, setCurrentUser, getAllUsers, saveUser, getUserByEmail } from './storage';
 
-// Storage key for current user
-const CURRENT_USER_KEY = 'ajo_current_user';
+// Generate a simple ID
+const generateId = (): string => {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+};
 
-// Store user in localStorage for quick access (not sensitive data)
-const setCurrentUser = (user: User | null): void => {
-  if (user) {
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
-  } else {
-    localStorage.removeItem(CURRENT_USER_KEY);
+// Mock password hashing (in production, this would be done server-side)
+const hashPassword = (password: string): string => {
+  // This is NOT secure - just for MVP demonstration
+  return btoa(password);
+};
+
+const verifyPassword = (password: string, hashedPassword: string): boolean => {
+  return btoa(password) === hashedPassword;
+};
+
+// Store passwords separately (in production, this would be in a secure database)
+const PASSWORD_STORAGE_KEY = 'ajo_passwords';
+
+const getPasswordStorage = (): Record<string, string> => {
+  try {
+    const data = localStorage.getItem(PASSWORD_STORAGE_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch {
+    return {};
   }
 };
 
-const getCurrentUser = (): User | null => {
-  try {
-    const userData = localStorage.getItem(CURRENT_USER_KEY);
-    return userData ? JSON.parse(userData) : null;
-  } catch (error) {
-    console.error('Error getting current user:', error);
-    return null;
-  }
+const savePassword = (userId: string, hashedPassword: string): void => {
+  const passwords = getPasswordStorage();
+  passwords[userId] = hashedPassword;
+  localStorage.setItem(PASSWORD_STORAGE_KEY, JSON.stringify(passwords));
+};
+
+const getPassword = (userId: string): string | undefined => {
+  return getPasswordStorage()[userId];
+};
+
+// Generate OTP (for email/phone verification)
+const generateOTP = (): string => {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+};
+
+// Store OTPs temporarily
+const OTP_STORAGE_KEY = 'ajo_otps';
+
+const saveOTP = (identifier: string, otp: string): void => {
+  const otps = JSON.parse(localStorage.getItem(OTP_STORAGE_KEY) || '{}');
+  otps[identifier] = {
+    code: otp,
+    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+  };
+  localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(otps));
+};
+
+const verifyOTP = (identifier: string, otp: string): boolean => {
+  const otps = JSON.parse(localStorage.getItem(OTP_STORAGE_KEY) || '{}');
+  const stored = otps[identifier];
+  
+  if (!stored) return false;
+  if (stored.expiresAt < Date.now()) return false;
+  
+  return stored.code === otp;
 };
 
 // Authentication functions
 export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
-    const response = await api.post<{ user: User; accessToken: string; refreshToken: string }>('/auth/signup', data);
-
-    if (response.success && response.data) {
-      const { user, accessToken, refreshToken } = response.data;
-      
-      // Store tokens
-      setAccessToken(accessToken);
-      setRefreshToken(refreshToken);
-      
-      // Store user
-      setCurrentUser(user);
-
-      return { success: true, user };
+    // Validate data
+    if (data.password !== data.confirmPassword) {
+      return { success: false, error: 'Passwords do not match' };
     }
 
-    return { success: false, error: response.error || 'Failed to create account' };
+    // Check if user already exists
+    const existingUser = getUserByEmail(data.email);
+    if (existingUser) {
+      return { success: false, error: 'User with this email already exists' };
+    }
+
+    // Create new user
+    const user: User = {
+      id: generateId(),
+      email: data.email,
+      phone: data.phone,
+      fullName: data.fullName,
+      createdAt: new Date().toISOString(),
+      isVerified: false,
+      kycStatus: 'not_started',
+    };
+
+    // Save user and password
+    saveUser(user);
+    savePassword(user.id, hashPassword(data.password));
+
+    // Generate and send OTP
+    const otp = generateOTP();
+    saveOTP(data.email, otp);
+    
+    // In production, send OTP via email/SMS
+    console.log(`OTP for ${data.email}: ${otp}`);
+    
+    // For MVP, automatically log in after signup
+    setCurrentUser(user);
+
+    return { success: true, user };
   } catch (error) {
     console.error('Signup error:', error);
     return { success: false, error: 'An error occurred during signup' };
@@ -51,59 +114,48 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
 
 export const login = async (data: LoginFormData): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
-    const response = await api.post<{ user: User; accessToken: string; refreshToken: string }>('/auth/login', data);
-
-    if (response.success && response.data) {
-      const { user, accessToken, refreshToken } = response.data;
-      
-      // Store tokens
-      setAccessToken(accessToken);
-      setRefreshToken(refreshToken);
-      
-      // Store user
-      setCurrentUser(user);
-
-      return { success: true, user };
+    // Find user
+    const user = getUserByEmail(data.email);
+    if (!user) {
+      return { success: false, error: 'Invalid email or password' };
     }
 
-    return { success: false, error: response.error || 'Invalid email or password' };
+    // Verify password
+    const storedPassword = getPassword(user.id);
+    if (!storedPassword || !verifyPassword(data.password, storedPassword)) {
+      return { success: false, error: 'Invalid email or password' };
+    }
+
+    // Set as current user
+    setCurrentUser(user);
+
+    return { success: true, user };
   } catch (error) {
     console.error('Login error:', error);
     return { success: false, error: 'An error occurred during login' };
   }
 };
 
-export const logout = async (): Promise<void> => {
-  try {
-    // Call backend logout endpoint to invalidate session
-    // Set a timeout to prevent hanging
-    await Promise.race([
-      api.post('/auth/logout'),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Logout timeout')), 5000)
-      )
-    ]);
-  } catch (error) {
-    // Log error but continue with local cleanup
-    console.error('Logout error:', error);
-  } finally {
-    // Always clear local data regardless of backend response
-    clearTokens();
-    setCurrentUser(null);
-  }
+export const logout = (): void => {
+  setCurrentUser(null);
 };
 
 export const verifyUserEmail = async (email: string, otp: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    const response = await api.post<{ user: User }>('/auth/verify-email', { email, otp });
-
-    if (response.success && response.data) {
-      const { user } = response.data;
-      setCurrentUser(user);
-      return { success: true };
+    if (!verifyOTP(email, otp)) {
+      return { success: false, error: 'Invalid or expired OTP' };
     }
 
-    return { success: false, error: response.error || 'Invalid or expired OTP' };
+    const user = getUserByEmail(email);
+    if (!user) {
+      return { success: false, error: 'User not found' };
+    }
+
+    user.isVerified = true;
+    saveUser(user);
+    setCurrentUser(user);
+
+    return { success: true };
   } catch (error) {
     console.error('Verification error:', error);
     return { success: false, error: 'An error occurred during verification' };
@@ -112,13 +164,18 @@ export const verifyUserEmail = async (email: string, otp: string): Promise<{ suc
 
 export const resendOTP = async (email: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    const response = await api.post('/auth/resend-otp', { email });
-
-    if (response.success) {
-      return { success: true };
+    const user = getUserByEmail(email);
+    if (!user) {
+      return { success: false, error: 'User not found' };
     }
 
-    return { success: false, error: response.error || 'Failed to resend OTP' };
+    const otp = generateOTP();
+    saveOTP(email, otp);
+    
+    // In production, send OTP via email/SMS
+    console.log(`New OTP for ${email}: ${otp}`);
+
+    return { success: true };
   } catch (error) {
     console.error('Resend OTP error:', error);
     return { success: false, error: 'An error occurred while resending OTP' };
@@ -126,44 +183,25 @@ export const resendOTP = async (email: string): Promise<{ success: boolean; erro
 };
 
 export const isAuthenticated = (): boolean => {
-  return getAccessToken() !== null && getCurrentUser() !== null;
+  return getCurrentUser() !== null;
 };
 
 export const getAuthUser = (): User | null => {
   return getCurrentUser();
 };
 
-export const fetchCurrentUser = async (): Promise<User | null> => {
-  try {
-    if (!isAuthenticated()) {
-      return null;
-    }
-
-    const response = await api.get<User>('/users/me');
-
-    if (response.success && response.data) {
-      setCurrentUser(response.data);
-      return response.data;
-    }
-
-    return null;
-  } catch (error) {
-    console.error('Fetch user error:', error);
-    return null;
-  }
-};
-
 export const updateUserProfile = async (updates: Partial<User>): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
-    const response = await api.patch<User>('/users/me', updates);
-
-    if (response.success && response.data) {
-      const updatedUser = response.data;
-      setCurrentUser(updatedUser);
-      return { success: true, user: updatedUser };
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      return { success: false, error: 'Not authenticated' };
     }
 
-    return { success: false, error: response.error || 'Failed to update profile' };
+    const updatedUser = { ...currentUser, ...updates };
+    saveUser(updatedUser);
+    setCurrentUser(updatedUser);
+
+    return { success: true, user: updatedUser };
   } catch (error) {
     console.error('Update profile error:', error);
     return { success: false, error: 'An error occurred while updating profile' };
