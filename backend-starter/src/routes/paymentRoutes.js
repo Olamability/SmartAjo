@@ -1,32 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
+const paymentController = require('../controllers/paymentController');
 
-// TODO: Implement payment controller
-// const paymentController = require('../controllers/paymentController');
+// Protected routes - require authentication
+router.post('/initialize', authenticate, paymentController.initializePayment);
+router.get('/verify/:reference', authenticate, paymentController.verifyPayment);
 
-router.post('/initialize', authenticate, (req, res) => {
-  res.status(501).json({
-    success: false,
-    message: 'Payment initialization endpoint not yet implemented',
-    note: 'Please implement paymentController.initializePayment'
-  });
-});
-
-router.get('/verify/:reference', authenticate, (req, res) => {
-  res.status(501).json({
-    success: false,
-    message: 'Payment verification endpoint not yet implemented',
-    note: 'Please implement paymentController.verifyPayment'
-  });
-});
-
-router.post('/webhooks/paystack', (req, res) => {
-  res.status(501).json({
-    success: false,
-    message: 'Paystack webhook endpoint not yet implemented',
-    note: 'Please implement paymentController.handlePaystackWebhook'
-  });
-});
+// Webhook route - no authentication (verified by signature)
+router.post('/webhooks/paystack', paymentController.handlePaystackWebhook);
 
 module.exports = router;

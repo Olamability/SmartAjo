@@ -1,13 +1,14 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Check if we should use mock database
-const USE_MOCK_DB = process.env.USE_MOCK_DB === 'true' || !process.env.DATABASE_URL && !process.env.DB_PASSWORD;
+// Prioritize real database connection over mock
+// Mock database will only be used if explicitly enabled with USE_MOCK_DB=true
+const USE_MOCK_DB = process.env.USE_MOCK_DB === 'true';
 
 if (USE_MOCK_DB) {
   console.log('⚠️  Using MOCK DATABASE for development');
   console.log('⚠️  Data will be stored in memory and lost on restart');
-  console.log('⚠️  To use PostgreSQL, set DATABASE_URL or DB_PASSWORD in .env');
+  console.log('⚠️  To use PostgreSQL/Supabase, set DATABASE_URL in .env');
   module.exports = require('./mockDatabase');
 } else {
   // Support both DATABASE_URL (Supabase/cloud) and individual connection params (local)
@@ -42,6 +43,7 @@ if (USE_MOCK_DB) {
 
   pool.on('error', (err) => {
     console.error('❌ Database connection error:', err);
+    console.error('💡 Please check your DATABASE_URL or database credentials in .env');
     process.exit(-1);
   });
 
