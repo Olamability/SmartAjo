@@ -74,7 +74,7 @@ async function initializePayment(req, res) {
     const group = groupResult.rows[0];
 
     // Generate unique reference
-    const reference = `ajo_${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const reference = `ajo_${type}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
     // Create transaction record
     await pool.query(
@@ -278,8 +278,18 @@ async function verifyPayment(req, res) {
 async function handlePaystackWebhook(req, res) {
   try {
     // Verify webhook signature
+    const webhookSecret = process.env.PAYSTACK_WEBHOOK_SECRET;
+    
+    if (!webhookSecret) {
+      console.error('PAYSTACK_WEBHOOK_SECRET is not configured');
+      return res.status(500).json({
+        success: false,
+        error: 'Webhook secret not configured'
+      });
+    }
+
     const hash = crypto
-      .createHmac('sha512', process.env.PAYSTACK_WEBHOOK_SECRET || '')
+      .createHmac('sha512', webhookSecret)
       .update(JSON.stringify(req.body))
       .digest('hex');
 

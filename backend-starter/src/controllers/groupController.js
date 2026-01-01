@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { validatePagination, calculateOffset } = require('../utils/validation');
 
 /**
  * Group Management Controller
@@ -191,8 +192,7 @@ async function getAvailableGroups(req, res) {
     const { frequency, minAmount, maxAmount, page = 1, limit = 20 } = req.query;
 
     // Validate pagination parameters
-    const validPage = Math.max(1, Number.parseInt(page, 10) || 1);
-    const validLimit = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 20));
+    const { validPage, validLimit } = validatePagination(page, limit);
 
     let query = `
       SELECT g.*, COUNT(gm.id) as current_members_count
@@ -228,7 +228,7 @@ async function getAvailableGroups(req, res) {
     query += ` GROUP BY g.id ORDER BY g.created_at DESC`;
     
     // Add pagination with validated parameters
-    const offset = (validPage - 1) * validLimit;
+    const offset = calculateOffset(validPage, validLimit);
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(validLimit, offset);
 

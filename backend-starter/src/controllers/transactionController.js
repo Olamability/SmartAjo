@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { validatePagination, calculateOffset } = require('../utils/validation');
 
 /**
  * Transaction Controller
@@ -20,8 +21,7 @@ async function getUserTransactions(req, res) {
     } = req.query;
 
     // Validate pagination parameters
-    const validPage = Math.max(1, Number.parseInt(page, 10) || 1);
-    const validLimit = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 20));
+    const { validPage, validLimit } = validatePagination(page, limit);
 
     let query = `
       SELECT t.*, g.name as group_name
@@ -160,8 +160,7 @@ async function getGroupTransactions(req, res) {
     } = req.query;
 
     // Validate pagination parameters
-    const validPage = Math.max(1, Number.parseInt(page, 10) || 1);
-    const validLimit = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 20));
+    const { validPage, validLimit } = validatePagination(page, limit);
 
     // First, verify that the user is a member of this group
     const memberCheck = await pool.query(
