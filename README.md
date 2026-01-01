@@ -186,6 +186,7 @@ See backend implementation resources below for complete guidance.
 
 ### 🚀 Backend Implementation Resources (NEW!)
 - [**Supabase Setup Guide**](./SUPABASE_SETUP.md) - ☁️ **NEW!** Cloud database setup (no local installation)
+- [**Database Setup Checklist**](./DATABASE_SETUP_CHECKLIST.md) - ✅ **NEW!** Verify your database setup
 - [**Quick Reference Guide**](./QUICK_REFERENCE.md) - ⚡ Start here! Quick commands and checklists
 - [**Step-by-Step Guide**](./BACKEND_STEP_BY_STEP_GUIDE.md) - 📖 Complete beginner-friendly tutorial
 - [**Backend Starter Code**](./backend-starter/) - 💻 Working Node.js/Express template
