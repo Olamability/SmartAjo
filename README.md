@@ -96,6 +96,8 @@ npm run lint
 
 ## 🚀 Backend Quick Start (NEW!)
 
+**📍 New to backend setup? See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for a detailed cloud database guide (no local installation required)!**
+
 ### Option 1: Use Our Starter Template (Recommended)
 
 #### Using Supabase (Cloud PostgreSQL - Recommended)
@@ -117,6 +119,8 @@ cp .env.example .env
 # Start development server
 npm run dev
 ```
+
+**💡 Tip**: See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for complete Supabase setup instructions.
 
 #### Using Local PostgreSQL
 ```bash
@@ -181,6 +185,7 @@ See backend implementation resources below for complete guidance.
 ## 📚 Documentation
 
 ### 🚀 Backend Implementation Resources (NEW!)
+- [**Supabase Setup Guide**](./SUPABASE_SETUP.md) - ☁️ **NEW!** Cloud database setup (no local installation)
 - [**Quick Reference Guide**](./QUICK_REFERENCE.md) - ⚡ Start here! Quick commands and checklists
 - [**Step-by-Step Guide**](./BACKEND_STEP_BY_STEP_GUIDE.md) - 📖 Complete beginner-friendly tutorial
 - [**Backend Starter Code**](./backend-starter/) - 💻 Working Node.js/Express template
@@ -191,6 +196,7 @@ See backend implementation resources below for complete guidance.
 - [Backend Requirements](./BACKEND_REQUIREMENTS.md) - Technical specifications
 - [API Documentation](./API.md) - Complete API specification
 - [Database Schema](./database/schema.sql) - PostgreSQL database schema
+- [Database Setup](./database/README.md) - Database setup and migration guide
 - [Security Guide](./SECURITY.md) - Security best practices
 - [Deployment Guide](./DEPLOYMENT.md) - Deployment instructions
 - [Production Checklist](./PRODUCTION_DEPLOYMENT_CHECKLIST.md) - Pre-deployment checklist
