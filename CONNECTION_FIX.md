@@ -32,7 +32,7 @@ cp .env.example .env
 ```bash
 cd backend-starter
 npm install
-npm start
+npm run dev
 ```
 
 You should see:

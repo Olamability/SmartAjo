@@ -123,10 +123,12 @@ cp .env.example .env
 # No additional database setup needed!
 
 # Start development server
-npm start
+npm run dev
 ```
 
 The backend will be available at `http://localhost:3000`
+
+**💡 Tip**: Use `npm start` for production-like start or `npm run dev` for development with auto-restart on file changes.
 
 **💡 Tip**: See [SUPABASE_SETUP.md](./SUPABASE_SETUP.md) for complete Supabase setup instructions.
 
