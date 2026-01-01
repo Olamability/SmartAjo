@@ -15,32 +15,77 @@
 
 ## ⚡ Quick Start (5 Minutes)
 
-### 1. Clone and Setup
+### Using Supabase (Cloud PostgreSQL - Recommended)
+
+#### 1. Setup Supabase
+```bash
+# Go to https://supabase.com and create a free account
+# Create a new project and wait for it to initialize
+```
+
+#### 2. Run Schema
+```bash
+# In Supabase dashboard:
+# 1. Click "SQL Editor"
+# 2. Open database/schema.sql file locally
+# 3. Copy all contents and paste into SQL Editor
+# 4. Click "Run"
+```
+
+#### 3. Get Connection String
+```bash
+# In Supabase dashboard:
+# Settings > Database > Connection string (URI format)
+# Copy: postgresql://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres
+```
+
+#### 4. Configure Backend
+```bash
+cd backend-starter
+npm install
+cp .env.example .env
+# Edit .env and add your Supabase connection string:
+# DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres
+```
+
+#### 5. Start Server
+```bash
+npm run dev
+```
+
+#### 6. Test
+```bash
+curl http://localhost:3000/health
+```
+
+### Using Local PostgreSQL
+
+#### 1. Clone and Setup
 ```bash
 cd backend-starter
 npm install
 cp .env.example .env
 ```
 
-### 2. Configure Database
+#### 2. Configure Database
 ```bash
 # Edit .env file with your database credentials
 DB_PASSWORD=your_password
 ```
 
-### 3. Run Schema
+#### 3. Run Schema
 ```bash
 cd ..
 psql -U postgres -d ajo_secure -f database/schema.sql
 ```
 
-### 4. Start Server
+#### 4. Start Server
 ```bash
 cd backend-starter
 npm run dev
 ```
 
-### 5. Test
+#### 5. Test
 ```bash
 curl http://localhost:3000/health
 ```

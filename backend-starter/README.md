@@ -16,6 +16,20 @@ cp .env.example .env
 ```
 
 ### 3. Setup Database
+
+#### Option A: Using Supabase (Cloud PostgreSQL - Recommended)
+```bash
+# 1. Go to https://supabase.com and create a free account
+# 2. Create a new project
+# 3. Go to Project Settings > Database
+# 4. Copy the connection string (URI format)
+# 5. In the SQL Editor, paste and run the contents of ../database/schema.sql
+# 6. Update your .env file:
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@[YOUR-PROJECT-REF].supabase.co:5432/postgres
+# Note: Replace [YOUR-PASSWORD] and [YOUR-PROJECT-REF] with your actual values
+```
+
+#### Option B: Using Local PostgreSQL
 ```bash
 # Create PostgreSQL database
 createdb ajo_secure
@@ -138,6 +152,22 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 Required variables in `.env`:
 
+### For Supabase (Cloud PostgreSQL)
+```bash
+# Database (use Supabase connection string)
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@[YOUR-PROJECT-REF].supabase.co:5432/postgres
+
+# JWT
+JWT_SECRET=your_secret_key
+REFRESH_TOKEN_SECRET=your_refresh_secret
+
+# Server
+PORT=3000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+```
+
+### For Local PostgreSQL
 ```bash
 # Database
 DB_HOST=localhost
