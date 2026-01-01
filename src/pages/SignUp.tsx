@@ -9,10 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 import { signUp } from '@/services/auth';
-<<<<<<< HEAD
-=======
-import { useAuth } from '@/contexts/AuthContext';
->>>>>>> ab8db2edc7e62e98d42bf4ccbf25b26da802bec5
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -45,13 +41,8 @@ const SignUp = () => {
 
       if (result.success && result.user) {
         setUser(result.user);
-<<<<<<< HEAD
-        toast.success('Account created successfully! Please check your email for OTP to verify your account.');
-        navigate('/verify-email'); // redirect user to email verification page
-=======
         toast.success('Account created successfully!');
         navigate('/dashboard');
->>>>>>> ab8db2edc7e62e98d42bf4ccbf25b26da802bec5
       } else {
         toast.error(result.error || 'Failed to create account');
       }
