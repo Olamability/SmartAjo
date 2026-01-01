@@ -137,7 +137,11 @@ If your password contains special characters (like `@`, `#`, `$`, `%`, `/`, `?`,
 - `?` becomes `%3F`
 - `&` becomes `%26`
 
-**Example**: If your password is `Pass@123#`, use `Pass%40123%23` in the connection string.
+**Example**: If your password is `MyStr0ng#Pass@2024!`, use `MyStr0ng%23Pass%402024%21` in the connection string.
+
+**💡 Pro Tips to Avoid URL Encoding:**
+- Choose a password without special characters when creating your Supabase project (use letters, numbers, and underscores only)
+- Or use individual connection parameters (DB_HOST, DB_PORT, etc.) instead of DATABASE_URL
 
 **Security Notes:**
 - ⚠️ Never commit this connection string to Git

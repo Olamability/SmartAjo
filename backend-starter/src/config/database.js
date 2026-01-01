@@ -5,9 +5,13 @@ require('dotenv').config();
 const pool = process.env.DATABASE_URL 
   ? new Pool({
       connectionString: process.env.DATABASE_URL,
+      // SSL configuration for cloud databases
+      // In production: strict validation for security
+      // In development: relaxed to support Supabase and other cloud providers that may use self-signed certs
+      // For maximum security in production, ensure your cloud provider supports proper SSL certificates
       ssl: process.env.NODE_ENV === 'production' 
         ? { rejectUnauthorized: true }  // Strict SSL in production
-        : { rejectUnauthorized: false }, // Relaxed for development (required for some cloud providers)
+        : { rejectUnauthorized: false }, // Relaxed for development
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
