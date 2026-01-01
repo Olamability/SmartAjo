@@ -112,7 +112,7 @@ async function initializePayment(req, res) {
             groupName: group.name,
             ...metadata
           },
-          callback_url: `${process.env.FRONTEND_URL}/payment/callback`
+          callback_url: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/payment/callback`
         },
         {
           headers: {

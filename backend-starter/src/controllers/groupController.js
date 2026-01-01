@@ -190,6 +190,10 @@ async function getAvailableGroups(req, res) {
     const userId = req.userId;
     const { frequency, minAmount, maxAmount, page = 1, limit = 20 } = req.query;
 
+    // Validate pagination parameters
+    const validPage = Math.max(1, Number.parseInt(page, 10) || 1);
+    const validLimit = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 20));
+
     let query = `
       SELECT g.*, COUNT(gm.id) as current_members_count
       FROM groups g
@@ -223,10 +227,10 @@ async function getAvailableGroups(req, res) {
 
     query += ` GROUP BY g.id ORDER BY g.created_at DESC`;
     
-    // Add pagination
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    // Add pagination with validated parameters
+    const offset = (validPage - 1) * validLimit;
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), offset);
+    params.push(validLimit, offset);
 
     const result = await pool.query(query, params);
 
@@ -251,8 +255,8 @@ async function getAvailableGroups(req, res) {
       success: true,
       data: groups,
       count: groups.length,
-      page: parseInt(page),
-      limit: parseInt(limit)
+      page: validPage,
+      limit: validLimit
     });
   } catch (error) {
     console.error('Get available groups error:', error);

@@ -19,6 +19,10 @@ async function getUserTransactions(req, res) {
       limit = 20
     } = req.query;
 
+    // Validate pagination parameters
+    const validPage = Math.max(1, Number.parseInt(page, 10) || 1);
+    const validLimit = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 20));
+
     let query = `
       SELECT t.*, g.name as group_name
       FROM transactions t
@@ -61,10 +65,10 @@ async function getUserTransactions(req, res) {
 
     query += ` ORDER BY t.created_at DESC`;
 
-    // Add pagination
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    // Add pagination with validated parameters
+    const offset = (validPage - 1) * validLimit;
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), offset);
+    params.push(validLimit, offset);
 
     const result = await pool.query(query, params);
 
@@ -83,28 +87,55 @@ async function getUserTransactions(req, res) {
       updatedAt: tx.updated_at
     }));
 
-    // Get total count for pagination
-    const countQuery = `
+    // Get total count for pagination - using parameterized query to prevent SQL injection
+    let countQuery = `
       SELECT COUNT(*) as total
       FROM transactions t
       WHERE t.user_id = $1
-      ${groupId ? ` AND t.group_id = '${groupId}'` : ''}
-      ${type ? ` AND t.type = '${type}'` : ''}
-      ${status ? ` AND t.status = '${status}'` : ''}
-      ${startDate ? ` AND t.created_at >= '${startDate}'` : ''}
-      ${endDate ? ` AND t.created_at <= '${endDate}'` : ''}
     `;
-    const countResult = await pool.query(countQuery, [userId]);
+    const countParams = [userId];
+    let countParamIndex = 2;
+
+    if (groupId) {
+      countQuery += ` AND t.group_id = $${countParamIndex}`;
+      countParams.push(groupId);
+      countParamIndex++;
+    }
+
+    if (type) {
+      countQuery += ` AND t.type = $${countParamIndex}`;
+      countParams.push(type);
+      countParamIndex++;
+    }
+
+    if (status) {
+      countQuery += ` AND t.status = $${countParamIndex}`;
+      countParams.push(status);
+      countParamIndex++;
+    }
+
+    if (startDate) {
+      countQuery += ` AND t.created_at >= $${countParamIndex}`;
+      countParams.push(startDate);
+      countParamIndex++;
+    }
+
+    if (endDate) {
+      countQuery += ` AND t.created_at <= $${countParamIndex}`;
+      countParams.push(endDate);
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].total);
 
     res.json({
       success: true,
       data: transactions,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: validPage,
+        limit: validLimit,
         total,
-        totalPages: Math.ceil(total / parseInt(limit))
+        totalPages: Math.ceil(total / validLimit)
       }
     });
   } catch (error) {
@@ -127,6 +158,10 @@ async function getGroupTransactions(req, res) {
       page = 1,
       limit = 20
     } = req.query;
+
+    // Validate pagination parameters
+    const validPage = Math.max(1, Number.parseInt(page, 10) || 1);
+    const validLimit = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 20));
 
     // First, verify that the user is a member of this group
     const memberCheck = await pool.query(
@@ -166,10 +201,10 @@ async function getGroupTransactions(req, res) {
 
     query += ` ORDER BY t.created_at DESC`;
 
-    // Add pagination
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    // Add pagination with validated parameters
+    const offset = (validPage - 1) * validLimit;
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    params.push(parseInt(limit), offset);
+    params.push(validLimit, offset);
 
     const result = await pool.query(query, params);
 
@@ -188,25 +223,37 @@ async function getGroupTransactions(req, res) {
       updatedAt: tx.updated_at
     }));
 
-    // Get total count
-    const countQuery = `
+    // Get total count - using parameterized query to prevent SQL injection
+    let countQuery = `
       SELECT COUNT(*) as total
       FROM transactions
       WHERE group_id = $1
-      ${type ? ` AND type = '${type}'` : ''}
-      ${status ? ` AND status = '${status}'` : ''}
     `;
-    const countResult = await pool.query(countQuery, [groupId]);
+    const countParams = [groupId];
+    let countParamIndex = 2;
+
+    if (type) {
+      countQuery += ` AND type = $${countParamIndex}`;
+      countParams.push(type);
+      countParamIndex++;
+    }
+
+    if (status) {
+      countQuery += ` AND status = $${countParamIndex}`;
+      countParams.push(status);
+    }
+
+    const countResult = await pool.query(countQuery, countParams);
     const total = parseInt(countResult.rows[0].total);
 
     res.json({
       success: true,
       data: transactions,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: validPage,
+        limit: validLimit,
         total,
-        totalPages: Math.ceil(total / parseInt(limit))
+        totalPages: Math.ceil(total / validLimit)
       }
     });
   } catch (error) {
