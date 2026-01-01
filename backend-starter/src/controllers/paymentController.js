@@ -1,5 +1,4 @@
 const pool = require('../config/database');
-const axios = require('axios');
 const crypto = require('crypto');
 
 /**
@@ -9,6 +8,17 @@ const crypto = require('crypto');
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+
+/**
+ * Generate a secure unique reference for payments
+ * @param {string} type - Payment type
+ * @returns {string} Unique reference
+ */
+function generatePaymentReference(type) {
+  const timestamp = Date.now();
+  const randomPart = crypto.randomBytes(6).toString('hex');
+  return `ajo_${type}_${timestamp}_${randomPart}`;
+}
 
 // Initialize a payment transaction
 async function initializePayment(req, res) {
@@ -73,8 +83,8 @@ async function initializePayment(req, res) {
 
     const group = groupResult.rows[0];
 
-    // Generate unique reference
-    const reference = `ajo_${type}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+    // Generate unique reference using crypto
+    const reference = generatePaymentReference(type);
 
     // Create transaction record
     await pool.query(

@@ -66,7 +66,7 @@ async function getUserTransactions(req, res) {
     query += ` ORDER BY t.created_at DESC`;
 
     // Add pagination with validated parameters
-    const offset = (validPage - 1) * validLimit;
+    const offset = calculateOffset(validPage, validLimit);
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(validLimit, offset);
 
@@ -201,7 +201,7 @@ async function getGroupTransactions(req, res) {
     query += ` ORDER BY t.created_at DESC`;
 
     // Add pagination with validated parameters
-    const offset = (validPage - 1) * validLimit;
+    const offset = calculateOffset(validPage, validLimit);
     query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(validLimit, offset);
 
