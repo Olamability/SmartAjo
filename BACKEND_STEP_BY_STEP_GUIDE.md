@@ -151,7 +151,99 @@ mkdir logs
 
 ## 🗄️ Setting Up the Database
 
-### Step 1: Create Database
+You have two options for setting up your database:
+
+### Option 1: Using Supabase (Cloud PostgreSQL - Recommended for Beginners)
+
+**Why Supabase?**
+- ✅ No installation required
+- ✅ Free tier (500MB storage)
+- ✅ No local setup headaches
+- ✅ Visual dashboard included
+- ✅ Automatic backups
+- ✅ Production-ready from day one
+
+**Steps to setup Supabase:**
+
+#### Step 1: Create Supabase Account
+```bash
+# 1. Go to https://supabase.com
+# 2. Click "Start your project"
+# 3. Sign up with GitHub, GitLab, or email
+# 4. It's FREE to get started!
+```
+
+#### Step 2: Create a New Project
+```bash
+# In Supabase dashboard:
+# 1. Click "New Project"
+# 2. Choose your organization (or create one)
+# 3. Enter project details:
+#    - Name: ajo-secure (or any name you like)
+#    - Database Password: Choose a strong password (save it!)
+#    - Region: Choose closest to your users
+# 4. Click "Create new project"
+# 5. Wait 2-3 minutes for setup to complete
+```
+
+#### Step 3: Run the Schema
+```bash
+# 1. In your Supabase project dashboard, click "SQL Editor" in the left menu
+# 2. Open the file: database/schema.sql from your local repository
+# 3. Copy ALL the contents (Ctrl+A, Ctrl+C)
+# 4. Paste into the Supabase SQL Editor
+# 5. Click "Run" button (or press Ctrl+Enter)
+# 6. Wait for "Success" message
+# 7. Click "Table Editor" to verify tables were created
+```
+
+#### Step 4: Get Connection String
+```bash
+# 1. In Supabase dashboard, click the gear icon (Settings)
+# 2. Go to "Database" section
+# 3. Scroll down to "Connection string"
+# 4. Select "URI" mode
+# 5. Copy the connection string
+# 6. Replace [YOUR-PASSWORD] with your actual database password
+# 
+# It will look like:
+# postgresql://postgres:[YOUR-PASSWORD]@db.abcdefghijklmno.supabase.co:5432/postgres
+```
+
+#### Step 5: Update Your .env File
+```bash
+# In your backend project root, edit .env file:
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.abcdefghijklmno.supabase.co:5432/postgres
+
+# Make sure to replace:
+# [YOUR-PASSWORD] with your actual database password
+# db.abcdefghijklmno with your actual project reference
+```
+
+**Done! Your cloud database is ready!** 🎉
+
+### Option 2: Using Local PostgreSQL
+
+If you prefer to run PostgreSQL on your local machine:
+
+#### Step 1: Install PostgreSQL
+
+```bash
+# Windows:
+# 1. Go to https://www.postgresql.org/download/
+# 2. Download PostgreSQL 14 or higher
+# 3. Follow installation wizard
+# 4. Remember your password!
+
+# Mac:
+brew install postgresql@14
+
+# Linux (Ubuntu):
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+```
+
+#### Step 2: Create Database
 
 ```bash
 # Open PostgreSQL command line
@@ -163,7 +255,7 @@ CREATE DATABASE ajo_secure;
 \c ajo_secure  # Connect to the database
 ```
 
-### Step 2: Run the Schema
+#### Step 3: Run the Schema
 
 ```bash
 # Copy the schema.sql file from the repository
@@ -180,7 +272,7 @@ psql -U postgres -d ajo_secure -f database/schema.sql
 - Set up automatic functions (triggers)
 - Created admin user
 
-### Step 3: Verify Database Setup
+#### Step 4: Verify Database Setup
 
 ```sql
 -- Inside psql, run these commands:
@@ -189,7 +281,7 @@ SELECT * FROM users;  -- Should show admin user
 \q  -- Quit psql
 ```
 
-### Step 4: Create Database Connection File
+### Step 5: Create Database Connection File (For Both Options)
 
 Create `src/config/database.js`:
 
@@ -198,16 +290,27 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 // Create a connection pool
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'ajo_secure',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD,
-  max: 20, // Maximum number of connections
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-});
+// Supports both DATABASE_URL (for Supabase) and individual connection params (for local)
+const pool = process.env.DATABASE_URL 
+  ? new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: {
+        rejectUnauthorized: false // Required for Supabase and most cloud providers
+      },
+      max: 20, // Maximum number of connections
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    })
+  : new Pool({
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME || 'ajo_secure',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD,
+      max: 20, // Maximum number of connections
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    });
 
 // Test connection
 pool.on('connect', () => {
@@ -221,12 +324,42 @@ pool.on('error', (err) => {
 module.exports = pool;
 ```
 
-### Step 5: Create Environment File
+### Step 6: Create Environment File
 
 Create `.env` in project root:
 
+**For Supabase (Cloud):**
 ```bash
-# Database Configuration
+# Database Configuration (Supabase)
+DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.abcdefghijklmno.supabase.co:5432/postgres
+
+# JWT Secrets (Generate random strings!)
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+REFRESH_TOKEN_SECRET=another-super-secret-key-change-this-too
+
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+
+# Payment Gateway - Paystack (Test Keys)
+PAYSTACK_SECRET_KEY=sk_test_your_key_here
+PAYSTACK_PUBLIC_KEY=pk_test_your_key_here
+PAYSTACK_WEBHOOK_SECRET=your_webhook_secret
+
+# Email Service - SendGrid
+SENDGRID_API_KEY=your_sendgrid_key
+EMAIL_FROM=noreply@ajosecure.com
+
+# SMS Service - Twilio
+TWILIO_ACCOUNT_SID=your_account_sid
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_PHONE_NUMBER=+1234567890
+```
+
+**For Local PostgreSQL:**
+```bash
+# Database Configuration (Local)
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=ajo_secure

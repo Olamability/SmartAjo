@@ -97,6 +97,8 @@ npm run lint
 ## 🚀 Backend Quick Start (NEW!)
 
 ### Option 1: Use Our Starter Template (Recommended)
+
+#### Using Supabase (Cloud PostgreSQL - Recommended)
 ```bash
 # Navigate to backend starter
 cd backend-starter
@@ -106,7 +108,27 @@ npm install
 
 # Configure environment
 cp .env.example .env
-# Edit .env with your database credentials
+# Edit .env with your Supabase connection string:
+# DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@[YOUR-PROJECT-REF].supabase.co:5432/postgres
+
+# The schema.sql has already been run in Supabase
+# No additional database setup needed!
+
+# Start development server
+npm run dev
+```
+
+#### Using Local PostgreSQL
+```bash
+# Navigate to backend starter
+cd backend-starter
+
+# Install dependencies
+npm install
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your local database credentials
 
 # Set up database
 cd ..

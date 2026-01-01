@@ -2,22 +2,52 @@
 
 This directory contains database migration files for the Ajo Secure platform.
 
-## Migration Tool
+## Quick Setup
 
-We recommend using one of the following migration tools:
-- **node-pg-migrate** (for Node.js backends)
-- **Flyway** (Java-based, language-agnostic)
-- **Liquibase** (XML/YAML-based, language-agnostic)
-- **TypeORM** (for TypeScript/Node.js backends)
+### Using Supabase (Cloud PostgreSQL - Recommended)
 
-## Running Migrations
+Supabase is a hosted PostgreSQL database that's free to get started and requires no local installation.
 
-### Initial Setup
+#### Initial Setup with Supabase
+```bash
+# 1. Sign up at https://supabase.com (free tier available)
+# 2. Create a new project
+# 3. Once your project is ready:
+#    - Go to the SQL Editor in your Supabase dashboard
+#    - Open the schema.sql file from this directory
+#    - Copy and paste the entire contents into the SQL Editor
+#    - Click "Run" to execute the schema
+# 4. Go to Project Settings > Database to get your connection string
+# 5. Use the connection string in your backend .env file:
+#    DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@[YOUR-PROJECT-REF].supabase.co:5432/postgres
+```
 
+**Advantages of Supabase:**
+- ✅ No local installation required
+- ✅ Free tier includes 500MB database
+- ✅ Automatic backups
+- ✅ Built-in dashboard for data viewing
+- ✅ Row-level security features
+- ✅ Real-time subscriptions support
+- ✅ Automatic SSL/TLS encryption
+
+### Using Local PostgreSQL
+
+If you prefer to run PostgreSQL locally:
+
+#### Initial Setup
 ```bash
 # Apply the initial schema
 psql -U postgres -d ajo_secure < schema.sql
 ```
+
+## Migration Tools for Future Changes
+
+For managing future database changes, we recommend using one of the following migration tools:
+- **node-pg-migrate** (for Node.js backends)
+- **Flyway** (Java-based, language-agnostic)
+- **Liquibase** (XML/YAML-based, language-agnostic)
+- **TypeORM** (for TypeScript/Node.js backends)
 
 ### Using node-pg-migrate
 
