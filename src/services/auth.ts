@@ -116,11 +116,16 @@ export const resendOTP = async (email: string): Promise<{ success: boolean; erro
 };
 
 // Check if user is authenticated
+// Note: This checks client-side storage and should be considered as UI state only.
+// Actual authentication is enforced server-side via httpOnly cookies.
 export const isAuthenticated = (): boolean => {
+  if (typeof window === 'undefined') return false;
   return getCurrentUser() !== null;
 };
 
-// Get authenticated user
+// Get authenticated user from client storage
+// Note: This is for UI display purposes only.
+// Server-side authentication is handled via httpOnly cookies in API routes.
 export const getAuthUser = (): User | null => {
   return getCurrentUser();
 };

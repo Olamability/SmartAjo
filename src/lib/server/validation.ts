@@ -51,7 +51,7 @@ export const updateProfileSchema = z.object({
 
 // Payment schemas
 export const initiatePaymentSchema = z.object({
-  groupId: z.string().uuid('Invalid group ID'),
+  groupId: z.string().uuid('Invalid group ID'), // Matches UUID type in database/schema.sql
   amount: z.number().positive('Amount must be positive'),
   type: z.enum(['contribution', 'security_deposit']),
 });
@@ -69,5 +69,5 @@ export const createGroupSchema = z.object({
 });
 
 export const joinGroupSchema = z.object({
-  groupId: z.string().uuid('Invalid group ID'),
+  groupId: z.string().uuid('Invalid group ID'), // Matches UUID type in database/schema.sql
 });

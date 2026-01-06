@@ -7,6 +7,11 @@ interface RateLimitStore {
   };
 }
 
+// NOTE: In-memory rate limiting is suitable for development and single-server deployments.
+// For production serverless environments (e.g., Vercel), consider using:
+// - Redis (Upstash Redis for Vercel)
+// - Database-backed solution
+// - Edge rate limiting (Vercel Edge Config)
 const rateLimitStore: RateLimitStore = {};
 
 export interface RateLimitConfig {
