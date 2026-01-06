@@ -72,7 +72,9 @@ The application will be available at `http://localhost:3000`
 
 ## 📖 Documentation
 
-- **[Local Setup Guide](./LOCAL_SETUP.md)** - ⭐ Start here! Step-by-step guide to run locally
+- **[Local Setup Guide](./LOCAL_SETUP.md)** - ⭐ **Start here!** Step-by-step guide to run locally
+- **[Implementation Status](./IMPLEMENTATION_STATUS.md)** - ✅ What's complete, what works, usage guide
+- **[Deployment Guide](./DEPLOYMENT.md)** - 🚀 How to deploy to production (Vercel/Railway)
 - **[Setup Guide](./NEXTJS_SETUP_GUIDE.md)** - Complete setup and configuration instructions
 - **[API Documentation](./NEXTJS_API_DOCS.md)** - Detailed API endpoint documentation
 - **[Architecture](./ARCHITECTURE.md)** - System architecture and design decisions
