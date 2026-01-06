@@ -1,17 +1,19 @@
+'use client';
+
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield, Users, Wallet } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 const HeroSection = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
 
   const handleGetStarted = () => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      router.push('/dashboard');
     } else {
-      navigate('/signup');
+      router.push('/signup');
     }
   };
 
