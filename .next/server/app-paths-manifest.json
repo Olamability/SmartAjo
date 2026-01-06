@@ -1,0 +1,13 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/login/route": "app/api/auth/login/route.js",
+  "/api/auth/logout/route": "app/api/auth/logout/route.js",
+  "/api/auth/resend-otp/route": "app/api/auth/resend-otp/route.js",
+  "/api/auth/signup/route": "app/api/auth/signup/route.js",
+  "/api/auth/verify-email/route": "app/api/auth/verify-email/route.js",
+  "/api/payments/history/route": "app/api/payments/history/route.js",
+  "/api/payments/initiate/route": "app/api/payments/initiate/route.js",
+  "/api/payments/webhook/route": "app/api/payments/webhook/route.js",
+  "/page": "app/page.js",
+  "/api/users/me/route": "app/api/users/me/route.js"
+}

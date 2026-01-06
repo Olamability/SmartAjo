@@ -1,3 +1,5 @@
+'use client';
+
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
 import { getAuthUser, isAuthenticated as checkAuth, logout } from '@/services/auth';
