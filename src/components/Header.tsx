@@ -1,7 +1,9 @@
+'use client';
+
 import { Button } from "@/components/ui/button";
 import { Shield, LogOut, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useRouter, usePathname } from "next/navigation";
 import { logout } from "@/services/auth";
 import {
   DropdownMenu,
@@ -14,33 +16,33 @@ import {
 
 const Header = () => {
   const { isAuthenticated, user, setUser } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const isLandingPage = location.pathname === '/';
+  const router = useRouter();
+  const pathname = usePathname();
+  const isLandingPage = pathname === '/';
 
   const handleLogout = () => {
     logout();
     setUser(null);
-    navigate('/');
+    router.push('/');
   };
 
   const handleLogin = () => {
-    navigate('/login');
+    router.push('/login');
   };
 
   const handleSignUp = () => {
-    navigate('/signup');
+    router.push('/signup');
   };
 
   const handleDashboard = () => {
-    navigate('/dashboard');
+    router.push('/dashboard');
   };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => router.push('/')}>
             <div className="w-9 h-9 rounded-lg bg-gradient-hero flex items-center justify-center">
               <Shield className="w-5 h-5 text-primary-foreground" />
             </div>
@@ -77,10 +79,10 @@ const Header = () => {
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate('/profile')}>
+                    <DropdownMenuItem onClick={() => router.push('/profile')}>
                       Profile
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/transactions')}>
+                    <DropdownMenuItem onClick={() => router.push('/transactions')}>
                       Transactions
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
