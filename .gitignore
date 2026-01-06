@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Next.js
+/.next/
+/out/
+
 # Environment variables
 .env
 .env.local
@@ -20,6 +24,7 @@ dist-ssr
 .env.production.local
 !.env.example
 !.env.backend.example
+!.env.local.example
 
 # Editor directories and files
 .vscode/*
@@ -43,3 +48,7 @@ build
 .cache
 tmp
 temp
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
