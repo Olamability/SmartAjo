@@ -41,13 +41,11 @@ Ajo Secure is a modern web application that solves traditional problems of ajo s
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Running Locally on Your Machine
 
-- Node.js 20.x or higher
-- PostgreSQL database (or Supabase account)
-- Paystack account for payments
+For detailed step-by-step instructions to run this application locally, see **[LOCAL_SETUP.md](./LOCAL_SETUP.md)** - Complete local development guide with troubleshooting.
 
-### Installation
+### Quick Installation
 
 ```bash
 # Clone the repository
@@ -59,9 +57,9 @@ npm install
 
 # Set up environment variables
 cp .env.local.example .env.local
-# Edit .env.local with your actual values
+# Edit .env.local with your database URL and JWT secret
 
-# Run database migrations
+# Set up database (using Supabase or local PostgreSQL)
 # Import database/schema.sql into your PostgreSQL database
 
 # Start development server
@@ -70,8 +68,13 @@ npm run dev
 
 The application will be available at `http://localhost:3000`
 
+**Need help?** → See [LOCAL_SETUP.md](./LOCAL_SETUP.md) for detailed instructions, troubleshooting, and common issues.
+
 ## 📖 Documentation
 
+- **[Local Setup Guide](./LOCAL_SETUP.md)** - ⭐ **Start here!** Step-by-step guide to run locally
+- **[Implementation Status](./IMPLEMENTATION_STATUS.md)** - ✅ What's complete, what works, usage guide
+- **[Deployment Guide](./DEPLOYMENT.md)** - 🚀 How to deploy to production (Vercel/Railway)
 - **[Setup Guide](./NEXTJS_SETUP_GUIDE.md)** - Complete setup and configuration instructions
 - **[API Documentation](./NEXTJS_API_DOCS.md)** - Detailed API endpoint documentation
 - **[Architecture](./ARCHITECTURE.md)** - System architecture and design decisions
