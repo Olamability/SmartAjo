@@ -1,8 +1,18 @@
 // API Client Service for backend communication
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '30000');
+// Support both Vite (import.meta.env) and Next.js (process.env.NEXT_PUBLIC_*)
+const getEnvVar = (viteKey: string, nextKey: string, defaultValue: string): string => {
+  if (typeof window !== 'undefined') {
+    // Client-side: try window location or default
+    return defaultValue;
+  }
+  // Try Next.js env first, then Vite, then default
+  return process.env[nextKey] || (typeof import.meta !== 'undefined' && (import.meta as any).env?.[viteKey]) || defaultValue;
+};
+
+const API_BASE_URL = '/api'; // Use relative path for Next.js (same origin)
+const API_TIMEOUT = 30000;
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
