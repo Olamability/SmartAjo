@@ -84,18 +84,18 @@ export async function POST(request: NextRequest) {
         status, 
         created_at`,
       [
-        name,
-        description || null,
-        user.id,
-        contributionAmount,
-        frequency,
-        totalMembers,
-        securityDeposit,
-        securityDepositPercentage,
-        serviceFeePercentage || 10,
-        groupStartDate,
-        'forming',
-        totalMembers // total_cycles equals total_members
+        name,                             // $1
+        description || null,              // $2
+        user.id,                          // $3: created_by
+        contributionAmount,               // $4
+        frequency,                        // $5
+        totalMembers,                     // $6
+        securityDeposit,                  // $7: security_deposit_amount (calculated)
+        securityDepositPercentage,        // $8: security_deposit_percentage
+        serviceFeePercentage || 10,       // $9: service_fee_percentage
+        groupStartDate,                   // $10: start_date
+        'forming',                        // $11: status
+        totalMembers                      // $12: total_cycles (equals total_members)
       ]
     );
 
