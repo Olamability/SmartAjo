@@ -1,4 +1,7 @@
 import { NextRequest } from 'next/server';
+
+// Mark route as dynamic to prevent static optimization
+export const dynamic = 'force-dynamic';
 import { query, transaction } from '@/lib/server/db';
 import { verifyWebhookSignature, verifyPayment } from '@/lib/server/paystack';
 import { 

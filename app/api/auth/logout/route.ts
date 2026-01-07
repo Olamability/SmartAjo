@@ -1,4 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
+
+// Mark route as dynamic to prevent static optimization
+export const dynamic = 'force-dynamic';
 import { successResponse, serverErrorResponse } from '@/lib/server/apiResponse';
 
 export async function POST() {

@@ -4,6 +4,9 @@ import { authenticateRequest } from '@/lib/server/auth';
 import { apiResponse, apiError } from '@/lib/server/apiResponse';
 import { apiRateLimiter } from '@/lib/server/rateLimit';
 
+// Mark route as dynamic to prevent static optimization
+export const dynamic = 'force-dynamic';
+
 // GET /api/contributions - Get user's contributions
 export async function GET(request: NextRequest) {
   try {

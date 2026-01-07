@@ -1,4 +1,7 @@
 import { NextRequest } from 'next/server';
+
+// Mark route as dynamic to prevent static optimization
+export const dynamic = 'force-dynamic';
 import { query } from '@/lib/server/db';
 import { generateOTP, getOTPExpiry } from '@/lib/server/auth';
 import { resendOTPSchema } from '@/lib/server/validation';

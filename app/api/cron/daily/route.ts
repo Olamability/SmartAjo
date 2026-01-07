@@ -1,4 +1,7 @@
 import { NextRequest } from 'next/server';
+
+// Mark route as dynamic to prevent static optimization
+export const dynamic = 'force-dynamic';
 import { runDailyTasks, runHourlyTasks, healthCheck } from '@/lib/server/cron';
 import { apiResponse, apiError } from '@/lib/server/apiResponse';
 
