@@ -104,8 +104,8 @@ CREATE TABLE group_members (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    rotation_position INT NOT NULL CHECK (rotation_position > 0),
-    security_deposit_paid BOOLEAN DEFAULT FALSE,
+    position INT NOT NULL CHECK (position > 0),
+    has_paid_security_deposit BOOLEAN DEFAULT FALSE,
     security_deposit_amount DECIMAL(15, 2) NOT NULL,
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'defaulted', 'removed')),
     total_contributions INT DEFAULT 0,
@@ -116,7 +116,7 @@ CREATE TABLE group_members (
     joined_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     removed_at TIMESTAMP WITH TIME ZONE,
     UNIQUE (group_id, user_id),
-    UNIQUE (group_id, rotation_position)
+    UNIQUE (group_id, position)
 );
 
 -- Indexes for group_members table
@@ -132,7 +132,7 @@ CREATE TABLE contributions (
     group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     amount DECIMAL(15, 2) NOT NULL CHECK (amount > 0),
-    cycle INT NOT NULL CHECK (cycle > 0),
+    cycle_number INT NOT NULL CHECK (cycle_number > 0),
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'late', 'missed')),
     due_date TIMESTAMP WITH TIME ZONE NOT NULL,
     paid_date TIMESTAMP WITH TIME ZONE,
@@ -141,14 +141,15 @@ CREATE TABLE contributions (
     transaction_ref VARCHAR(100) UNIQUE,
     payment_reference VARCHAR(100) UNIQUE, -- For payment gateway reference
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (group_id, user_id, cycle_number)
 );
 
 -- Indexes for contributions table
 CREATE INDEX idx_contributions_group_id ON contributions(group_id);
 CREATE INDEX idx_contributions_user_id ON contributions(user_id);
 CREATE INDEX idx_contributions_status ON contributions(status);
-CREATE INDEX idx_contributions_cycle ON contributions(cycle);
+CREATE INDEX idx_contributions_cycle_number ON contributions(cycle_number);
 CREATE INDEX idx_contributions_due_date ON contributions(due_date);
 
 -- ============================================
@@ -158,7 +159,7 @@ CREATE TABLE payouts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    cycle INT NOT NULL CHECK (cycle > 0),
+    cycle_number INT NOT NULL CHECK (cycle_number > 0),
     amount DECIMAL(15, 2) NOT NULL CHECK (amount > 0),
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'processed', 'failed')),
     scheduled_date TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -168,14 +169,14 @@ CREATE TABLE payouts (
     failure_reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (group_id, cycle)
+    UNIQUE (group_id, cycle_number)
 );
 
 -- Indexes for payouts table
 CREATE INDEX idx_payouts_group_id ON payouts(group_id);
 CREATE INDEX idx_payouts_user_id ON payouts(user_id);
 CREATE INDEX idx_payouts_status ON payouts(status);
-CREATE INDEX idx_payouts_cycle ON payouts(cycle);
+CREATE INDEX idx_payouts_cycle_number ON payouts(cycle_number);
 
 -- ============================================
 -- TRANSACTIONS TABLE

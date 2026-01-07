@@ -41,26 +41,18 @@ Ajo Secure is a modern web application that solves traditional problems of ajo s
 
 ## 🚀 Quick Start
 
-### Running Locally on Your Machine
-
-For detailed step-by-step instructions to run this application locally, see **[LOCAL_SETUP.md](./LOCAL_SETUP.md)** - Complete local development guide with troubleshooting.
-
-### Quick Installation
+### Automated Setup (Recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/Olamability/secured-ajo.git
 cd secured-ajo
 
+# Run automated setup script (sets up database and environment)
+./scripts/setup-local-db.sh
+
 # Install dependencies
 npm install
-
-# Set up environment variables
-cp .env.local.example .env.local
-# Edit .env.local with your database URL and JWT secret
-
-# Set up database (using Supabase or local PostgreSQL)
-# Import database/schema.sql into your PostgreSQL database
 
 # Start development server
 npm run dev
@@ -68,7 +60,30 @@ npm run dev
 
 The application will be available at `http://localhost:3000`
 
-**Need help?** → See [LOCAL_SETUP.md](./LOCAL_SETUP.md) for detailed instructions, troubleshooting, and common issues.
+**Need help?** → See **[QUICK_SETUP.md](./QUICK_SETUP.md)** for fastest setup or [LOCAL_SETUP.md](./LOCAL_SETUP.md) for detailed instructions.
+
+### Manual Setup
+
+If you prefer manual setup or need more control:
+
+```bash
+# 1. Clone and install dependencies
+git clone https://github.com/Olamability/secured-ajo.git
+cd secured-ajo
+npm install
+
+# 2. Set up database (PostgreSQL or Supabase)
+# Import database/schema.sql into your PostgreSQL database
+
+# 3. Configure environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your database URL and JWT secret
+
+# 4. Start development server
+npm run dev
+```
+
+See **[QUICK_SETUP.md](./QUICK_SETUP.md)** or [LOCAL_SETUP.md](./LOCAL_SETUP.md) for detailed instructions.
 
 ## 📖 Documentation
 

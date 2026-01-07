@@ -111,6 +111,13 @@ export async function getCurrentUser(): Promise<JWTPayload | null> {
   }
 }
 
+// Alias for getCurrentUser for compatibility
+export async function getUserFromRequest(): Promise<{ id: string; email: string } | null> {
+  const user = await getCurrentUser();
+  if (!user) return null;
+  return { id: user.userId, email: user.email };
+}
+
 // Generate OTP
 export function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
