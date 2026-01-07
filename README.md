@@ -51,6 +51,9 @@ Ajo Secure is a modern web application that solves traditional problems of ajo s
 ```bash
 cp .env.local.example .env.local
 # Edit .env.local and set DATABASE_URL and JWT_SECRET (minimum required)
+
+# Verify your setup (optional but recommended)
+./scripts/verify-env.sh
 ```
 
 ### Automated Setup (Recommended)
@@ -170,6 +173,10 @@ See **[ENV_SETUP.md](./ENV_SETUP.md)** for environment setup, **[QUICK_SETUP.md]
 ## 🔧 Available Scripts
 
 ```bash
+# Setup & Verification
+./scripts/verify-env.sh     # Verify environment variables are set correctly
+./scripts/setup-local-db.sh # Automated local database setup
+
 # Development
 npm run dev          # Start development server (http://localhost:3000)
 

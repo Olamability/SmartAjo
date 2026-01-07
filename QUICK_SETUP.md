@@ -95,6 +95,11 @@ openssl rand -base64 32
 
 **📖 For complete environment variable documentation, see [ENV_SETUP.md](./ENV_SETUP.md)**
 
+**🔍 Optional: Verify your environment setup:**
+```bash
+./scripts/verify-env.sh
+```
+
 ### Step 4: Start the Application
 
 ```bash
@@ -105,7 +110,12 @@ Open your browser to `http://localhost:3000`
 
 ## ✅ Verify Setup
 
-Test the signup endpoint to ensure everything is working:
+**Option 1: Use the verification script (Recommended)**
+```bash
+./scripts/verify-env.sh
+```
+
+**Option 2: Test the signup endpoint manually**
 
 ```bash
 curl -X POST http://localhost:3000/api/auth/signup \

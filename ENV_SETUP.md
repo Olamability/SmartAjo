@@ -22,6 +22,9 @@ nano .env.local  # or use your preferred editor
 # 3. At minimum, update these TWO required variables:
 #    - DATABASE_URL
 #    - JWT_SECRET
+
+# 4. (Optional) Verify your setup
+./scripts/verify-env.sh
 ```
 
 ## ✅ Required Environment Variables
@@ -395,23 +398,29 @@ psql your_database < database/schema.sql
 
 ## 🆘 Still Having Issues?
 
-1. **Verify your configuration:**
+1. **Run the environment verification script:**
+   ```bash
+   ./scripts/verify-env.sh
+   ```
+   This script checks your environment setup and provides specific feedback.
+
+2. **Verify your configuration manually:**
    ```bash
    # Check which variables are set (doesn't show values)
    cat .env.local | grep -E "^[A-Z]" | cut -d'=' -f1
    ```
 
-2. **Test database connection:**
+3. **Test database connection:**
    ```bash
    psql "your_database_url" -c "SELECT version();"
    ```
 
-3. **Check application logs:**
+4. **Check application logs:**
    - Start app with `npm run dev`
    - Look for error messages in the console
    - Common issues will be clearly logged
 
-4. **Open an issue:**
+5. **Open an issue:**
    - Visit [GitHub Issues](https://github.com/Olamability/secured-ajo/issues)
    - Include: OS, Node version, error message, steps to reproduce
 
