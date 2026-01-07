@@ -99,12 +99,3 @@ export const paymentRateLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 10, // 10 requests per minute
 });
-
-// Helper function to check rate limit and return result object
-export async function checkRateLimit(req: NextRequest, limiter = apiRateLimiter): Promise<{ success: boolean; response?: NextResponse }> {
-  const result = await limiter(req);
-  if (result) {
-    return { success: false, response: result };
-  }
-  return { success: true };
-}

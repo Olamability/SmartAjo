@@ -35,7 +35,8 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     setIsLoading(true);
     try {
-      const result = await login(data as LoginFormData);
+      // Cast to LoginFormData since form validation ensures all fields are present
+      const result = await login(data as unknown as LoginFormData);
 
       if (result.success && result.user) {
         setUser(result.user);

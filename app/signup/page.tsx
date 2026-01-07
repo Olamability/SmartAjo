@@ -41,7 +41,9 @@ export default function SignUpPage() {
   const onSubmit = async (data: SignUpForm) => {
     setIsLoading(true);
     try {
-      const result = await signUp(data as SignUpFormData);
+      // Remove confirmPassword before sending to API
+      const { confirmPassword, ...signupData } = data;
+      const result = await signUp(signupData as unknown as SignUpFormData);
 
       if (result.success && result.user) {
         setUser(result.user);
