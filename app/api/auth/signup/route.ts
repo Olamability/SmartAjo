@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { query } from '@/lib/server/db';
-import { hashPassword, generateOTP, getOTPExpiry } from '@/lib/server/auth';
+import { generateOTP, getOTPExpiry } from '@/lib/server/auth';
 import { signupSchema } from '@/lib/server/validation';
 import { authRateLimiter } from '@/lib/server/rateLimit';
 import { 
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     const { fullName, email, phone, password } = validation.data;
 
-    // Check if user already exists
+    // Check if user already exists in our database
     const existingUser = await query(
       'SELECT id FROM users WHERE email = $1 OR phone = $2',
       [email, phone]
@@ -37,19 +38,33 @@ export async function POST(req: NextRequest) {
       return errorResponse('User with this email or phone already exists', 409);
     }
 
-    // Hash password
-    const passwordHash = await hashPassword(password);
+    // Sign up with Supabase Auth
+    const supabase = await createClient();
+    const { data, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          phone: phone,
+        },
+      },
+    });
+
+    if (authError || !data.user) {
+      return errorResponse(authError?.message || 'Failed to create account', 400);
+    }
 
     // Generate OTP
     const otp = generateOTP();
     const otpExpiry = getOTPExpiry();
 
-    // Insert user into database
+    // Insert user into our database
     const result = await query(
-      `INSERT INTO users (email, phone, full_name, password_hash, is_verified, is_active)
+      `INSERT INTO users (id, email, phone, full_name, is_verified, is_active)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, email, full_name, phone, is_verified, kyc_status, created_at`,
-      [email, phone, fullName, passwordHash, false, true]
+      [data.user.id, email, phone, fullName, false, true]
     );
 
     const user = result.rows[0];

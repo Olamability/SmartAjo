@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       WHERE t.user_id = $1
     `;
 
-    const queryParams: any[] = [auth.user.userId];
+    const queryParams: any[] = [auth.user.id];
     let paramIndex = 2;
 
     if (type) {

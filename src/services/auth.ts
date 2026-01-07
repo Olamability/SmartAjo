@@ -1,6 +1,9 @@
-// Authentication service using Next.js API routes
+// Authentication service using Supabase Auth
 import { User, SignUpFormData, LoginFormData } from '@/types';
 import { setCurrentUser, getCurrentUser } from './storage';
+import { createClient } from '@/lib/supabase/client';
+
+const supabase = createClient();
 
 // Signup function
 export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; user?: User; error?: string }> => {
@@ -55,11 +58,15 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
 };
 
 // Logout function
+// Note: We call both the API route and Supabase signOut() to ensure:
+// 1. Server-side cleanup (API route may log the logout event)
+// 2. Client-side session cleanup (Supabase clears cookies)
 export const logout = async (): Promise<void> => {
   try {
     await fetch('/api/auth/logout', {
       method: 'POST',
     });
+    await supabase.auth.signOut();
   } catch (error) {
     console.error('Logout error:', error);
   } finally {

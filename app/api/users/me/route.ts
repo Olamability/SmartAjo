@@ -23,7 +23,7 @@ export async function GET() {
       `SELECT id, email, full_name, phone, is_verified, kyc_status, bvn, 
               profile_image, created_at, last_login_at
        FROM users WHERE id = $1`,
-      [currentUser.userId]
+      [currentUser.id]
     );
 
     if (result.rows.length === 0) {
@@ -86,7 +86,7 @@ export async function PATCH(req: NextRequest) {
       return errorResponse('No fields to update', 400);
     }
 
-    updateValues.push(currentUser.userId);
+    updateValues.push(currentUser.id);
 
     const updateQuery = `
       UPDATE users 

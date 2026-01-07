@@ -50,7 +50,7 @@ export async function POST(
     const memberCheckResult = await query(
       `SELECT id FROM group_members 
        WHERE group_id = $1 AND user_id = $2`,
-      [groupId, auth.user.userId]
+      [groupId, auth.user.id]
     );
 
     if (memberCheckResult.rows.length > 0) {
@@ -76,7 +76,7 @@ export async function POST(
         has_paid_security_deposit, 
         status
       ) VALUES ($1, $2, $3, $4, $5)`,
-      [groupId, auth.user.userId, nextPosition, false, 'pending']
+      [groupId, auth.user.id, nextPosition, false, 'pending']
     );
 
     // Update current_members count
@@ -121,7 +121,7 @@ export async function POST(
       `INSERT INTO audit_logs (user_id, action, resource_type, resource_id, details)
        VALUES ($1, $2, $3, $4, $5)`,
       [
-        auth.user.userId,
+        auth.user.id,
         'join',
         'group',
         groupId,

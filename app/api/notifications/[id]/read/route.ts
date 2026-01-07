@@ -25,7 +25,7 @@ export async function PATCH(
     // Verify notification belongs to user
     const checkResult = await query(
       `SELECT id FROM notifications WHERE id = $1 AND user_id = $2`,
-      [notificationId, auth.user.userId]
+      [notificationId, auth.user.id]
     );
 
     if (checkResult.rows.length === 0) {

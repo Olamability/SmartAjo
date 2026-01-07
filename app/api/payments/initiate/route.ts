@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
        FROM groups g
        LEFT JOIN group_members gm ON g.id = gm.group_id AND gm.user_id = $1
        WHERE g.id = $2`,
-      [currentUser.userId, groupId]
+      [currentUser.id, groupId]
     );
 
     if (groupCheck.rows.length === 0) {
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
          (user_id, group_id, type, amount, status, reference, payment_method, metadata)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
-          currentUser.userId,
+          currentUser.id,
           groupId,
           type,
           totalAmount,
@@ -100,13 +100,13 @@ export async function POST(req: NextRequest) {
           `INSERT INTO contributions 
            (group_id, user_id, amount, cycle, status, due_date, service_fee, transaction_ref)
            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, $6, $7)`,
-          [groupId, currentUser.userId, amount, currentCycle, 'pending', serviceFee, reference]
+          [groupId, currentUser.id, amount, currentCycle, 'pending', serviceFee, reference]
         );
       }
     });
 
     // Get user email
-    const userResult = await query('SELECT email FROM users WHERE id = $1', [currentUser.userId]);
+    const userResult = await query('SELECT email FROM users WHERE id = $1', [currentUser.id]);
     const userEmail = userResult.rows[0].email;
 
     // Initialize payment with Paystack
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       reference,
       callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/payments/callback`,
       metadata: {
-        userId: currentUser.userId,
+        userId: currentUser.id,
         groupId,
         type,
         baseAmount: amount,

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { query } from '@/lib/server/db';
-import { verifyPassword, setAuthCookies } from '@/lib/server/auth';
 import { loginSchema } from '@/lib/server/validation';
 import { authRateLimiter } from '@/lib/server/rateLimit';
 import { 
@@ -28,67 +28,41 @@ export async function POST(req: NextRequest) {
 
     const { email, password } = validation.data;
 
-    // Find user by email
+    // Sign in with Supabase Auth
+    const supabase = await createClient();
+    const { data, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (authError || !data.user) {
+      return unauthorizedResponse(authError?.message || 'Invalid email or password');
+    }
+
+    // Get user details from database
     const result = await query(
-      `SELECT id, email, full_name, phone, password_hash, is_verified, is_active, 
-              kyc_status, failed_login_attempts, locked_until
+      `SELECT id, email, full_name, phone, is_verified, is_active, kyc_status
        FROM users WHERE email = $1`,
       [email]
     );
 
     if (result.rows.length === 0) {
-      return unauthorizedResponse('Invalid email or password');
+      return unauthorizedResponse('User not found');
     }
 
     const user = result.rows[0];
 
-    // Check if account is locked
-    if (user.locked_until && new Date(user.locked_until) > new Date()) {
-      const lockTime = Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60000);
-      return errorResponse(
-        `Account is temporarily locked. Please try again in ${lockTime} minutes.`,
-        423
-      );
-    }
-
     // Check if account is active
     if (!user.is_active) {
+      await supabase.auth.signOut();
       return errorResponse('Account is deactivated. Please contact support.', 403);
     }
 
-    // Verify password
-    const isValidPassword = await verifyPassword(password, user.password_hash);
-
-    if (!isValidPassword) {
-      // Increment failed login attempts
-      const failedAttempts = user.failed_login_attempts + 1;
-      let lockedUntil = null;
-
-      // Lock account after 5 failed attempts for 30 minutes
-      if (failedAttempts >= 5) {
-        lockedUntil = new Date(Date.now() + 30 * 60 * 1000);
-      }
-
-      await query(
-        `UPDATE users 
-         SET failed_login_attempts = $1, locked_until = $2 
-         WHERE id = $3`,
-        [failedAttempts, lockedUntil, user.id]
-      );
-
-      return unauthorizedResponse('Invalid email or password');
-    }
-
-    // Reset failed login attempts on successful login
+    // Update last login timestamp
     await query(
-      `UPDATE users 
-       SET failed_login_attempts = 0, locked_until = NULL, last_login_at = CURRENT_TIMESTAMP 
-       WHERE id = $1`,
+      `UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [user.id]
     );
-
-    // Set auth cookies
-    await setAuthCookies(user.id, user.email);
 
     return successResponse(
       {
