@@ -19,8 +19,22 @@ export async function parseJsonResponse<T = any>(
   const contentType = response.headers.get('content-type');
   if (!contentType || !contentType.includes('application/json')) {
     const errorContext = context ? `${context}: ` : '';
-    console.error(`${errorContext}Expected JSON response but got ${contentType ? 'content-type: ' + contentType.split(';')[0] : 'no content-type header'}`);
+    const contentTypeInfo = contentType 
+      ? `content-type: ${contentType.split(';')[0]}` 
+      : 'no content-type header';
+    console.error(`${errorContext}Expected JSON response but got ${contentTypeInfo}`);
     throw new Error('Invalid response format from server');
   }
   return response.json();
+}
+
+/**
+ * Converts an error to a user-friendly message
+ * Specifically handles invalid response format errors
+ */
+export function getErrorMessage(error: unknown, fallbackMessage: string): string {
+  if (error instanceof Error && error.message === 'Invalid response format from server') {
+    return 'Server error: Invalid response format';
+  }
+  return fallbackMessage;
 }

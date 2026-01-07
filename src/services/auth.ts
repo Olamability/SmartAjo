@@ -1,7 +1,7 @@
 // Authentication service using Supabase Auth
 import { User, SignUpFormData, LoginFormData } from '@/types';
 import { createClient } from '@/lib/supabase/client';
-import { parseJsonResponse } from '@/lib/utils';
+import { parseJsonResponse, getErrorMessage } from '@/lib/utils';
 
 // Signup function
 // Calls API route which handles Supabase authentication server-side
@@ -24,9 +24,10 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
     return { success: false, error: result.error || 'Signup failed' };
   } catch (error) {
     console.error('Signup error:', error);
-    return { success: false, error: error instanceof Error && error.message === 'Invalid response format from server' 
-      ? 'Server error: Invalid response format' 
-      : 'An error occurred during signup' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred during signup')
+    };
   }
 };
 
@@ -51,9 +52,10 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     return { success: false, error: result.error || 'Login failed' };
   } catch (error) {
     console.error('Login error:', error);
-    return { success: false, error: error instanceof Error && error.message === 'Invalid response format from server' 
-      ? 'Server error: Invalid response format' 
-      : 'An error occurred during login' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred during login')
+    };
   }
 };
 
@@ -91,9 +93,10 @@ export const verifyUserEmail = async (email: string, otp: string): Promise<{ suc
     return { success: false, error: result.error || 'Verification failed' };
   } catch (error) {
     console.error('Verification error:', error);
-    return { success: false, error: error instanceof Error && error.message === 'Invalid response format from server' 
-      ? 'Server error: Invalid response format' 
-      : 'An error occurred during verification' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred during verification')
+    };
   }
 };
 
@@ -117,9 +120,10 @@ export const resendOTP = async (email: string): Promise<{ success: boolean; erro
     return { success: false, error: result.error || 'Failed to resend OTP' };
   } catch (error) {
     console.error('Resend OTP error:', error);
-    return { success: false, error: error instanceof Error && error.message === 'Invalid response format from server' 
-      ? 'Server error: Invalid response format' 
-      : 'An error occurred while resending OTP' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred while resending OTP')
+    };
   }
 };
 
@@ -143,8 +147,9 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
     return { success: false, error: result.error || 'Failed to update profile' };
   } catch (error) {
     console.error('Update profile error:', error);
-    return { success: false, error: error instanceof Error && error.message === 'Invalid response format from server' 
-      ? 'Server error: Invalid response format' 
-      : 'An error occurred while updating profile' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred while updating profile')
+    };
   }
 };
