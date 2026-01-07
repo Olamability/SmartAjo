@@ -14,6 +14,13 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
       body: JSON.stringify(data),
     });
 
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Signup error: Expected JSON response but got', contentType);
+      return { success: false, error: 'Server error: Invalid response format' };
+    }
+
     const result = await response.json();
     
     if (response.ok && result.success && result.data?.user) {
@@ -38,6 +45,13 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       },
       body: JSON.stringify(data),
     });
+
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Login error: Expected JSON response but got', contentType);
+      return { success: false, error: 'Server error: Invalid response format' };
+    }
 
     const result = await response.json();
     
@@ -77,6 +91,13 @@ export const verifyUserEmail = async (email: string, otp: string): Promise<{ suc
       body: JSON.stringify({ email, otp }),
     });
 
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Verification error: Expected JSON response but got', contentType);
+      return { success: false, error: 'Server error: Invalid response format' };
+    }
+
     const result = await response.json();
     
     if (response.ok && result.success) {
@@ -101,6 +122,13 @@ export const resendOTP = async (email: string): Promise<{ success: boolean; erro
       body: JSON.stringify({ email }),
     });
 
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Resend OTP error: Expected JSON response but got', contentType);
+      return { success: false, error: 'Server error: Invalid response format' };
+    }
+
     const result = await response.json();
     
     if (response.ok && result.success) {
@@ -124,6 +152,13 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
       },
       body: JSON.stringify(updates),
     });
+
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('Update profile error: Expected JSON response but got', contentType);
+      return { success: false, error: 'Server error: Invalid response format' };
+    }
 
     const result = await response.json();
     
