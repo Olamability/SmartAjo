@@ -79,17 +79,29 @@ You have two options: use Supabase (easier) or local PostgreSQL.
 
 2. Open `.env.local` in your text editor and update the values:
 
+**Minimum Required Configuration:**
+
+```env
+# 🔴 REQUIRED - Database connection
+DATABASE_URL=postgresql://postgres:your_password@db.yourproject.supabase.co:5432/postgres
+
+# 🔴 REQUIRED - JWT secret (generate with: openssl rand -base64 32)
+JWT_SECRET=your-super-secret-jwt-key-min-32-characters-please-change-this-to-something-random
+```
+
+**Full Example Configuration:**
+
 ```env
 # Application Configuration
 NEXT_PUBLIC_APP_NAME=Ajo Secure
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-# Database Configuration
+# Database Configuration (REQUIRED)
 # For Supabase: Use the connection string from Step 3
 # For Local: Use postgresql://username:password@localhost:5432/ajo_secure
 DATABASE_URL=postgresql://postgres:your_password@db.yourproject.supabase.co:5432/postgres
 
-# JWT Configuration (IMPORTANT: Change this!)
+# JWT Configuration (REQUIRED - Change this!)
 # Generate a secure random string (minimum 32 characters)
 # You can generate one at: https://generate-secret.vercel.app/32
 JWT_SECRET=your-super-secret-jwt-key-min-32-characters-please-change-this-to-something-random
@@ -125,10 +137,12 @@ RATE_LIMIT_MAX_REQUESTS=100
 
 ### Important Notes:
 
-- **DATABASE_URL**: This is the most important setting. Without it, the app won't work.
-- **JWT_SECRET**: Must be a secure random string (at least 32 characters). DO NOT use the example value in production!
-- **Paystack Keys**: Optional for local testing. You can test without payments initially.
-- **Email Settings**: Optional. During development, OTPs will be logged to the console instead of being emailed.
+- **DATABASE_URL**: 🔴 **REQUIRED** - Without it, the app won't work.
+- **JWT_SECRET**: 🔴 **REQUIRED** - Must be a secure random string (at least 32 characters). DO NOT use the example value in production!
+- **Paystack Keys**: 🟢 Optional for local testing. You can test without payments initially.
+- **Email Settings**: 🟢 Optional. During development, OTPs will be logged to the console instead of being emailed.
+
+**📖 For complete environment variable documentation and troubleshooting, see [ENV_SETUP.md](./ENV_SETUP.md)**
 
 ## Step 5: Start the Development Server
 
@@ -156,6 +170,14 @@ You should see output like:
 
 ## Common Issues & Troubleshooting
 
+### Issue: 500 Internal Server Error or Login Fails
+
+**Solution:**
+- Most likely caused by missing or incorrect environment variables
+- Check `.env.local` file exists: `ls -la .env.local`
+- Verify DATABASE_URL and JWT_SECRET are set
+- **📖 See [ENV_SETUP.md](./ENV_SETUP.md) for complete troubleshooting guide**
+
 ### Issue: "Cannot connect to database"
 
 **Solution:**
@@ -168,6 +190,7 @@ You should see output like:
 **Solution:**
 - Make sure `.env.local` file exists in the root directory
 - Verify JWT_SECRET is set and at least 32 characters long
+- Generate one: `openssl rand -base64 32`
 
 ### Issue: "Port 3000 is already in use"
 

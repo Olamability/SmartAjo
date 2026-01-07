@@ -93,6 +93,8 @@ openssl rand -base64 32
 # Copy the output to JWT_SECRET in .env.local
 ```
 
+**📖 For complete environment variable documentation, see [ENV_SETUP.md](./ENV_SETUP.md)**
+
 ### Step 4: Start the Application
 
 ```bash

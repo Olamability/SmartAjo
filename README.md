@@ -41,6 +41,18 @@ Ajo Secure is a modern web application that solves traditional problems of ajo s
 
 ## 🚀 Quick Start
 
+### 🚨 Getting 500 Errors or Login Issues?
+
+**Most common cause:** Missing or incorrect environment variables!
+
+👉 **See [ENV_SETUP.md](./ENV_SETUP.md)** - Complete environment variables guide
+
+**Quick fix:**
+```bash
+cp .env.local.example .env.local
+# Edit .env.local and set DATABASE_URL and JWT_SECRET (minimum required)
+```
+
 ### Automated Setup (Recommended)
 
 ```bash
@@ -75,19 +87,21 @@ npm install
 # 2. Set up database (PostgreSQL or Supabase)
 # Import database/schema.sql into your PostgreSQL database
 
-# 3. Configure environment variables
+# 3. Configure environment variables (REQUIRED!)
 cp .env.local.example .env.local
-# Edit .env.local with your database URL and JWT secret
+# Edit .env.local - See ENV_SETUP.md for what to set
+# Minimum required: DATABASE_URL and JWT_SECRET
 
 # 4. Start development server
 npm run dev
 ```
 
-See **[QUICK_SETUP.md](./QUICK_SETUP.md)** or [LOCAL_SETUP.md](./LOCAL_SETUP.md) for detailed instructions.
+See **[ENV_SETUP.md](./ENV_SETUP.md)** for environment setup, **[QUICK_SETUP.md](./QUICK_SETUP.md)** for fastest setup, or [LOCAL_SETUP.md](./LOCAL_SETUP.md) for detailed instructions.
 
 ## 📖 Documentation
 
-- **[Local Setup Guide](./LOCAL_SETUP.md)** - ⭐ **Start here!** Step-by-step guide to run locally
+- **[Environment Variables Setup](./ENV_SETUP.md)** - 🚨 **Having 500 errors? Start here!** Complete guide to all environment variables
+- **[Local Setup Guide](./LOCAL_SETUP.md)** - ⭐ **Start here for fresh install!** Step-by-step guide to run locally
 - **[Implementation Status](./IMPLEMENTATION_STATUS.md)** - ✅ What's complete, what works, usage guide
 - **[Deployment Guide](./DEPLOYMENT.md)** - 🚀 How to deploy to production (Vercel/Railway)
 - **[Setup Guide](./NEXTJS_SETUP_GUIDE.md)** - Complete setup and configuration instructions
