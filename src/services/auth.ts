@@ -1,6 +1,9 @@
-// Authentication service using Next.js API routes
+// Authentication service using Supabase Auth
 import { User, SignUpFormData, LoginFormData } from '@/types';
 import { setCurrentUser, getCurrentUser } from './storage';
+import { createClient } from '@/lib/supabase/client';
+
+const supabase = createClient();
 
 // Signup function
 export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; user?: User; error?: string }> => {
@@ -60,6 +63,7 @@ export const logout = async (): Promise<void> => {
     await fetch('/api/auth/logout', {
       method: 'POST',
     });
+    await supabase.auth.signOut();
   } catch (error) {
     console.error('Logout error:', error);
   } finally {
