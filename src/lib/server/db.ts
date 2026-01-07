@@ -18,10 +18,11 @@ function getPool(): Pool {
       connectionTimeoutMillis: 10000,
     });
 
-    // Test connection
+    // Handle connection errors
     pool.on('error', (err) => {
-      console.error('Unexpected error on idle client', err);
-      process.exit(-1);
+      console.error('Unexpected error on idle database client:', err);
+      // Don't exit the process - let the request fail gracefully
+      // In production with proper monitoring, this would trigger alerts
     });
   }
   

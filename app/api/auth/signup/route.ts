@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
       if (error.message.includes('DATABASE_URL')) {
         return serverErrorResponse('Database configuration error. Please contact support.');
       }
-      if (error.message.includes('Supabase environment variables')) {
+      if (error.message.includes('Missing Supabase environment variables')) {
         return serverErrorResponse('Authentication service configuration error. Please contact support.');
       }
     }
