@@ -1,4 +1,3 @@
-import 'server-only';
 
 import crypto from 'crypto';
 import { parseJsonResponse } from '@/lib/utils';

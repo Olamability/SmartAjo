@@ -29,5 +29,5 @@
     }
   },
   "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "exclude": ["node_modules", "dist", "src/lib/server", "src/lib/supabase", "backend"]
 }

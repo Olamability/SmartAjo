@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { createClient } from '../lib/supabase.js';
 import { query } from '../lib/db.js';
-import { loginSchema, signUpSchema } from '../lib/validation.js';
+import { loginSchema, signupSchema } from '../lib/validation.js';
 import { authRateLimiter } from '../lib/rateLimit.js';
 import { 
   successResponse, 
@@ -96,7 +96,7 @@ router.post('/signup', async (req: Request, res: Response) => {
     }
 
     // Validate input
-    const validation = signUpSchema.safeParse(req.body);
+    const validation = signupSchema.safeParse(req.body);
     if (!validation.success) {
       return res.status(400).json(validationErrorResponse(validation.error.format()));
     }

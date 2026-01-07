@@ -1,4 +1,3 @@
-import 'server-only';
 
 /**
  * SQL Loader Utility

@@ -1,4 +1,3 @@
-import 'server-only';
 
 /**
  * Cron Job Service

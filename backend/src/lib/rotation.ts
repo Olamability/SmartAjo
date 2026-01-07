@@ -1,4 +1,3 @@
-import 'server-only';
 
 /**
  * Group Rotation and Payout Service
