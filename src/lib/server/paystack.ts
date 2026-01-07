@@ -64,6 +64,12 @@ export async function initializePayment(
       body: JSON.stringify(params),
     });
 
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Invalid response format from Paystack API');
+    }
+
     const data = await response.json();
 
     if (!response.ok) {
@@ -87,6 +93,12 @@ export async function verifyPayment(reference: string): Promise<PaystackVerifyRe
         'Content-Type': 'application/json',
       },
     });
+
+    // Check if response is JSON before parsing
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Invalid response format from Paystack API');
+    }
 
     const data = await response.json();
 
