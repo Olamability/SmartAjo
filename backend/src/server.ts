@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
@@ -44,7 +44,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/cron', cronRoutes);
 
 // Error handling middleware
-app.use((err: Error, _req: Request, res: Response, _next: any) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Error:', err);
   res.status(500).json({
     success: false,
