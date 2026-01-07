@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { parseJsonResponse } from '@/lib/utils';
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
@@ -64,13 +65,7 @@ export async function initializePayment(
       body: JSON.stringify(params),
     });
 
-    // Check if response is JSON before parsing
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Invalid response format from Paystack API');
-    }
-
-    const data = await response.json();
+    const data = await parseJsonResponse<PaystackInitializeResponse>(response, 'Paystack initialize payment');
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to initialize payment');
@@ -94,13 +89,7 @@ export async function verifyPayment(reference: string): Promise<PaystackVerifyRe
       },
     });
 
-    // Check if response is JSON before parsing
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Invalid response format from Paystack API');
-    }
-
-    const data = await response.json();
+    const data = await parseJsonResponse<PaystackVerifyResponse>(response, 'Paystack verify payment');
 
     if (!response.ok) {
       throw new Error(data.message || 'Failed to verify payment');
