@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/server/supabase';
 
 // Mark route as dynamic to prevent static optimization
 export const dynamic = 'force-dynamic';

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/client/supabase';
 
 interface AuthContextType {
   user: User | null;
