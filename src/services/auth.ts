@@ -1,6 +1,7 @@
 // Authentication service using Supabase Auth
 import { User, SignUpFormData, LoginFormData } from '@/types';
 import { createClient } from '@/lib/supabase/client';
+import { parseJsonResponse, getErrorMessage } from '@/lib/utils';
 
 // Signup function
 // Calls API route which handles Supabase authentication server-side
@@ -14,7 +15,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
       body: JSON.stringify(data),
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response, 'Signup');
     
     if (response.ok && result.success && result.data?.user) {
       return { success: true, user: result.data.user };
@@ -23,7 +24,10 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
     return { success: false, error: result.error || 'Signup failed' };
   } catch (error) {
     console.error('Signup error:', error);
-    return { success: false, error: 'An error occurred during signup' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred during signup')
+    };
   }
 };
 
@@ -39,7 +43,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       body: JSON.stringify(data),
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response, 'Login');
     
     if (response.ok && result.success && result.data?.user) {
       return { success: true, user: result.data.user };
@@ -48,7 +52,10 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     return { success: false, error: result.error || 'Login failed' };
   } catch (error) {
     console.error('Login error:', error);
-    return { success: false, error: 'An error occurred during login' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred during login')
+    };
   }
 };
 
@@ -77,7 +84,7 @@ export const verifyUserEmail = async (email: string, otp: string): Promise<{ suc
       body: JSON.stringify({ email, otp }),
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response, 'Email verification');
     
     if (response.ok && result.success) {
       return { success: true };
@@ -86,7 +93,10 @@ export const verifyUserEmail = async (email: string, otp: string): Promise<{ suc
     return { success: false, error: result.error || 'Verification failed' };
   } catch (error) {
     console.error('Verification error:', error);
-    return { success: false, error: 'An error occurred during verification' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred during verification')
+    };
   }
 };
 
@@ -101,7 +111,7 @@ export const resendOTP = async (email: string): Promise<{ success: boolean; erro
       body: JSON.stringify({ email }),
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response, 'Resend OTP');
     
     if (response.ok && result.success) {
       return { success: true };
@@ -110,7 +120,10 @@ export const resendOTP = async (email: string): Promise<{ success: boolean; erro
     return { success: false, error: result.error || 'Failed to resend OTP' };
   } catch (error) {
     console.error('Resend OTP error:', error);
-    return { success: false, error: 'An error occurred while resending OTP' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred while resending OTP')
+    };
   }
 };
 
@@ -125,7 +138,7 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
       body: JSON.stringify(updates),
     });
 
-    const result = await response.json();
+    const result = await parseJsonResponse(response, 'Update profile');
     
     if (response.ok && result.success && result.data) {
       return { success: true, user: result.data };
@@ -134,6 +147,9 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
     return { success: false, error: result.error || 'Failed to update profile' };
   } catch (error) {
     console.error('Update profile error:', error);
-    return { success: false, error: 'An error occurred while updating profile' };
+    return { 
+      success: false, 
+      error: getErrorMessage(error, 'An error occurred while updating profile')
+    };
   }
 };
