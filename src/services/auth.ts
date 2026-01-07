@@ -1,6 +1,6 @@
 // Authentication service using Supabase Auth
 import { User, SignUpFormData, LoginFormData } from '@/types';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/client/supabase';
 import { parseJsonResponse, getErrorMessage } from '@/lib/utils';
 
 // Signup function
