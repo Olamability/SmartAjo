@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
 
     // Try to authenticate, but allow anonymous access
     const auth = await authenticateRequest();
-    const userId = auth.user?.userId;
+    const userId = auth.user?.id;
 
     // Get query parameters
     const { searchParams } = new URL(request.url);

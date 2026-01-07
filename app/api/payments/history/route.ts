@@ -40,13 +40,13 @@ export async function GET(req: NextRequest) {
        WHERE t.user_id = $1
        ORDER BY t.date DESC
        LIMIT $2 OFFSET $3`,
-      [currentUser.userId, limit, offset]
+      [currentUser.id, limit, offset]
     );
 
     // Get total count
     const countResult = await query(
       'SELECT COUNT(*) FROM transactions WHERE user_id = $1',
-      [currentUser.userId]
+      [currentUser.id]
     );
 
     const total = parseInt(countResult.rows[0].count);

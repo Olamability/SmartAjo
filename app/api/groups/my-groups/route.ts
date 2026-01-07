@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       LEFT JOIN users u ON g.creator_id = u.id
       WHERE gm.user_id = $1
       ORDER BY g.created_at DESC`,
-      [auth.user.userId]
+      [auth.user.id]
     );
 
     const groups = result.rows.map(group => ({
