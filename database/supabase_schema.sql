@@ -6,6 +6,13 @@
 -- PostgreSQL: 14+
 -- Supabase Compatible
 -- ============================================
+--
+-- ⚠️ SECURITY WARNING ⚠️
+-- This schema includes a default admin user with a temporary password.
+-- YOU MUST CHANGE THE PASSWORD IMMEDIATELY after deployment!
+-- See SECTION 7 for details and change instructions.
+--
+-- ============================================
 
 -- ============================================
 -- SECTION 1: EXTENSIONS

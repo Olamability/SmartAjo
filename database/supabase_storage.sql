@@ -174,13 +174,18 @@ ALTER PUBLICATION supabase_realtime ADD TABLE transactions;
 -- WEBHOOK CONFIGURATION
 -- ============================================
 
--- Function to handle Paystack webhooks
-CREATE OR REPLACE FUNCTION handle_paystack_webhook()
-RETURNS TRIGGER AS $$
+-- Function to process Paystack webhooks
+-- This should be called from your application code or Edge Functions
+CREATE OR REPLACE FUNCTION process_payment_webhook(
+    p_provider VARCHAR(50),
+    p_event_type VARCHAR(100),
+    p_payload JSONB,
+    p_reference VARCHAR(100)
+)
+RETURNS UUID AS $$
+DECLARE
+    webhook_id UUID;
 BEGIN
-    -- This function will be called via Supabase Edge Function
-    -- It processes incoming webhook payloads
-    
     -- Log the webhook
     INSERT INTO payment_webhooks (
         provider,
@@ -189,16 +194,24 @@ BEGIN
         reference,
         processed
     ) VALUES (
-        'paystack',
-        NEW.event_type,
-        NEW.payload,
-        NEW.reference,
+        p_provider,
+        p_event_type,
+        p_payload,
+        p_reference,
         false
-    );
+    ) RETURNING id INTO webhook_id;
     
-    RETURN NEW;
+    RETURN webhook_id;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Example usage from application:
+-- SELECT process_payment_webhook(
+--     'paystack',
+--     'charge.success',
+--     '{"amount": 5000, "customer": {...}}'::jsonb,
+--     'ref_123456789'
+-- );
 
 -- ============================================
 -- STORAGE COMPLETE
