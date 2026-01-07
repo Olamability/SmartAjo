@@ -11,6 +11,9 @@ import {
 } from '@/lib/server/apiResponse';
 import { apiRateLimiter } from '@/lib/server/rateLimit';
 
+// Mark route as dynamic to prevent static optimization
+export const dynamic = 'force-dynamic';
+
 // POST /api/groups - Create a new group
 export async function POST(request: NextRequest) {
   try {
