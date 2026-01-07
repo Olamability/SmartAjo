@@ -15,10 +15,15 @@ import path from 'path';
 const sqlCache = new Map<string, string>();
 
 /**
+ * Default caching strategy - cache in production for performance
+ */
+const DEFAULT_USE_CACHE = process.env.NODE_ENV === 'production';
+
+/**
  * Load a SQL file from the sql directory
  * 
  * @param relativePath - Path relative to the sql directory (e.g., 'queries/users/get-profile.sql')
- * @param useCache - Whether to cache the loaded SQL (default: true in production)
+ * @param useCache - Whether to cache the loaded SQL (default: true in production, false in development)
  * @returns The SQL content as a string
  * 
  * @example
@@ -29,7 +34,7 @@ const sqlCache = new Map<string, string>();
  * const result = await query(userProfileQuery, [userId]);
  * ```
  */
-export function loadSQL(relativePath: string, useCache: boolean = process.env.NODE_ENV === 'production'): string {
+export function loadSQL(relativePath: string, useCache: boolean = DEFAULT_USE_CACHE): string {
   // Check cache first if enabled
   if (useCache && sqlCache.has(relativePath)) {
     return sqlCache.get(relativePath)!;
@@ -47,33 +52,46 @@ export function loadSQL(relativePath: string, useCache: boolean = process.env.NO
     
     return content;
   } catch (error) {
-    throw new Error(`Failed to load SQL file: ${relativePath}. Error: ${error}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to load SQL file: ${relativePath}. Error: ${errorMessage}`);
   }
 }
 
 /**
  * Load a SQL file with parameter substitution
  * 
+ * ⚠️ SECURITY WARNING: This function performs string replacement for SQL template variables.
+ * It should ONLY be used for trusted, static values like table names or column names,
+ * NEVER for user input. For user input, always use PostgreSQL parameter binding ($1, $2, etc.).
+ * 
  * @param relativePath - Path relative to the sql directory
- * @param params - Object with key-value pairs to substitute in the SQL
+ * @param params - Object with key-value pairs to substitute in the SQL (trusted values only)
  * @returns The SQL content with parameters substituted
  * 
  * @example
  * ```typescript
- * // SQL file contains: SELECT * FROM {{tableName}} WHERE status = '{{status}}'
+ * // SAFE - Using for table/column names (trusted values)
  * const sql = loadSQLWithParams('queries/dynamic-query.sql', {
- *   tableName: 'users',
- *   status: 'active'
+ *   tableName: 'users',  // Trusted, static value
+ *   status: 'active'     // Trusted, static value
  * });
+ * // SQL: SELECT * FROM {{tableName}} WHERE status = '{{status}}'
+ * 
+ * // UNSAFE - Never do this with user input:
+ * // loadSQLWithParams('query.sql', { value: userInput }) ❌
+ * // Instead use: query(sql, [userInput]) ✅
  * ```
  */
 export function loadSQLWithParams(relativePath: string, params: Record<string, string>): string {
   let sql = loadSQL(relativePath);
   
   // Replace {{paramName}} with actual values
+  // WARNING: This bypasses SQL parameter binding. Only use with trusted, static values.
   for (const [key, value] of Object.entries(params)) {
     const placeholder = `{{${key}}}`;
-    sql = sql.replace(new RegExp(placeholder, 'g'), value);
+    // Escape any regex special characters in the placeholder
+    const escapedPlaceholder = placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    sql = sql.replace(new RegExp(escapedPlaceholder, 'g'), value);
   }
   
   return sql;

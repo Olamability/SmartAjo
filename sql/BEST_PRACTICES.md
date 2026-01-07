@@ -251,17 +251,23 @@ feat: externalize user statistics query
 
 ### ❌ Don't Use Template Substitution for User Input
 ```typescript
-// DANGEROUS - SQL injection risk
+// DANGEROUS - SQL INJECTION RISK!
+// This allows arbitrary SQL execution if userInput contains malicious SQL
 const query = loadSQLWithParams('queries/users/search.sql', {
-  searchTerm: userInput  // ❌ Never do this!
+  searchTerm: userInput  // ❌ NEVER use user input with template substitution!
 });
+// If userInput = "'; DROP TABLE users; --", this could execute arbitrary SQL
+
+// The attacker could manipulate the query to:
+// SELECT * FROM users WHERE name = ''; DROP TABLE users; --'
 ```
 
-### ✅ Always Use Parameter Binding
+### ✅ Always Use Parameter Binding for User Input
 ```typescript
-// SAFE - Use PostgreSQL parameters
+// SAFE - PostgreSQL prevents SQL injection through parameter binding
 const query = loadSQL('queries/users/search.sql');
-const result = await db.query(query, [userInput]);  // ✅ Safe
+const result = await db.query(query, [userInput]);  // ✅ Safe - uses $1 parameter binding
+// PostgreSQL treats userInput as a literal value, not executable SQL
 ```
 
 ### ❌ Don't Over-Externalize
