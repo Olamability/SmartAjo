@@ -9,8 +9,9 @@ SELECT
   u.phone,
   u.is_verified,
   u.kyc_status,
-  u.bvn,
-  u.profile_image,
+  u.avatar_url,
+  u.date_of_birth,
+  u.address,
   u.created_at,
   u.last_login_at,
   -- Aggregate user statistics
@@ -30,7 +31,8 @@ GROUP BY
   u.phone,
   u.is_verified,
   u.kyc_status,
-  u.bvn,
-  u.profile_image,
+  u.avatar_url,
+  u.date_of_birth,
+  u.address,
   u.created_at,
   u.last_login_at;

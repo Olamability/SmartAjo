@@ -65,9 +65,12 @@ CREATE TRIGGER notification_preferences_updated_at
   EXECUTE FUNCTION update_notification_preferences_updated_at();
 
 -- Insert default preferences for existing users
+-- Using LEFT JOIN with IS NULL for better performance with large datasets
 INSERT INTO user_notification_preferences (user_id)
-SELECT id FROM users
-WHERE id NOT IN (SELECT user_id FROM user_notification_preferences)
+SELECT u.id 
+FROM users u
+LEFT JOIN user_notification_preferences unp ON u.id = unp.user_id
+WHERE unp.user_id IS NULL
 ON CONFLICT (user_id) DO NOTHING;
 
 -- Add comment for documentation

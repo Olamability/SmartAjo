@@ -256,9 +256,9 @@ feat: externalize user statistics query
 const query = loadSQLWithParams('queries/users/search.sql', {
   searchTerm: userInput  // ❌ NEVER use user input with template substitution!
 });
-// If userInput = "'; DROP TABLE users; --", this could execute arbitrary SQL
+// If userInput = "'; DROP TABLE users; --", this would execute arbitrary SQL
 
-// The attacker could manipulate the query to:
+// The attacker would manipulate the query to:
 // SELECT * FROM users WHERE name = ''; DROP TABLE users; --'
 ```
 
