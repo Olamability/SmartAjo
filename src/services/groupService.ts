@@ -2,6 +2,19 @@
 import { Group, CreateGroupFormData, Contribution } from '@/types';
 import { api } from './api';
 
+/**
+ * Authentication Note:
+ * All functions in this service rely on server-side authentication.
+ * Authentication is handled automatically via:
+ * 1. Supabase session cookies (httpOnly) sent with each request
+ * 2. Middleware that refreshes sessions (middleware.ts)
+ * 3. API routes that verify auth via createClient() server-side
+ * 4. RLS policies that enforce data access rules at database level
+ * 
+ * No client-side auth checks are needed - the backend will return
+ * 401/403 if the user is not authenticated or authorized.
+ */
+
 
 export const createGroup = async (data: CreateGroupFormData): Promise<{ success: boolean; group?: Group; error?: string }> => {
   try {

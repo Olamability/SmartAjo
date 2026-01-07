@@ -27,18 +27,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (session?.user) {
         // Fetch user details from our backend
         const response = await fetch('/api/users/me');
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.data) {
-            setUser(result.data);
+        
+        // Handle network errors
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            // User is not authenticated or session expired
+            setUser(null);
             return;
           }
+          throw new Error(`Failed to fetch user: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        if (result.success && result.data) {
+          setUser(result.data);
+          return;
         }
       }
       
       setUser(null);
     } catch (error) {
       console.error('Failed to refresh user:', error);
+      // On network or unexpected errors, clear user state
       setUser(null);
     }
   };

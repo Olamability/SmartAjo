@@ -33,6 +33,15 @@ CREATE EXTENSION IF NOT EXISTS "btree_gin";        -- GIN index support
 -- This table stores additional user profile data
 -- The id references Supabase auth.users(id)
 -- Authentication is handled by Supabase Auth, not this table
+-- 
+-- ⚠️ CASCADE DELETE BEHAVIOR:
+-- When a user is deleted from auth.users, all related data in this table
+-- and other tables (via foreign keys) will be automatically deleted.
+-- This is intentional for GDPR compliance and clean data removal.
+-- If you need to preserve data for audit purposes, consider:
+-- 1. Soft deletes (add deleted_at column)
+-- 2. Archival process before deletion
+-- 3. Audit logs table (already included in schema)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     email VARCHAR(255) NOT NULL UNIQUE,
