@@ -566,13 +566,23 @@ CREATE POLICY "Users can view their own audit logs" ON audit_logs
 -- SECTION 7: INITIAL SEED DATA
 -- ============================================
 
--- Create system admin user (change password in production!)
+-- Create system admin user
+-- ⚠️ IMPORTANT: Change the password immediately after deployment!
+-- Default credentials (FOR INITIAL SETUP ONLY):
+--   Email: admin@ajosecure.com
+--   Password: ChangeMe123!SecureAjo
+-- 
+-- To change the password after deployment, run:
+-- UPDATE users 
+-- SET password_hash = crypt('YourNewSecurePassword', gen_salt('bf'))
+-- WHERE email = 'admin@ajosecure.com';
+
 INSERT INTO users (email, phone, full_name, password_hash, is_verified, kyc_status, is_active)
 VALUES (
     'admin@ajosecure.com',
     '+2348000000000',
     'System Administrator',
-    crypt('Admin123!', gen_salt('bf')),
+    crypt('ChangeMe123!SecureAjo', gen_salt('bf')),
     TRUE,
     'verified',
     TRUE

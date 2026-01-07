@@ -240,7 +240,12 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 ## ⚠️ Important Notes
 
 ### Before Production
-1. **Change admin password** - Default is `Admin123!`
+1. **Change admin password** - Default is `ChangeMe123!SecureAjo` ⚠️ CRITICAL
+   ```sql
+   UPDATE users 
+   SET password_hash = crypt('YourNewStrongPassword', gen_salt('bf'))
+   WHERE email = 'admin@ajosecure.com';
+   ```
 2. **Review RLS policies** - Ensure they match security requirements
 3. **Setup backups** - Enable point-in-time recovery
 4. **Configure monitoring** - Set up alerts in Supabase
@@ -248,9 +253,18 @@ ORDER BY pg_total_relation_size(schemaname||'.'||tablename) DESC;
 6. **Load test** - Test with realistic data volumes
 
 ### Default Admin User
+⚠️ **SECURITY CRITICAL**: Change this immediately after deployment!
+
 ```
 Email: admin@ajosecure.com
-Password: Admin123! (CHANGE THIS!)
+Default Password: ChangeMe123!SecureAjo
+```
+
+**Change password command:**
+```sql
+UPDATE users 
+SET password_hash = crypt('YourNewStrongPassword', gen_salt('bf'))
+WHERE email = 'admin@ajosecure.com';
 ```
 
 ### Connection String Format

@@ -87,7 +87,8 @@ This guide provides step-by-step instructions to deploy the complete Secured Ajo
 3. Check that one admin user was created:
    - Click on the **users** table
    - You should see one row with email: `admin@ajosecure.com`
-   - ⚠️ **IMPORTANT**: Change this admin password in production!
+   - ⚠️ **CRITICAL SECURITY**: The default password is `ChangeMe123!SecureAjo`
+   - ⚠️ **CHANGE THIS IMMEDIATELY** in production! See security checklist below.
 
 4. Verify views are created:
    - Go to **SQL Editor**
@@ -198,12 +199,13 @@ For advanced webhook processing and scheduled tasks, you can deploy Edge Functio
 
 Before going to production:
 
-- [ ] Change the default admin password
+- [ ] **CRITICAL: Change the default admin password immediately**
   ```sql
   UPDATE users 
-  SET password_hash = crypt('NewSecurePassword123!', gen_salt('bf'))
+  SET password_hash = crypt('YourNewStrongPassword123!@#', gen_salt('bf'))
   WHERE email = 'admin@ajosecure.com';
   ```
+  Default password: `ChangeMe123!SecureAjo` (MUST BE CHANGED)
 
 - [ ] Review RLS policies and ensure they match your security requirements
 - [ ] Enable 2FA for your Supabase account

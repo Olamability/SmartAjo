@@ -16,7 +16,7 @@ VALUES (
     'profile-images',
     false,
     5242880, -- 5MB
-    ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    ARRAY['image/jpeg', 'image/png', 'image/webp']
 ) ON CONFLICT (id) DO NOTHING;
 
 -- Create KYC documents bucket
@@ -26,7 +26,7 @@ VALUES (
     'kyc-documents',
     false,
     10485760, -- 10MB
-    ARRAY['image/jpeg', 'image/jpg', 'image/png', 'application/pdf']
+    ARRAY['image/jpeg', 'image/png', 'application/pdf']
 ) ON CONFLICT (id) DO NOTHING;
 
 -- ============================================

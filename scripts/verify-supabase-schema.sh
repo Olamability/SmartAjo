@@ -42,9 +42,28 @@ check_file() {
         return 1
     fi
     
-    # Check for common SQL syntax errors
-    if grep -q "CRATE TABLE" "$file"; then
-        echo -e "${RED}❌ TYPO: 'CRATE TABLE' should be 'CREATE TABLE'${NC}"
+    # Check for common SQL syntax errors and typos
+    local errors=0
+    
+    # Common typos for CREATE TABLE
+    if grep -qi "CRATE TABLE\|CREADE TABLE\|CREAT TABLE\|CREATE TABEL" "$file"; then
+        echo -e "${RED}❌ TYPO: Found common typo in CREATE TABLE statement${NC}"
+        errors=1
+    fi
+    
+    # Common typos for INSERT INTO
+    if grep -qi "INSER INTO\|INSERT ITO\|INSERT ITNO" "$file"; then
+        echo -e "${RED}❌ TYPO: Found common typo in INSERT INTO statement${NC}"
+        errors=1
+    fi
+    
+    # Common typos for SELECT FROM
+    if grep -qi "SELCT FROM\|SELECT FRM\|SELECT FORM" "$file"; then
+        echo -e "${RED}❌ TYPO: Found common typo in SELECT FROM statement${NC}"
+        errors=1
+    fi
+    
+    if [ $errors -eq 1 ]; then
         return 1
     fi
     
