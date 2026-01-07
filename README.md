@@ -41,20 +41,47 @@ Ajo Secure is a modern web application that solves traditional problems of ajo s
 
 ## 🚀 Quick Start
 
+### 🚨 Getting Registration/Login Issues? **FIXED!**
+
+**Recent fixes applied (Jan 2026):**
+- ✅ Fixed critical client-side Supabase initialization bug
+- ✅ Added environment validation tool
+- ✅ Improved error handling and user feedback
+
+**Quick fix if you have issues:**
+```bash
+# 1. Create environment file
+cp .env.local.example .env.local
+
+# 2. Edit .env.local with your Supabase credentials
+# Get from: https://supabase.com → Your Project → Settings → API
+
+# 3. Validate your setup
+npm run validate-env
+
+# 4. Start server
+npm run dev
+```
+
+📖 **Troubleshooting Guides:**
+- 🔧 **[QUICK_FIX_AUTH.md](./QUICK_FIX_AUTH.md)** - 5-minute fix for auth issues
+- 🔍 **[AUTHENTICATION_TROUBLESHOOTING.md](./AUTHENTICATION_TROUBLESHOOTING.md)** - Complete troubleshooting guide
+- 📋 **[ENV_SETUP.md](./ENV_SETUP.md)** - Complete environment variables guide
+
 ### 🚨 Getting 500 Errors or Login Issues?
 
 **Most common cause:** Missing or incorrect environment variables!
 
+👉 **See [QUICK_FIX_AUTH.md](./QUICK_FIX_AUTH.md)** - 5-minute fix guide
 👉 **See [ENV_SETUP.md](./ENV_SETUP.md)** - Complete environment variables guide
-👉 **See [SUPABASE_AUTH_MIGRATION.md](./SUPABASE_AUTH_MIGRATION.md)** - Auth migration details
 
 **Quick fix:**
 ```bash
 cp .env.local.example .env.local
 # Edit .env.local and set Supabase credentials and DATABASE_URL (required)
 
-# Verify your setup (optional but recommended)
-./scripts/verify-env.sh
+# Verify your setup
+npm run validate-env
 ```
 
 ### Automated Setup (Recommended)
