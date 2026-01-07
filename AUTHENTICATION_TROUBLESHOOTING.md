@@ -33,7 +33,7 @@ This guide helps you fix common registration and login issues in the Secured Ajo
 
 4. **Validate your environment:**
    ```bash
-   node scripts/validate-env.js
+   npm run validate-env
    ```
 
 5. **Restart the dev server:**
@@ -52,7 +52,7 @@ This guide helps you fix common registration and login issues in the Secured Ajo
 
 1. **Validate environment variables:**
    ```bash
-   node scripts/validate-env.js
+   npm run validate-env
    ```
 
 2. **Check if database schema is loaded:**
