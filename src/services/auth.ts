@@ -1,32 +1,9 @@
 // Authentication service using Supabase Auth
 import { User, SignUpFormData, LoginFormData } from '@/types';
-import { setCurrentUser, getCurrentUser } from './storage';
 import { createClient } from '@/lib/supabase/client';
 
-// Lazy initialization to avoid errors during SSR
-// Note: Only used for logout to sign out of Supabase Auth client-side.
-// Signup and login use API routes which handle Supabase server-side.
-let supabaseClient: ReturnType<typeof createClient> | null = null;
-
-function getSupabaseClient() {
-  if (typeof window === 'undefined') {
-    return null; // Don't initialize on server side
-  }
-  
-  if (!supabaseClient) {
-    try {
-      supabaseClient = createClient();
-    } catch (error) {
-      console.error('Failed to initialize Supabase client:', error);
-      return null;
-    }
-  }
-  
-  return supabaseClient;
-}
-
 // Signup function
-// Note: Calls API route which handles Supabase authentication server-side
+// Calls API route which handles Supabase authentication server-side
 export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
     const response = await fetch('/api/auth/signup', {
@@ -40,9 +17,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
     const result = await response.json();
     
     if (response.ok && result.success && result.data?.user) {
-      const user = result.data.user;
-      setCurrentUser(user);
-      return { success: true, user };
+      return { success: true, user: result.data.user };
     }
     
     return { success: false, error: result.error || 'Signup failed' };
@@ -53,7 +28,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
 };
 
 // Login function
-// Note: Calls API route which handles Supabase authentication server-side
+// Calls API route which handles Supabase authentication server-side
 export const login = async (data: LoginFormData): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
     const response = await fetch('/api/auth/login', {
@@ -67,9 +42,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     const result = await response.json();
     
     if (response.ok && result.success && result.data?.user) {
-      const user = result.data.user;
-      setCurrentUser(user);
-      return { success: true, user };
+      return { success: true, user: result.data.user };
     }
     
     return { success: false, error: result.error || 'Login failed' };
@@ -80,23 +53,16 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
 };
 
 // Logout function
-// Note: We call both the API route and Supabase signOut() to ensure:
-// 1. Server-side cleanup (API route may log the logout event)
-// 2. Client-side session cleanup (Supabase clears cookies)
+// Signs out from Supabase Auth client-side
 export const logout = async (): Promise<void> => {
   try {
-    await fetch('/api/auth/logout', {
-      method: 'POST',
-    });
+    const supabase = createClient();
+    await supabase.auth.signOut();
     
-    const supabase = getSupabaseClient();
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
+    // Call logout API to clean up any server-side state
+    await fetch('/api/auth/logout', { method: 'POST' });
   } catch (error) {
     console.error('Logout error:', error);
-  } finally {
-    setCurrentUser(null);
   }
 };
 
@@ -148,21 +114,6 @@ export const resendOTP = async (email: string): Promise<{ success: boolean; erro
   }
 };
 
-// Check if user is authenticated
-// Note: This checks client-side storage and should be considered as UI state only.
-// Actual authentication is enforced server-side via httpOnly cookies.
-export const isAuthenticated = (): boolean => {
-  if (typeof window === 'undefined') return false;
-  return getCurrentUser() !== null;
-};
-
-// Get authenticated user from client storage
-// Note: This is for UI display purposes only.
-// Server-side authentication is handled via httpOnly cookies in API routes.
-export const getAuthUser = (): User | null => {
-  return getCurrentUser();
-};
-
 // Update user profile
 export const updateUserProfile = async (updates: Partial<User>): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
@@ -177,9 +128,7 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
     const result = await response.json();
     
     if (response.ok && result.success && result.data) {
-      const updatedUser = result.data;
-      setCurrentUser(updatedUser);
-      return { success: true, user: updatedUser };
+      return { success: true, user: result.data };
     }
     
     return { success: false, error: result.error || 'Failed to update profile' };

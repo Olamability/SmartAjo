@@ -2,14 +2,15 @@
 -- SECURED AJO - SUPABASE DATABASE SCHEMA
 -- ============================================
 -- Complete deployment-ready schema for Supabase
--- Version: 2.0.0
+-- Version: 1.0.0
 -- PostgreSQL: 14+
--- Supabase Auth Compatible
+-- Supabase Compatible
 -- ============================================
 --
--- This schema uses Supabase Auth for authentication.
--- Users are created in auth.users via Supabase Auth API.
--- The 'users' table stores extended profile information.
+-- ⚠️ SECURITY WARNING ⚠️
+-- This schema includes a default admin user with a temporary password.
+-- YOU MUST CHANGE THE PASSWORD IMMEDIATELY after deployment!
+-- See SECTION 7 for details and change instructions.
 --
 -- ============================================
 
@@ -28,25 +29,14 @@ CREATE EXTENSION IF NOT EXISTS "btree_gin";        -- GIN index support
 -- ============================================
 
 -- ============================================
--- USERS TABLE (Profiles)
+-- USERS TABLE
 -- ============================================
--- This table stores additional user profile data
--- The id references Supabase auth.users(id)
--- Authentication is handled by Supabase Auth, not this table
--- 
--- ⚠️ CASCADE DELETE BEHAVIOR:
--- When a user is deleted from auth.users, all related data in this table
--- and other tables (via foreign keys) will be automatically deleted.
--- This is intentional for GDPR compliance and clean data removal.
--- If you need to preserve data for audit purposes, consider:
--- 1. Soft deletes (add deleted_at column)
--- 2. Archival process before deletion
--- 3. Audit logs table (already included in schema)
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) NOT NULL UNIQUE,
     phone VARCHAR(20) NOT NULL,
     full_name VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
     is_verified BOOLEAN DEFAULT FALSE,
     kyc_status VARCHAR(20) DEFAULT 'not_started' CHECK (kyc_status IN ('not_started', 'pending', 'verified', 'rejected')),
     bvn VARCHAR(11),
@@ -56,7 +46,9 @@ CREATE TABLE IF NOT EXISTS users (
     last_login_at TIMESTAMP WITH TIME ZONE,
     email_verified_at TIMESTAMP WITH TIME ZONE,
     phone_verified_at TIMESTAMP WITH TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE
+    is_active BOOLEAN DEFAULT TRUE,
+    failed_login_attempts INT DEFAULT 0,
+    locked_until TIMESTAMP WITH TIME ZONE
 );
 
 -- Indexes for users table
@@ -517,15 +509,12 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE kyc_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payment_webhooks ENABLE ROW LEVEL SECURITY;
 
--- Users: Can read and update their own data, and insert on signup
+-- Users: Can read and update their own data
 CREATE POLICY "Users can view their own data" ON users
     FOR SELECT USING (auth.uid()::uuid = id);
 
 CREATE POLICY "Users can update their own data" ON users
     FOR UPDATE USING (auth.uid()::uuid = id);
-
-CREATE POLICY "Users can insert their own profile" ON users
-    FOR INSERT WITH CHECK (auth.uid()::uuid = id);
 
 -- Groups: Members can read their groups, creators can manage
 CREATE POLICY "Users can view groups they belong to" ON groups
@@ -584,29 +573,35 @@ CREATE POLICY "Users can view their own audit logs" ON audit_logs
 -- SECTION 7: INITIAL SEED DATA
 -- ============================================
 
--- NOTE: Admin users should be created through Supabase Auth Dashboard
--- or using the Supabase Auth API with signUp()
--- Then their profile can be added to the users table manually or through the app
+-- Create system admin user
+-- ⚠️ IMPORTANT: Change the password immediately after deployment!
+-- Default credentials (FOR INITIAL SETUP ONLY):
+--   Email: admin@ajosecure.com
+--   Password: ChangeMe123!SecureAjo
+-- 
+-- To change the password after deployment, run:
+-- UPDATE users 
+-- SET password_hash = crypt('YourNewSecurePassword', gen_salt('bf'))
+-- WHERE email = 'admin@ajosecure.com';
 
--- Example: After creating an admin user in Supabase Auth, add their profile:
--- INSERT INTO users (id, email, phone, full_name, is_verified, kyc_status, is_active)
--- VALUES (
---     'auth-user-uuid-here',
---     'admin@ajosecure.com',
---     '+2348000000000',
---     'System Administrator',
---     TRUE,
---     'verified',
---     TRUE
--- );
+INSERT INTO users (email, phone, full_name, password_hash, is_verified, kyc_status, is_active)
+VALUES (
+    'admin@ajosecure.com',
+    '+2348000000000',
+    'System Administrator',
+    crypt('ChangeMe123!SecureAjo', gen_salt('bf')),
+    TRUE,
+    'verified',
+    TRUE
+) ON CONFLICT (email) DO NOTHING;
 
 -- ============================================
 -- SECTION 8: TABLE COMMENTS (Documentation)
 -- ============================================
 
-COMMENT ON TABLE users IS 'User profiles - extends Supabase auth.users with additional information';
+COMMENT ON TABLE users IS 'Stores user account information and authentication details';
 COMMENT ON TABLE email_verification_tokens IS 'Temporary tokens for email verification';
-COMMENT ON TABLE refresh_tokens IS 'JWT refresh tokens for session management (legacy, Supabase Auth handles this)';
+COMMENT ON TABLE refresh_tokens IS 'JWT refresh tokens for session management';
 COMMENT ON TABLE groups IS 'Savings group information and configuration';
 COMMENT ON TABLE group_members IS 'Tracks user membership and participation in groups';
 COMMENT ON TABLE contributions IS 'Records all contributions made by group members';

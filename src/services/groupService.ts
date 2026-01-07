@@ -1,16 +1,24 @@
 // Group management service with backend API integration
 import { Group, CreateGroupFormData, Contribution } from '@/types';
 import { api } from './api';
-import { getAuthUser } from './auth';
+
+/**
+ * Authentication Note:
+ * All functions in this service rely on server-side authentication.
+ * Authentication is handled automatically via:
+ * 1. Supabase session cookies (httpOnly) sent with each request
+ * 2. Middleware that refreshes sessions (middleware.ts)
+ * 3. API routes that verify auth via createClient() server-side
+ * 4. RLS policies that enforce data access rules at database level
+ * 
+ * No client-side auth checks are needed - the backend will return
+ * 401/403 if the user is not authenticated or authorized.
+ */
 
 
 export const createGroup = async (data: CreateGroupFormData): Promise<{ success: boolean; group?: Group; error?: string }> => {
   try {
-    const currentUser = getAuthUser();
-    if (!currentUser) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
+    // Authentication is handled by the API via Supabase session cookies
     const response = await api.post<Group>('/groups', data);
 
     if (response.success && response.data) {
@@ -27,11 +35,7 @@ export const createGroup = async (data: CreateGroupFormData): Promise<{ success:
 
 export const joinGroup = async (groupId: string): Promise<{ success: boolean; group?: Group; error?: string }> => {
   try {
-    const currentUser = getAuthUser();
-    if (!currentUser) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
+    // Authentication is handled by the API via Supabase session cookies
     const response = await api.post<Group>(`/groups/${groupId}/join`);
 
     if (response.success && response.data) {
@@ -48,11 +52,7 @@ export const joinGroup = async (groupId: string): Promise<{ success: boolean; gr
 
 export const paySecurityDeposit = async (groupId: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    const currentUser = getAuthUser();
-    if (!currentUser) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
+    // Authentication is handled by the API via Supabase session cookies
     const response = await api.post(`/groups/${groupId}/security-deposit`);
 
     if (response.success) {
@@ -69,11 +69,7 @@ export const paySecurityDeposit = async (groupId: string): Promise<{ success: bo
 
 export const makeContribution = async (contributionId: string): Promise<{ success: boolean; error?: string }> => {
   try {
-    const currentUser = getAuthUser();
-    if (!currentUser) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
+    // Authentication is handled by the API via Supabase session cookies
     const response = await api.post(`/contributions/${contributionId}/pay`);
 
     if (response.success) {
@@ -89,9 +85,7 @@ export const makeContribution = async (contributionId: string): Promise<{ succes
 
 export const getMyGroups = async (): Promise<Group[]> => {
   try {
-    const currentUser = getAuthUser();
-    if (!currentUser) return [];
-
+    // Authentication is handled by the API via Supabase session cookies
     const response = await api.get<Group[]>('/groups/my-groups');
 
     if (response.success && response.data) {
