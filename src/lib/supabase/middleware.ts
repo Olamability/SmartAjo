@@ -33,6 +33,9 @@ export async function updateSession(request: NextRequest) {
   // supabase.auth.getUser(). A simple mistake could make it very hard to debug
   // issues with users being randomly logged out.
 
+  // Retrieve user to refresh session (required for session persistence)
+  // Note: The user object is not used here but the getUser() call is essential
+  // for maintaining the session and refreshing tokens automatically
   const {
     data: { user },
   } = await supabase.auth.getUser();

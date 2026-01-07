@@ -1,6 +1,11 @@
 import bcrypt from 'bcryptjs';
 import { createClient } from '@/lib/supabase/server';
 
+// Password hashing utilities
+// Note: These are kept for backward compatibility and potential future use cases
+// (e.g., additional password verification, admin password resets, etc.)
+// Supabase Auth handles password hashing for standard authentication flows
+
 // Hash password
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);

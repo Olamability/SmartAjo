@@ -58,6 +58,9 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
 };
 
 // Logout function
+// Note: We call both the API route and Supabase signOut() to ensure:
+// 1. Server-side cleanup (API route may log the logout event)
+// 2. Client-side session cleanup (Supabase clears cookies)
 export const logout = async (): Promise<void> => {
   try {
     await fetch('/api/auth/logout', {
