@@ -43,7 +43,7 @@ export default function SignUpPage() {
     try {
       // Remove confirmPassword before sending to API
       const { confirmPassword, ...signupData } = data;
-      const result = await signUp(signupData as unknown as SignUpFormData);
+      const result = await signUp(signupData as SignUpFormData);
 
       if (result.success && result.user) {
         setUser(result.user);
