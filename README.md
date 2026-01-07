@@ -18,7 +18,7 @@ Ajo Secure is a modern web application that solves traditional problems of ajo s
 
 ### Core Features
 - ✅ User registration & email verification (OTP-based)
-- ✅ JWT authentication with httpOnly cookies
+- ✅ **Supabase Auth** for secure authentication
 - ✅ Group creation with customizable rules
 - ✅ Secure contribution management
 - ✅ Automated payout distribution
@@ -31,9 +31,9 @@ Ajo Secure is a modern web application that solves traditional problems of ajo s
 - ✅ **Full-stack Next.js** with App Router
 - ✅ **Server-side API routes** for all sensitive operations
 - ✅ **PostgreSQL database** (Supabase compatible)
+- ✅ **Supabase Auth** for authentication and session management
 - ✅ **Paystack payment integration** with webhook verification
 - ✅ **bcrypt password hashing**
-- ✅ **JWT with httpOnly cookies**
 - ✅ **Rate limiting** to prevent abuse
 - ✅ **Input validation** with Zod schemas
 - ✅ **Security headers** configured
@@ -46,11 +46,12 @@ Ajo Secure is a modern web application that solves traditional problems of ajo s
 **Most common cause:** Missing or incorrect environment variables!
 
 👉 **See [ENV_SETUP.md](./ENV_SETUP.md)** - Complete environment variables guide
+👉 **See [SUPABASE_AUTH_MIGRATION.md](./SUPABASE_AUTH_MIGRATION.md)** - Auth migration details
 
 **Quick fix:**
 ```bash
 cp .env.local.example .env.local
-# Edit .env.local and set DATABASE_URL and JWT_SECRET (minimum required)
+# Edit .env.local and set Supabase credentials and DATABASE_URL (required)
 
 # Verify your setup (optional but recommended)
 ./scripts/verify-env.sh
@@ -88,12 +89,12 @@ cd secured-ajo
 npm install
 
 # 2. Set up database (PostgreSQL or Supabase)
-# Import database/schema.sql into your PostgreSQL database
+# Import database/schema.sql into your Supabase SQL Editor or PostgreSQL database
 
 # 3. Configure environment variables (REQUIRED!)
 cp .env.local.example .env.local
 # Edit .env.local - See ENV_SETUP.md for what to set
-# Minimum required: DATABASE_URL and JWT_SECRET
+# Minimum required: Supabase credentials and DATABASE_URL
 
 # 4. Start development server
 npm run dev
