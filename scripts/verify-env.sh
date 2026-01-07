@@ -138,12 +138,12 @@ echo "6️⃣  Testing database connection..."
 if [ -n "$DATABASE_URL" ]; then
     # Check if psql is available
     if command -v psql &> /dev/null; then
-        if psql "$DATABASE_URL" -c "SELECT 1;" &> /dev/null; then
+        if psql "$DATABASE_URL" -c "SELECT 1;" &> /dev/null 2>&1; then
             echo -e "${GREEN}✓ Database connection successful${NC}"
         else
-            echo -e "${RED}✗ Cannot connect to database${NC}"
-            echo -e "${YELLOW}  Make sure PostgreSQL is running and DATABASE_URL is correct${NC}"
-            ALL_CHECKS_PASSED=false
+            echo -e "${YELLOW}⚠ Cannot connect to database${NC}"
+            echo -e "${YELLOW}  This is OK if the database isn't running yet${NC}"
+            echo -e "${YELLOW}  The app will test the connection when it starts${NC}"
         fi
     else
         echo -e "${YELLOW}○ psql not found, skipping connection test${NC}"
@@ -151,6 +151,7 @@ if [ -n "$DATABASE_URL" ]; then
     fi
 else
     echo -e "${RED}✗ DATABASE_URL not set, cannot test connection${NC}"
+    ALL_CHECKS_PASSED=false
 fi
 echo ""
 
