@@ -33,7 +33,7 @@ class ErrorBoundary extends Component<Props, State> {
     });
 
     // In production, send error to monitoring service
-    if (import.meta.env.PROD) {
+    if (process.env.NODE_ENV === 'production') {
       // Example: Send to Sentry, LogRocket, etc.
       // Sentry.captureException(error, { extra: errorInfo });
     }
@@ -68,7 +68,7 @@ class ErrorBoundary extends Component<Props, State> {
               We're sorry, but something unexpected happened. Please try again.
             </p>
 
-            {import.meta.env.DEV && this.state.error && (
+            {process.env.NODE_ENV === 'development' && this.state.error && (
               <div className="mb-4 p-4 bg-gray-100 rounded-md">
                 <p className="text-sm font-semibold text-gray-900 mb-2">
                   Error Details (Development Only):

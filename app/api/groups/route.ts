@@ -9,14 +9,14 @@ import {
   unauthorizedResponse,
   serverErrorResponse 
 } from '@/lib/server/apiResponse';
-import { rateLimit } from '@/lib/server/rateLimit';
+import { apiRateLimiter } from '@/lib/server/rateLimit';
 
 // POST /api/groups - Create a new group
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = await rateLimit(request);
-    if (!rateLimitResult.success) {
+    const rateLimitResult = await apiRateLimiter(request);
+    if (rateLimitResult) {
       return errorResponse('Too many requests. Please try again later.', 429);
     }
 
@@ -141,8 +141,8 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Rate limiting
-    const rateLimitResult = await rateLimit(request);
-    if (!rateLimitResult.success) {
+    const rateLimitResult = await apiRateLimiter(request);
+    if (rateLimitResult) {
       return errorResponse('Too many requests. Please try again later.', 429);
     }
 

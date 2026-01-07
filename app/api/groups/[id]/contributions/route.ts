@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { query } from '@/lib/server/db';
 import { authenticateRequest } from '@/lib/server/auth';
 import { apiResponse, apiError } from '@/lib/server/apiResponse';
-import { rateLimit } from '@/lib/server/rateLimit';
+import { apiRateLimiter } from '@/lib/server/rateLimit';
 
 // GET /api/groups/[id]/contributions - Get group contributions
 export async function GET(
@@ -10,9 +10,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const rateLimitResult = await rateLimit(request);
-    if (!rateLimitResult.success) {
-      return apiError('Too many requests. Please try again later.', 429);
+    const rateLimitResult = await apiRateLimiter(request);
+    if (rateLimitResult) {
+      return rateLimitResult;
     }
 
     const groupId = params.id;

@@ -28,5 +28,5 @@
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "src/main.tsx", "src/App.tsx", "src/vite-env.d.ts", "src/pages/**/*", "src/services/http.ts", "src/services/api.ts"]
 }
