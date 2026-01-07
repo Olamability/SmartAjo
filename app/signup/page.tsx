@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 import { signUp } from '@/services/auth';
+import { SignUpFormData } from '@/types';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -26,21 +27,23 @@ const signUpSchema = z.object({
   path: ['confirmPassword'],
 });
 
-type SignUpFormData = z.infer<typeof signUpSchema>;
+type SignUpForm = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { setUser } = useAuth();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<SignUpFormData>({
+  const { register, handleSubmit, formState: { errors } } = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
   });
 
-  const onSubmit = async (data: SignUpFormData) => {
+  const onSubmit = async (data: SignUpForm) => {
     setIsLoading(true);
     try {
-      const result = await signUp(data);
+      // Remove confirmPassword before sending to API
+      const { confirmPassword, ...signupData } = data;
+      const result = await signUp(signupData as SignUpFormData);
 
       if (result.success && result.user) {
         setUser(result.user);

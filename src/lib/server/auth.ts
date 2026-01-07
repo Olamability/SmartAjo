@@ -129,3 +129,16 @@ export function getOTPExpiry(): Date {
   expiry.setMinutes(expiry.getMinutes() + 10);
   return expiry;
 }
+
+// Authenticate request and return user from cookies
+export async function authenticateRequest(): Promise<{ authenticated: boolean; user?: JWTPayload }> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return { authenticated: false };
+    }
+    return { authenticated: true, user };
+  } catch (error) {
+    return { authenticated: false };
+  }
+}

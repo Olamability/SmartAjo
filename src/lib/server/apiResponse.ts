@@ -79,3 +79,13 @@ export function serverErrorResponse(message: string = 'Internal server error') {
     { status: 500 }
   );
 }
+
+// Alias for successResponse
+export function apiResponse<T>(data: T, message?: string, status: number = 200) {
+  return successResponse(data, message, status);
+}
+
+// Alias for errorResponse
+export function apiError(error: string, status: number = 400, details?: any) {
+  return errorResponse(error, status, details);
+}
