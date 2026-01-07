@@ -80,7 +80,9 @@ echo ""
 
 # Load environment variables from .env.local
 echo "2️⃣  Loading environment variables..."
-export $(grep -v '^#' .env.local | xargs)
+set -o allexport
+source .env.local
+set +o allexport
 echo -e "${GREEN}✓ Environment variables loaded${NC}"
 echo ""
 
@@ -138,7 +140,7 @@ echo "6️⃣  Testing database connection..."
 if [ -n "$DATABASE_URL" ]; then
     # Check if psql is available
     if command -v psql &> /dev/null; then
-        if psql "$DATABASE_URL" -c "SELECT 1;" &> /dev/null 2>&1; then
+        if psql "$DATABASE_URL" -c "SELECT 1;" > /dev/null 2>&1; then
             echo -e "${GREEN}✓ Database connection successful${NC}"
         else
             echo -e "${YELLOW}⚠ Cannot connect to database${NC}"
