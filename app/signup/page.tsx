@@ -14,7 +14,6 @@ import { Shield, Loader2 } from 'lucide-react';
 import { signUp } from '@/services/auth';
 import { SignUpFormData } from '@/types';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
@@ -32,7 +31,6 @@ type SignUpForm = z.infer<typeof signUpSchema>;
 export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { setUser } = useAuth();
 
   const { register, handleSubmit, formState: { errors } } = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
@@ -45,9 +43,9 @@ export default function SignUpPage() {
       const { confirmPassword, ...signupData } = data;
       const result = await signUp(signupData as SignUpFormData);
 
-      if (result.success && result.user) {
-        setUser(result.user);
+      if (result.success) {
         toast.success('Account created successfully!');
+        // Auth state change will update the context automatically
         router.push('/dashboard');
       } else {
         toast.error(result.error || 'Failed to create account');

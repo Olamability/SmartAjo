@@ -14,7 +14,6 @@ import { Shield, Loader2 } from 'lucide-react';
 import { login } from '@/services/auth';
 import { LoginFormData } from '@/types';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -26,7 +25,6 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const { setUser } = useAuth();
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -38,9 +36,9 @@ export default function LoginPage() {
       // Form validation ensures all required fields are present
       const result = await login(data as LoginFormData);
 
-      if (result.success && result.user) {
-        setUser(result.user);
+      if (result.success) {
         toast.success('Welcome back!');
+        // Auth state change will update the context automatically
         router.push('/dashboard');
       } else {
         toast.error(result.error || 'Failed to log in');
