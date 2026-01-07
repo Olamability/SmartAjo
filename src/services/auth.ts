@@ -3,9 +3,30 @@ import { User, SignUpFormData, LoginFormData } from '@/types';
 import { setCurrentUser, getCurrentUser } from './storage';
 import { createClient } from '@/lib/supabase/client';
 
-const supabase = createClient();
+// Lazy initialization to avoid errors during SSR
+// Note: Only used for logout to sign out of Supabase Auth client-side.
+// Signup and login use API routes which handle Supabase server-side.
+let supabaseClient: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseClient() {
+  if (typeof window === 'undefined') {
+    return null; // Don't initialize on server side
+  }
+  
+  if (!supabaseClient) {
+    try {
+      supabaseClient = createClient();
+    } catch (error) {
+      console.error('Failed to initialize Supabase client:', error);
+      return null;
+    }
+  }
+  
+  return supabaseClient;
+}
 
 // Signup function
+// Note: Calls API route which handles Supabase authentication server-side
 export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
     const response = await fetch('/api/auth/signup', {
@@ -32,6 +53,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
 };
 
 // Login function
+// Note: Calls API route which handles Supabase authentication server-side
 export const login = async (data: LoginFormData): Promise<{ success: boolean; user?: User; error?: string }> => {
   try {
     const response = await fetch('/api/auth/login', {
@@ -66,7 +88,11 @@ export const logout = async (): Promise<void> => {
     await fetch('/api/auth/logout', {
       method: 'POST',
     });
-    await supabase.auth.signOut();
+    
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      await supabase.auth.signOut();
+    }
   } catch (error) {
     console.error('Logout error:', error);
   } finally {

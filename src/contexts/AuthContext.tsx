@@ -19,7 +19,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
 
   const refreshUser = () => {
     const currentUser = getAuthUser();
@@ -37,18 +36,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setLoading(false);
 
     // Listen for Supabase auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUser(null);
-      } else if (event === 'SIGNED_IN' && session?.user) {
-        // Session is managed, but we still rely on our backend for user details
-        refreshUser();
-      }
-    });
+    try {
+      const supabase = createClient();
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+        } else if (event === 'SIGNED_IN' && session?.user) {
+          // Session is managed, but we still rely on our backend for user details
+          refreshUser();
+        }
+      });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+      return () => {
+        subscription.unsubscribe();
+      };
+    } catch (error) {
+      console.error('Failed to initialize Supabase auth listener:', error);
+      // Continue without auth state listener - app will still work with manual refresh
+      setLoading(false);
+    }
   }, []);
 
   const value = {
