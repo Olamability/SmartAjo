@@ -97,6 +97,17 @@ export async function POST(req: NextRequest) {
     );
   } catch (error) {
     console.error('Signup error:', error);
+    
+    // Provide helpful error messages for common configuration issues
+    if (error instanceof Error) {
+      if (error.message.includes('DATABASE_URL')) {
+        return serverErrorResponse('Database configuration error. Please contact support.');
+      }
+      if (error.message.includes('Missing Supabase environment variables')) {
+        return serverErrorResponse('Authentication service configuration error. Please contact support.');
+      }
+    }
+    
     return serverErrorResponse('Failed to create user');
   }
 }
