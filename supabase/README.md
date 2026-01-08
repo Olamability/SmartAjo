@@ -4,8 +4,20 @@ This directory contains the complete Supabase database schema and configuration 
 
 ## 📁 Files
 
-- **`schema.sql`** - Complete database schema with tables, indexes, triggers, functions, and RLS policies
-- **`storage.sql`** - Storage bucket configuration and policies for file uploads
+### Core Schema Files
+- **`schema.sql`** (810 lines) - Complete database schema with tables, indexes, triggers, functions, and RLS policies
+- **`storage.sql`** (238 lines) - Storage bucket configuration and policies for file uploads
+
+### Advanced Features (New)
+- **`views.sql`** (400+ lines) - Database views for common queries and reporting
+- **`functions.sql`** (700+ lines) - Utility functions for business logic and calculations
+- **`triggers.sql`** (600+ lines) - Additional triggers for business automation
+- **`scheduled-jobs.sql`** (400+ lines) - Automated scheduled jobs using pg_cron
+- **`realtime.sql`** (400+ lines) - Realtime configuration for live updates
+
+### Documentation
+- **`ARCHITECTURE.md`** - Detailed architecture documentation
+- **`MIGRATION.md`** - Database migration guide
 - **`README.md`** - This setup guide
 
 ## 🚀 Quick Start
@@ -36,6 +48,32 @@ This directory contains the complete Supabase database schema and configuration 
 6. Verify tables were created:
    - Go to **Table Editor**
    - You should see: users, groups, group_members, contributions, payouts, penalties, transactions, notifications, audit_logs, email_verification_tokens
+
+### Step 2.5: Run Advanced Features (New!)
+
+After running the core schema, run these additional SQL files in order:
+
+1. **Run `views.sql`** - Creates database views for common queries
+   - Paste contents in SQL Editor and run
+   - Verify by running: `SELECT * FROM active_groups_summary LIMIT 5;`
+
+2. **Run `functions.sql`** - Adds utility functions for business logic
+   - Paste contents in SQL Editor and run
+   - Verify by running: `SELECT generate_payment_reference('TEST');`
+
+3. **Run `triggers.sql`** - Adds additional triggers for automation
+   - Paste contents in SQL Editor and run
+   - Triggers will now automatically create notifications
+
+4. **Run `realtime.sql`** - Configures realtime subscriptions
+   - Paste contents in SQL Editor and run
+   - Verify by checking: `SELECT * FROM pg_publication_tables WHERE pubname = 'supabase_realtime';`
+
+5. **Run `scheduled-jobs.sql`** (Optional - requires Supabase Pro plan)
+   - Enables pg_cron extension in Database > Extensions first
+   - Paste contents in SQL Editor and run
+   - Verify by running: `SELECT * FROM cron_jobs_status;`
+   - Note: If on free tier, skip this and use Edge Functions instead (see file for details)
 
 ### Step 3: Configure Storage
 
