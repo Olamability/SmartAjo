@@ -674,6 +674,7 @@ CREATE OR REPLACE FUNCTION send_payment_reminders()
 RETURNS INTEGER AS $$
 DECLARE
   v_count INTEGER := 0;
+  v_rows  INTEGER;
 BEGIN
   -- Send reminders for payments due in 2 days
   INSERT INTO notifications (
@@ -687,22 +688,26 @@ BEGIN
     c.user_id,
     'contribution_due',
     'Payment Due Soon',
-    'Your contribution for ' || g.name || ' is due in 2 days (₦' || c.amount || ').',
+    'Your contribution for ' || g.name || 
+    ' is due in 2 days (₦' || c.amount || ').',
     c.group_id
   FROM contributions c
   JOIN groups g ON c.group_id = g.id
   WHERE c.status = 'pending'
     AND c.due_date::date = (CURRENT_DATE + INTERVAL '2 days')::date
     AND NOT EXISTS (
-      SELECT 1 FROM notifications n
+      SELECT 1
+      FROM notifications n
       WHERE n.user_id = c.user_id
         AND n.related_group_id = c.group_id
         AND n.type = 'contribution_due'
         AND n.created_at > NOW() - INTERVAL '1 day'
     );
-  
-  GET DIAGNOSTICS v_count = ROW_COUNT;
-  
+
+  -- Capture affected rows
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  v_count := v_count + v_rows;
+
   -- Send overdue reminders
   INSERT INTO notifications (
     user_id,
@@ -715,28 +720,32 @@ BEGIN
     c.user_id,
     'contribution_reminder',
     'Payment Overdue',
-    'Your contribution for ' || g.name || ' is now overdue. Please pay to avoid additional penalties.',
+    'Your contribution for ' || g.name || 
+    ' is now overdue. Please pay to avoid additional penalties.',
     c.group_id
   FROM contributions c
   JOIN groups g ON c.group_id = g.id
   WHERE c.status = 'pending'
     AND c.due_date < NOW()
     AND NOT EXISTS (
-      SELECT 1 FROM notifications n
+      SELECT 1
+      FROM notifications n
       WHERE n.user_id = c.user_id
         AND n.related_group_id = c.group_id
         AND n.type = 'contribution_reminder'
         AND n.created_at > NOW() - INTERVAL '1 day'
     );
-  
-  GET DIAGNOSTICS v_count = v_count + ROW_COUNT;
-  
+
+  -- Capture affected rows again
+  GET DIAGNOSTICS v_rows = ROW_COUNT;
+  v_count := v_count + v_rows;
+
   RETURN v_count;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION send_payment_reminders IS 
-  'Sends payment reminder notifications for upcoming and overdue payments';
+COMMENT ON FUNCTION send_payment_reminders IS
+'Sends payment reminder notifications for upcoming and overdue payments';
 
 -- ============================================================================
 -- END OF FUNCTIONS
