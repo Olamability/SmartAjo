@@ -7,7 +7,8 @@ import {
   USER_DATA_FETCH_TIMEOUT, 
   DB_WRITE_TIMEOUT 
 } from '@/lib/constants/timeout';
-import { POSTGRES_ERROR_CODES, convertKycStatus } from '@/lib/constants/database';
+import { convertKycStatus } from '@/lib/constants/database';
+import { ensureUserProfile } from '@/lib/utils/profile';
 
 // Signup function
 // Uses Supabase Auth directly for authentication
@@ -204,52 +205,18 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
 
     let { data: userData, error: fetchError } = fetchResponse;
 
-    // If user profile doesn't exist, try to create it from auth metadata
+    // If user profile doesn't exist, try to create it using shared utility
     if (fetchError || !userData) {
       console.warn('User profile not found, attempting to create from auth metadata:', fetchError?.message);
       
-      const authUser = authData.user;
-      const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
-      const phone = authUser.user_metadata?.phone || '';
-      const userEmail = authUser.email || '';
-      
-      if (!userEmail) {
-        console.error('Auth user has no email address');
-        return { success: false, error: 'User account is missing email address. Please contact support.' };
-      }
-      
       try {
-        const insertPromise = supabase
-          .from('users')
-          .insert({
-            id: authUser.id,
-            email: userEmail,
-            phone: phone,
-            full_name: fullName,
-            is_verified: authUser.email_confirmed_at ? true : false,
-            is_active: true,
-            kyc_status: 'not_started',
-          })
-          .select()
-          .single();
+        await ensureUserProfile(supabase, authData.user);
         
-        const insertResponse = await withTimeout(
-          insertPromise as unknown as Promise<any>,
-          DB_WRITE_TIMEOUT,
-          'Failed to create user profile.'
-        );
-
-        // Ignore duplicate key errors (profile might exist now)
-        if (insertResponse.error && insertResponse.error.code !== POSTGRES_ERROR_CODES.UNIQUE_VIOLATION) {
-          console.error('Failed to create missing profile:', insertResponse.error);
-          return { success: false, error: 'Failed to load user profile. Please contact support.' };
-        }
-
-        // If insert succeeded or profile already exists, try fetching again
+        // Try fetching again after creating profile
         const refetchPromise = supabase
           .from('users')
           .select('*')
-          .eq('id', authUser.id)
+          .eq('id', authData.user.id)
           .single();
         
         const refetchResponse = await withTimeout(

@@ -10,7 +10,8 @@ import {
 import { createClient } from '@/lib/client/supabase';
 import { User } from '@/types';
 import { retryWithBackoff } from '@/lib/utils';
-import { POSTGRES_ERROR_CODES, convertKycStatus } from '@/lib/constants/database';
+import { convertKycStatus } from '@/lib/constants/database';
+import { ensureUserProfile } from '@/lib/utils/profile';
 
 interface AuthContextType {
   user: User | null;
@@ -140,37 +141,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (profileError) {
         console.error('Failed to load profile after login, attempting to create:', profileError);
         
-        // If profile doesn't exist, try to create it from auth metadata
-        const authUser = data.user;
-        const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
-        const phone = authUser.user_metadata?.phone || '';
-        const userEmail = authUser.email || '';
-        
-        if (!userEmail) {
-          throw new Error('User account is missing email address. Please contact support.');
-        }
-        
+        // If profile doesn't exist, try to create it using shared utility
         try {
-          const { error: insertError } = await supabase.from('users').insert({
-            id: authUser.id,
-            email: userEmail,
-            full_name: fullName,
-            phone: phone,
-            is_verified: authUser.email_confirmed_at ? true : false,
-            is_active: true,
-            kyc_status: 'not_started',
-          });
-          
-          // Ignore duplicate key errors (profile might have been created concurrently)
-          if (insertError) {
-            const isDuplicateError = insertError.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION;
-            if (!isDuplicateError) {
-              throw insertError;
-            }
-          }
+          await ensureUserProfile(supabase, data.user);
           
           // Try loading profile again
-          await loadUserProfile(authUser.id);
+          await loadUserProfile(data.user.id);
         } catch (createError) {
           console.error('Failed to create missing profile:', createError);
           throw new Error('Unable to access user profile. Please contact support.');
