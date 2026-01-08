@@ -25,9 +25,9 @@ export class AuthError extends Error {
  * Error thrown when a user profile is not found
  */
 export class ProfileNotFoundError extends AuthError {
-  constructor(userId: string) {
+  constructor(public userId: string) {
     super(
-      'User profile not found',
+      `User profile not found for user: ${userId}`,
       'PROFILE_NOT_FOUND',
       404
     );

@@ -37,7 +37,10 @@ export async function ensureUserProfile(
   // Create profile from auth metadata
   const userEmail = authUser.email!; // We validated this above
   const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
-  const phone = authUser.user_metadata?.phone || '';
+  
+  // Phone is required (NOT NULL in schema)
+  // Generate temporary unique phone if not provided
+  const phone = authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`;
   
   const { error } = await supabase.from('users').insert({
     id: authUser.id,

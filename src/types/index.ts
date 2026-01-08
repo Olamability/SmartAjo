@@ -7,24 +7,33 @@ export interface User {
   fullName: string;
   createdAt: string;
   isVerified: boolean;
+  isActive?: boolean;
   kycStatus: 'not_started' | 'pending' | 'verified' | 'rejected';
+  kycData?: Record<string, any>;
   bvn?: string;
   profileImage?: string;
+  dateOfBirth?: string;
+  address?: string;
+  updatedAt?: string;
+  lastLoginAt?: string;
 }
 
 export interface Group {
   id: string;
   name: string;
   description: string;
+  createdBy: string;
   contributionAmount: number;
   frequency: 'daily' | 'weekly' | 'monthly';
   totalMembers: number;
   currentMembers: number;
   securityDepositAmount: number;
   securityDepositPercentage: number; // Percentage of contribution
-  status: 'forming' | 'active' | 'completed' | 'cancelled';
+  status: 'forming' | 'active' | 'paused' | 'completed' | 'cancelled';
   createdAt: string;
+  updatedAt?: string;
   startDate?: string;
+  endDate?: string;
   currentCycle: number;
   totalCycles: number;
   rotationOrder: string[]; // Array of user IDs
@@ -52,25 +61,31 @@ export interface Contribution {
   groupId: string;
   userId: string;
   amount: number;
-  cycle: number;
+  cycleNumber: number;
   status: 'pending' | 'paid' | 'late' | 'missed';
   dueDate: string;
   paidDate?: string;
   penalty: number;
   serviceFee: number;
+  isOverdue?: boolean;
   transactionRef?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Payout {
   id: string;
-  groupId: string;
-  userId: string;
-  cycle: number;
+  relatedGroupId: string; // SQL: related_group_id
+  recipientId: string; // SQL: recipient_id
+  cycleNumber: number;
   amount: number;
-  status: 'pending' | 'processed' | 'failed';
-  scheduledDate: string;
-  processedDate?: string;
-  transactionRef?: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  payoutDate?: string;
+  paymentMethod?: string;
+  paymentReference?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Transaction {
@@ -91,20 +106,25 @@ export interface Penalty {
   userId: string;
   contributionId: string;
   amount: number;
-  reason: 'late_payment' | 'missed_payment' | 'default';
+  type: 'late_payment' | 'missed_payment' | 'early_exit'; // SQL: type field
+  status: 'unpaid' | 'paid' | 'waived';
   appliedAt: string;
-  status: 'applied' | 'waived';
 }
 
 export interface Notification {
   id: string;
   userId: string;
-  type: 'payment_due' | 'payment_received' | 'payout_ready' | 'penalty_applied' | 'group_complete';
+  type: 'payment_due' | 'payment_received' | 'payment_overdue' | 
+        'payout_ready' | 'payout_processed' | 
+        'penalty_applied' | 'group_complete' | 'group_started' |
+        'member_joined' | 'member_removed' | 'system_announcement';
   title: string;
   message: string;
-  read: boolean;
+  isRead: boolean; // SQL: is_read
+  readAt?: string;
   createdAt: string;
-  groupId?: string;
+  relatedGroupId?: string; // SQL: related_group_id
+  relatedTransactionId?: string; // SQL: related_transaction_id
 }
 
 // Form types
