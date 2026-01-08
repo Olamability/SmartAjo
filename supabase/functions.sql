@@ -235,7 +235,7 @@ BEGIN
   
   -- Create or update payout record
   INSERT INTO payouts (
-    group_id,
+    related_group_id,
     cycle_number,
     recipient_id,
     amount,
@@ -249,7 +249,7 @@ BEGIN
     'pending',
     NOW()
   )
-  ON CONFLICT (group_id, cycle_number)
+  ON CONFLICT (related_group_id, cycle_number)
   DO UPDATE SET
     status = 'pending',
     amount = v_payout_amount,
@@ -262,10 +262,10 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   ) VALUES (
     v_recipient_id,
-    'payout_ready',
+    'payout_received',
     'Payout Ready!',
     'Your payout for cycle ' || v_current_cycle || ' is ready for processing.',
     p_group_id
@@ -388,11 +388,11 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   )
   SELECT 
     user_id,
-    'payment_due',
+    'contribution_due',
     'Payment Due',
     'Your contribution for cycle ' || p_cycle_number || ' is due on ' || 
       TO_CHAR(v_due_date, 'Mon DD, YYYY'),
@@ -467,7 +467,7 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     ) VALUES (
       v_contribution.user_id,
       'penalty_applied',
@@ -681,11 +681,11 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   )
   SELECT 
     c.user_id,
-    'payment_due',
+    'contribution_due',
     'Payment Due Soon',
     'Your contribution for ' || g.name || ' is due in 2 days (₦' || c.amount || ').',
     c.group_id
@@ -696,8 +696,8 @@ BEGIN
     AND NOT EXISTS (
       SELECT 1 FROM notifications n
       WHERE n.user_id = c.user_id
-        AND n.group_id = c.group_id
-        AND n.type = 'payment_due'
+        AND n.related_group_id = c.group_id
+        AND n.type = 'contribution_due'
         AND n.created_at > NOW() - INTERVAL '1 day'
     );
   
@@ -709,11 +709,11 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   )
   SELECT 
     c.user_id,
-    'payment_overdue',
+    'contribution_reminder',
     'Payment Overdue',
     'Your contribution for ' || g.name || ' is now overdue. Please pay to avoid additional penalties.',
     c.group_id
@@ -724,8 +724,8 @@ BEGIN
     AND NOT EXISTS (
       SELECT 1 FROM notifications n
       WHERE n.user_id = c.user_id
-        AND n.group_id = c.group_id
-        AND n.type = 'payment_overdue'
+        AND n.related_group_id = c.group_id
+        AND n.type = 'contribution_reminder'
         AND n.created_at > NOW() - INTERVAL '1 day'
     );
   

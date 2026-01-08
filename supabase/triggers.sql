@@ -36,10 +36,10 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     ) VALUES (
       NEW.user_id,
-      'payment_received',
+      'contribution_paid',
       'Payment Received',
       'Your contribution of ₦' || NEW.amount || ' for ' || v_group_name || ' has been received.',
       NEW.group_id
@@ -52,10 +52,10 @@ BEGIN
         type,
         title,
         message,
-        group_id
+        related_group_id
       ) VALUES (
         v_group_creator,
-        'payment_received',
+        'contribution_paid',
         'Member Payment Received',
         v_user_name || ' has paid their contribution of ₦' || NEW.amount || ' for ' || v_group_name || '.',
         NEW.group_id
@@ -146,7 +146,7 @@ BEGIN
   -- Get group name
   SELECT name INTO v_group_name
   FROM groups
-  WHERE id = NEW.group_id;
+  WHERE id = NEW.related_group_id;
   
   -- Notify on status change to 'completed'
   IF OLD.status != 'completed' AND NEW.status = 'completed' THEN
@@ -155,13 +155,13 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     ) VALUES (
       NEW.recipient_id,
-      'payout_ready',
+      'payout_received',
       'Payout Completed!',
       'Your payout of ₦' || NEW.amount || ' for ' || v_group_name || ' has been processed successfully.',
-      NEW.group_id
+      NEW.related_group_id
     );
     
     -- Create audit log
@@ -177,7 +177,7 @@ BEGIN
       'payout',
       NEW.id::text,
       jsonb_build_object(
-        'group_id', NEW.group_id,
+        'group_id', NEW.related_group_id,
         'cycle_number', NEW.cycle_number,
         'amount', NEW.amount
       )
@@ -191,13 +191,13 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     ) VALUES (
       NEW.recipient_id,
-      'payout_failed',
+      'general',
       'Payout Failed',
       'There was an issue processing your payout for ' || v_group_name || '. Please contact support.',
-      NEW.group_id
+      NEW.related_group_id
     );
   END IF;
   
@@ -235,7 +235,7 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   ) VALUES (
     NEW.user_id,
     'penalty_applied',
@@ -302,10 +302,10 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   ) VALUES (
     NEW.user_id,
-    'group_joined',
+    'member_joined',
     'Welcome to ' || v_group_name,
     'You have successfully joined ' || v_group_name || '. Your position is ' || NEW.position || '.',
     NEW.group_id
@@ -318,7 +318,7 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     ) VALUES (
       v_group_creator,
       'member_joined',
@@ -385,7 +385,7 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     )
     SELECT 
       gm.user_id,
@@ -564,7 +564,7 @@ BEGIN
       metadata
     ) VALUES (
       NEW.recipient_id,
-      NEW.group_id,
+      NEW.related_group_id,
       'payout',
       NEW.amount,
       'completed',

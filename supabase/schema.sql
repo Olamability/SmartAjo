@@ -221,7 +221,7 @@ CREATE INDEX idx_contributions_overdue ON contributions(status, due_date) WHERE 
 
 CREATE TABLE IF NOT EXISTS payouts (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  related_group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   recipient_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   
   -- Payout Details
@@ -244,13 +244,13 @@ CREATE TABLE IF NOT EXISTS payouts (
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   
   -- Constraints: One payout per cycle per group
-  UNIQUE(group_id, cycle_number)
+  UNIQUE(related_group_id, cycle_number)
 );
 
 -- Indexes for payouts table
-CREATE INDEX idx_payouts_group_id ON payouts(group_id);
+CREATE INDEX idx_payouts_related_group_id ON payouts(related_group_id);
 CREATE INDEX idx_payouts_recipient_id ON payouts(recipient_id);
-CREATE INDEX idx_payouts_cycle_number ON payouts(group_id, cycle_number);
+CREATE INDEX idx_payouts_cycle_number ON payouts(related_group_id, cycle_number);
 CREATE INDEX idx_payouts_status ON payouts(status);
 CREATE INDEX idx_payouts_payout_date ON payouts(payout_date);
 
@@ -709,7 +709,7 @@ CREATE POLICY payouts_select_own_groups ON payouts
   USING (
     EXISTS (
       SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = payouts.group_id 
+      WHERE gm.group_id = payouts.related_group_id 
         AND gm.user_id = auth.uid()
     )
   );

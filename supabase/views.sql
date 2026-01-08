@@ -275,7 +275,7 @@ COMMENT ON VIEW user_groups_detail IS
 CREATE OR REPLACE VIEW pending_payouts_view AS
 SELECT 
   p.id AS payout_id,
-  p.group_id,
+  p.related_group_id,
   g.name AS group_name,
   p.cycle_number,
   p.recipient_id,
@@ -293,7 +293,7 @@ SELECT
   -- Check if all contributions are paid for this cycle
   (SELECT COUNT(*) 
    FROM contributions c 
-   WHERE c.group_id = p.group_id 
+   WHERE c.group_id = p.related_group_id 
    AND c.cycle_number = p.cycle_number 
    AND c.status = 'paid'
   ) AS paid_contributions_count,
@@ -301,14 +301,14 @@ SELECT
   CASE 
     WHEN (SELECT COUNT(*) 
           FROM contributions c 
-          WHERE c.group_id = p.group_id 
+          WHERE c.group_id = p.related_group_id 
           AND c.cycle_number = p.cycle_number 
           AND c.status = 'paid') = g.total_members 
     THEN true
     ELSE false
   END AS is_ready_for_payout
 FROM payouts p
-JOIN groups g ON p.group_id = g.id
+JOIN groups g ON p.related_group_id = g.id
 JOIN users u ON p.recipient_id = u.id
 WHERE p.status = 'pending'
   AND g.status = 'active'
@@ -358,7 +358,7 @@ SELECT
 FROM groups g
 LEFT JOIN group_members gm ON g.id = gm.group_id
 LEFT JOIN contributions c ON g.id = c.group_id
-LEFT JOIN payouts p ON g.id = p.group_id
+LEFT JOIN payouts p ON g.id = p.related_group_id
 LEFT JOIN penalties pen ON g.id = pen.group_id
 GROUP BY 
   g.id, g.name, g.status, g.contribution_amount, g.frequency,
