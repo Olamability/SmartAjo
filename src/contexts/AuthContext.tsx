@@ -35,6 +35,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Handle fetch errors
         if (fetchError) {
           console.error('Failed to fetch user:', fetchError);
+          // Check if it's an RLS policy error (insufficient permissions)
+          if (fetchError.code === 'PGRST301' || fetchError.message?.includes('permission')) {
+            console.error('RLS policy may be blocking access. Check Supabase RLS policies.');
+          }
           setUser(null);
           return;
         }

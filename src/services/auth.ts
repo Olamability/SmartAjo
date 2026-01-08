@@ -26,7 +26,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
     }
 
     if (!authData.user) {
-      return { success: false, error: 'Signup failed - no user returned' };
+      return { success: false, error: 'Signup failed - unable to create user account. Please try again or contact support.' };
     }
 
     // Insert user data into public.users table
@@ -44,7 +44,8 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
 
     if (insertError) {
       console.error('Error inserting user data:', insertError);
-      // Continue anyway - auth user was created
+      // Database trigger or RLS may handle this, or user record might already exist
+      // Continue to fetch the user record
     }
 
     // Fetch the complete user record
@@ -110,7 +111,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     }
 
     if (!authData.user) {
-      return { success: false, error: 'Login failed - no user returned' };
+      return { success: false, error: 'Login failed - invalid credentials or account not found' };
     }
 
     // Fetch user data from public.users table
