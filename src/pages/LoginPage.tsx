@@ -31,6 +31,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     // Track if component is mounted to prevent state updates after unmount
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };

@@ -117,7 +117,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       email,
       full_name: fullName,
       phone,
-      role: 'tenant', // default
     });
 
     if (insertError) throw insertError;
