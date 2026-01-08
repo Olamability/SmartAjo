@@ -199,11 +199,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
 
             // Ignore duplicate key errors (profile might have been created concurrently)
-            if (insertError && 
-                !insertError.code?.includes('23505') && 
-                !insertError.message.includes('duplicate') &&
-                !insertError.message.includes('unique constraint')) {
-              throw insertError;
+            // Check for PostgreSQL duplicate key error code directly
+            if (insertError) {
+              // PostgreSQL error code 23505 is unique violation
+              const isDuplicateError = insertError.code === '23505';
+              if (!isDuplicateError) {
+                throw insertError;
+              }
             }
 
             // Load the profile
@@ -215,8 +217,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         );
       } catch (retryError) {
         console.error('Failed to create/load profile after retries:', retryError);
-        // Don't throw - let user proceed to dashboard even if profile load failed
-        // The profile might exist but there could be an RLS policy issue
+        // Profile creation failed - this is a critical error
+        // Log the error and throw to inform the user
+        const errorMessage = retryError instanceof Error 
+          ? retryError.message 
+          : 'Unknown error during profile creation';
+        
+        throw new Error(
+          `Failed to create user profile after multiple attempts. ${errorMessage}. ` +
+          'Please contact support if this issue persists.'
+        );
       }
     } catch (error) {
       console.error('Signup error:', error);

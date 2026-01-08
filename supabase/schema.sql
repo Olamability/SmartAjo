@@ -461,6 +461,27 @@ CREATE OR REPLACE FUNCTION create_user_profile(
 )
 RETURNS UUID AS $$
 BEGIN
+  -- Input validation
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'user_id cannot be NULL';
+  END IF;
+  
+  IF p_email IS NULL OR p_email = '' THEN
+    RAISE EXCEPTION 'email cannot be NULL or empty';
+  END IF;
+  
+  IF p_email !~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN
+    RAISE EXCEPTION 'Invalid email format: %', p_email;
+  END IF;
+  
+  IF p_phone IS NULL OR p_phone = '' THEN
+    RAISE EXCEPTION 'phone cannot be NULL or empty';
+  END IF;
+  
+  IF p_full_name IS NULL OR p_full_name = '' THEN
+    RAISE EXCEPTION 'full_name cannot be NULL or empty';
+  END IF;
+
   INSERT INTO public.users (
     id,
     email,
@@ -485,7 +506,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 COMMENT ON FUNCTION create_user_profile IS 
-  'Creates a user profile in public.users. Called from client-side during signup.
+  'Creates a user profile in public.users with input validation. 
+   Called from client-side during signup.
    Note: Cannot use trigger on auth.users in Supabase due to permission restrictions.';
 
 CREATE TRIGGER update_groups_updated_at BEFORE UPDATE ON groups

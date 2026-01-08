@@ -49,9 +49,15 @@ CREATE POLICY users_insert_own ON users
   WITH CHECK (auth.uid() = id);
 
 -- Service role can do anything (for admin operations)
+-- Note: Using auth.role() for cleaner service role check
 CREATE POLICY users_service_role_all ON users
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX EMAIL VERIFICATION TOKENS POLICIES
@@ -79,9 +85,15 @@ CREATE POLICY email_verification_tokens_update_own ON email_verification_tokens
   WITH CHECK (auth.uid() = user_id);
 
 -- Service role can do anything
+-- Note: Using current_setting for cleaner service role check
 CREATE POLICY email_verification_tokens_service_role_all ON email_verification_tokens
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX GROUPS TABLE POLICIES
@@ -125,7 +137,12 @@ CREATE POLICY groups_update_creator ON groups
 -- Service role can do anything
 CREATE POLICY groups_service_role_all ON groups
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX GROUP MEMBERS TABLE POLICIES
@@ -161,7 +178,12 @@ CREATE POLICY group_members_update_own ON group_members
 -- Service role can do anything
 CREATE POLICY group_members_service_role_all ON group_members
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX CONTRIBUTIONS TABLE POLICIES
@@ -198,7 +220,12 @@ CREATE POLICY contributions_update_own ON contributions
 -- Service role can do anything
 CREATE POLICY contributions_service_role_all ON contributions
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX PAYOUTS TABLE POLICIES
@@ -223,7 +250,12 @@ CREATE POLICY payouts_select_own_groups ON payouts
 -- Service role can do anything
 CREATE POLICY payouts_service_role_all ON payouts
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX PENALTIES TABLE POLICIES
@@ -247,7 +279,12 @@ CREATE POLICY penalties_select_own ON penalties
 -- Service role can do anything
 CREATE POLICY penalties_service_role_all ON penalties
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX TRANSACTIONS TABLE POLICIES
@@ -270,7 +307,12 @@ CREATE POLICY transactions_insert_own ON transactions
 -- Service role can do anything
 CREATE POLICY transactions_service_role_all ON transactions
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX NOTIFICATIONS TABLE POLICIES
@@ -300,7 +342,12 @@ CREATE POLICY notifications_insert_own ON notifications
 -- Service role can do anything
 CREATE POLICY notifications_service_role_all ON notifications
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX AUDIT LOGS TABLE POLICIES
@@ -317,7 +364,12 @@ CREATE POLICY audit_logs_insert_own ON audit_logs
 -- Only service role can read/update/delete audit logs
 CREATE POLICY audit_logs_service_role_all ON audit_logs
   FOR ALL
-  USING (auth.jwt() ? 'role' AND auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- FIX USER PRESENCE TABLE POLICIES
