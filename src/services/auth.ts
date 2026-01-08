@@ -201,11 +201,66 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       'Unable to fetch user data. Please try again.'
     );
 
-    const { data: userData, error: fetchError } = fetchResponse;
+    let { data: userData, error: fetchError } = fetchResponse;
 
+    // If user profile doesn't exist, try to create it from auth metadata
     if (fetchError || !userData) {
-      console.error('Error fetching user data:', fetchError);
-      return { success: false, error: 'Failed to fetch user data. Please try again.' };
+      console.warn('User profile not found, attempting to create from auth metadata:', fetchError?.message);
+      
+      const authUser = authData.user;
+      const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
+      const phone = authUser.user_metadata?.phone || '';
+      
+      try {
+        const insertPromise = supabase
+          .from('users')
+          .insert({
+            id: authUser.id,
+            email: authUser.email!,
+            phone: phone,
+            full_name: fullName,
+            is_verified: authUser.email_confirmed_at ? true : false,
+            is_active: true,
+            kyc_status: 'not_started',
+          })
+          .select()
+          .single();
+        
+        const insertResponse = await withTimeout(
+          insertPromise as unknown as Promise<any>,
+          DB_WRITE_TIMEOUT,
+          'Failed to create user profile.'
+        );
+
+        // Ignore duplicate key errors (profile might exist now)
+        if (insertResponse.error && insertResponse.error.code !== '23505') {
+          console.error('Failed to create missing profile:', insertResponse.error);
+          return { success: false, error: 'Failed to load user profile. Please contact support.' };
+        }
+
+        // If insert succeeded or profile already exists, try fetching again
+        const refetchPromise = supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+        
+        const refetchResponse = await withTimeout(
+          refetchPromise as unknown as Promise<any>,
+          USER_DATA_FETCH_TIMEOUT,
+          'Unable to fetch user data after creation.'
+        );
+
+        userData = refetchResponse.data;
+        
+        if (!userData) {
+          console.error('Still unable to fetch user profile after creation attempt');
+          return { success: false, error: 'Failed to load user profile. Please contact support.' };
+        }
+      } catch (createError) {
+        console.error('Error creating missing profile:', createError);
+        return { success: false, error: 'Unable to access user profile. Please contact support.' };
+      }
     }
 
     // Check if account is active

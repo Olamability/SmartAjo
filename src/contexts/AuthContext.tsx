@@ -134,7 +134,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Load user profile with proper error handling
-      await loadUserProfile(data.user.id);
+      try {
+        await loadUserProfile(data.user.id);
+      } catch (profileError) {
+        console.error('Failed to load profile after login, attempting to create:', profileError);
+        
+        // If profile doesn't exist, try to create it from auth metadata
+        const authUser = data.user;
+        const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
+        const phone = authUser.user_metadata?.phone || '';
+        
+        try {
+          const { error: insertError } = await supabase.from('users').insert({
+            id: authUser.id,
+            email: authUser.email!,
+            full_name: fullName,
+            phone: phone,
+            is_verified: authUser.email_confirmed_at ? true : false,
+            is_active: true,
+            kyc_status: 'not_started',
+          });
+          
+          // Ignore duplicate key errors (profile might have been created concurrently)
+          if (insertError && insertError.code !== '23505') {
+            throw insertError;
+          }
+          
+          // Try loading profile again
+          await loadUserProfile(authUser.id);
+        } catch (createError) {
+          console.error('Failed to create missing profile:', createError);
+          throw new Error('Unable to access user profile. Please contact support.');
+        }
+      }
     } catch (error) {
       console.error('Login error:', error);
       throw error;
