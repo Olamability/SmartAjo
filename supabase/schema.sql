@@ -431,6 +431,49 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+-- ============================================================================
+-- TRIGGER: Auto-create user profile on auth signup
+-- ============================================================================
+-- Automatically creates a user record in public.users when a user signs up
+-- This ensures data consistency between auth.users and public.users
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (
+    id,
+    email,
+    phone,
+    full_name,
+    is_verified,
+    is_active,
+    kyc_status
+  ) VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'phone', ''),
+    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    FALSE,
+    TRUE,
+    'not_started'
+  )
+  ON CONFLICT (id) DO NOTHING;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create trigger on auth.users to auto-create profile
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+
+COMMENT ON FUNCTION handle_new_user() IS 
+  'Automatically creates a user profile in public.users when a user signs up in auth.users';
+COMMENT ON TRIGGER on_auth_user_created ON auth.users IS 
+  'Triggers automatic user profile creation on signup';
+
 CREATE TRIGGER update_groups_updated_at BEFORE UPDATE ON groups
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -610,6 +653,11 @@ CREATE POLICY users_select_own ON users
 CREATE POLICY users_update_own ON users
   FOR UPDATE
   USING (auth.uid() = id);
+
+-- Users can insert their own profile during signup
+CREATE POLICY users_insert_own ON users
+  FOR INSERT
+  WITH CHECK (auth.uid() = id);
 
 -- Service role can do anything
 CREATE POLICY users_service_role_all ON users
