@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Shield, LogOut, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
-import { logout } from "@/services/auth";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,14 +12,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const Header = () => {
-  const { isAuthenticated, user, setUser } = useAuth();
+  const { isAuthenticated, user, logout: authLogout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const isLandingPage = location.pathname === '/';
 
-  const handleLogout = () => {
-    logout();
-    setUser(null);
+  const handleLogout = async () => {
+    await authLogout();
     navigate('/');
   };
 

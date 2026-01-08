@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
     `;
 
     const queryParams: any[] = [auth.user.id];
-    let paramIndex = 2;
+    const paramIndex = 2;
 
     if (unreadOnly) {
       queryText += ` AND n.is_read = false`;

@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { LoginFormData } from '@/types';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/utils';
 

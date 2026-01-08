@@ -55,3 +55,9 @@ next-env.d.ts
 
 # Backend (removed - no longer used)
 backend/
+
+# Legacy Next.js code (not used in Vite app)
+app/
+lib/server/
+src/lib/server/
+src/lib/supabase/

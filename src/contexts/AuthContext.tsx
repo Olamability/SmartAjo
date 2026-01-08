@@ -55,7 +55,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       fullName: data.full_name,
       createdAt: data.created_at,
       isVerified: data.is_verified,
-      profileImage: data.avatar,
+      kycStatus: (data.kyc_status === 'approved' ? 'verified' : data.kyc_status) as 'not_started' | 'pending' | 'verified' | 'rejected',
+      bvn: data.kyc_data?.bvn,
+      profileImage: data.avatar_url,
     });
   };
 
@@ -150,6 +152,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => subscription.unsubscribe();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
