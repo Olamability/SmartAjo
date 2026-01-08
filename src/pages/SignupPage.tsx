@@ -79,14 +79,10 @@ export default function SignUpPage() {
       });
 
       if (!isMountedRef.current) {
-        setIsLoading(false);
-        isSubmittingRef.current = false;
         return;
       }
 
       toast.success('Account created successfully!');
-      // Navigation will unmount component, but set loading to false for consistency
-      setIsLoading(false);
       navigate('/dashboard');
     } catch (error) {
       if (!isMountedRef.current) return;
@@ -95,17 +91,22 @@ export default function SignUpPage() {
       const errorMessage = getErrorMessage(error, 'Failed to create account');
       
       // Check for rate limiting error and provide helpful message
-      if (errorMessage.includes('429') || errorMessage.includes('Too Many Requests') || errorMessage.includes('8 seconds')) {
+      // Check both the error message and status code for rate limiting
+      const isRateLimitError = 
+        errorMessage.includes('429') || 
+        errorMessage.includes('Too Many Requests') || 
+        errorMessage.includes('8 seconds') ||
+        (error && typeof error === 'object' && 'status' in error && error.status === 429);
+      
+      if (isRateLimitError) {
         toast.error('Please wait a moment before trying again. For security, signup attempts are rate-limited.');
       } else {
         toast.error(errorMessage);
       }
-      
-      setIsLoading(false);
-      isSubmittingRef.current = false;
     } finally {
-      // Always reset the submitting flag
+      // Always reset the submitting flag and loading state
       if (isMountedRef.current) {
+        setIsLoading(false);
         isSubmittingRef.current = false;
       }
     }
