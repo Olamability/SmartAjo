@@ -290,12 +290,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const initAuth = async () => {
       try {
-        await refreshUser();
+        console.log('Initializing auth context...');
+        const refreshed = await refreshUser();
+        console.log('Auth initialization complete, user authenticated:', refreshed);
       } catch (error) {
         console.error('Error during auth initialization:', error);
       } finally {
         if (mounted) {
           setLoading(false);
+          console.log('Auth loading state set to false');
         }
       }
     };
@@ -305,15 +308,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, session?.user?.id);
+      console.log('Auth state change event:', event, 'User ID:', session?.user?.id);
       
       if (event === 'SIGNED_OUT') {
+        console.log('User signed out, clearing user state');
         setUser(null);
       }
 
       if (event === 'SIGNED_IN' && session?.user) {
+        console.log('User signed in, loading profile for:', session.user.id);
         try {
           await loadUserProfile(session.user.id);
+          console.log('Profile loaded successfully after sign in');
         } catch (error) {
           console.error('Error loading profile on auth state change:', error);
         }
@@ -321,6 +327,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Handle token refresh
       if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('Token refreshed, reloading profile');
         try {
           await loadUserProfile(session.user.id);
         } catch (error) {
@@ -332,6 +339,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      console.log('Auth context cleanup, unsubscribed from auth changes');
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
