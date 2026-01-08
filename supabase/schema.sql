@@ -446,15 +446,42 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================================================
--- TRIGGER: Auto-create user profile on auth signup
+-- FUNCTION: Create user profile (for manual/client-side use)
 -- ============================================================================
--- Automatically creates a user record in public.users when a user signs up
--- This ensures data consistency between auth.users and public.users
+-- This function can be called manually or from client-side to create user profiles
+-- Cannot create trigger on auth.users in Supabase (permission denied)
+-- Use client-side profile creation instead (see src/services/auth.ts)
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION create_user_profile(
+  p_user_id UUID,
+  p_email VARCHAR(255),
+  p_phone VARCHAR(20),
+  p_full_name VARCHAR(255)
+)
+RETURNS UUID AS $$
 BEGIN
+  -- Input validation
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'user_id cannot be NULL';
+  END IF;
+  
+  IF p_email IS NULL OR p_email = '' THEN
+    RAISE EXCEPTION 'email cannot be NULL or empty';
+  END IF;
+  
+  IF p_email !~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN
+    RAISE EXCEPTION 'Invalid email format: %', p_email;
+  END IF;
+  
+  IF p_phone IS NULL OR p_phone = '' THEN
+    RAISE EXCEPTION 'phone cannot be NULL or empty';
+  END IF;
+  
+  IF p_full_name IS NULL OR p_full_name = '' THEN
+    RAISE EXCEPTION 'full_name cannot be NULL or empty';
+  END IF;
+
   INSERT INTO public.users (
     id,
     email,
@@ -464,29 +491,24 @@ BEGIN
     is_active,
     kyc_status
   ) VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'phone', ''),
-    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    p_user_id,
+    p_email,
+    p_phone,
+    p_full_name,
     FALSE,
     TRUE,
     'not_started'
   )
   ON CONFLICT (id) DO NOTHING;
   
-  RETURN NEW;
+  RETURN p_user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Create trigger on auth.users to auto-create profile
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
-
-COMMENT ON FUNCTION handle_new_user() IS 
-  'Automatically creates a user profile in public.users when a user signs up in auth.users';
-COMMENT ON TRIGGER on_auth_user_created ON auth.users IS 
-  'Triggers automatic user profile creation on signup';
+COMMENT ON FUNCTION create_user_profile IS 
+  'Creates a user profile in public.users with input validation. 
+   Called from client-side during signup.
+   Note: Cannot use trigger on auth.users in Supabase due to permission restrictions.';
 
 CREATE TRIGGER update_groups_updated_at BEFORE UPDATE ON groups
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
