@@ -49,6 +49,7 @@ export default function SignUpPage() {
   });
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
@@ -58,7 +59,6 @@ export default function SignUpPage() {
     if (!isMountedRef.current) return;
 
     setIsLoading(true);
-        console.log('Signup form submitted', data);
     try {
       await signUp({
         email: data.email,
@@ -183,7 +183,7 @@ export default function SignUpPage() {
                   Creating account...
                 </>
               ) : (
-                <span onClick={() => console.log('Create Account button clicked')}>Create account</span>
+                'Create account'
               )}
             </Button>
           </form>
