@@ -177,6 +177,7 @@ CREATE INDEX idx_group_members_status ON group_members(status);
 
 CREATE TABLE IF NOT EXISTS contributions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
   group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   
@@ -190,18 +191,23 @@ CREATE TABLE IF NOT EXISTS contributions (
   paid_date TIMESTAMPTZ,
   
   -- Status
-  status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue', 'waived')),
+  status VARCHAR(20) DEFAULT 'pending'
+    CHECK (status IN ('pending', 'paid', 'overdue', 'waived')),
   
-  -- Transaction Reference (links to transactions table)
+  -- Overdue flag (derived via trigger, not generated column)
+  is_overdue BOOLEAN DEFAULT false,
+  
+  -- Transaction Reference
   transaction_ref VARCHAR(255),
   
   -- Timestamps
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   
-  -- Constraints: One contribution per user per cycle in a group
+  -- Constraints
   UNIQUE(group_id, user_id, cycle_number)
 );
+
 
 -- Indexes for contributions table
 CREATE INDEX IF NOT EXISTS idx_contributions_group_id ON contributions(group_id);
