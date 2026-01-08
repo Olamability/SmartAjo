@@ -298,10 +298,11 @@ curl http://localhost:3000 | grep -q "Secured Ajo" && echo "✅ Frontend running
 curl http://localhost:3001/health | grep -q "ok" && echo "✅ Backend running"
 
 # 6. Test they're separate processes
-ps aux | grep -c "vite\|tsx" | grep -q "2" && echo "✅ Two separate processes"
+[ $(ps aux | grep -E "(vite|tsx)" | grep -v grep | wc -l) -ge 2 ] && echo "✅ Two separate processes"
 
 # 7. Clean up
-pkill -f "vite|tsx"
+# Note: Use kill with specific PIDs instead of pkill
+# Example: kill $(ps aux | grep -E "(vite|tsx)" | grep -v grep | awk '{print $2}')
 ```
 
 If all tests pass, your architecture is properly separated! 🎉
