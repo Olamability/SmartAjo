@@ -104,24 +104,71 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fullName: string;
     phone: string;
   }) => {
+    // Sign up with metadata - the database trigger will create the user profile
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName,
+          phone: phone,
+        },
+      },
     });
 
     if (error || !data.user) throw error;
 
-    // Create profile
-    const { error: insertError } = await supabase.from('users').insert({
-      id: data.user.id,
-      email,
-      full_name: fullName,
-      phone,
-    });
+    // Wait for the trigger to create the profile record
+    // Retry up to 5 times with exponential backoff
+    let retries = 5;
+    let delay = 100; // Start with 100ms
+    let profileLoaded = false;
 
-    if (insertError) throw insertError;
+    while (retries > 0 && !profileLoaded) {
+      try {
+        // Check if profile exists
+        const { data: profile, error: fetchError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
 
-    await loadUserProfile(data.user.id);
+        if (profile && !fetchError) {
+          // Profile exists, load it
+          await loadUserProfile(data.user.id);
+          profileLoaded = true;
+          break;
+        }
+
+        // Profile doesn't exist yet, wait and retry
+        if (retries > 1) {
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay *= 2; // Exponential backoff
+        }
+      } catch (err) {
+        console.error('Error checking profile:', err);
+      }
+
+      retries--;
+    }
+
+    // If profile still not loaded after retries, try manual insert as fallback
+    if (!profileLoaded) {
+      console.warn('Trigger did not create profile, attempting manual insert');
+      const { error: insertError } = await supabase.from('users').insert({
+        id: data.user.id,
+        email,
+        full_name: fullName,
+        phone,
+      });
+
+      // Ignore duplicate key errors (profile might have been created by trigger)
+      if (insertError && !insertError.message.includes('duplicate')) {
+        throw insertError;
+      }
+
+      await loadUserProfile(data.user.id);
+    }
   };
 
   /**
