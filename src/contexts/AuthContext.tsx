@@ -25,22 +25,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session?.user) {
-        // Fetch user details from our backend
-        const response = await fetch('/api/users/me');
+        // Fetch user details from database using Supabase
+        const { data: userData, error: fetchError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
         
-        // Handle network errors
-        if (!response.ok) {
-          if (response.status === 401 || response.status === 403) {
-            // User is not authenticated or session expired
-            setUser(null);
-            return;
-          }
-          throw new Error(`Failed to fetch user: ${response.status}`);
+        // Handle fetch errors
+        if (fetchError) {
+          console.error('Failed to fetch user:', fetchError);
+          setUser(null);
+          return;
         }
         
-        const result = await response.json();
-        if (result.success && result.data) {
-          setUser(result.data);
+        if (userData) {
+          setUser({
+            id: userData.id,
+            email: userData.email,
+            phone: userData.phone,
+            fullName: userData.full_name,
+            createdAt: userData.created_at,
+            isVerified: userData.is_verified,
+            kycStatus: userData.kyc_status,
+            bvn: userData.kyc_data?.bvn,
+            profileImage: userData.avatar_url,
+          });
           return;
         }
       }
@@ -57,10 +67,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       // Sign out from Supabase
       await supabase.auth.signOut();
-      
-      // Call logout API to clean up any server-side state
-      await fetch('/api/auth/logout', { method: 'POST' });
-      
       setUser(null);
     } catch (error) {
       console.error('Logout error:', error);
