@@ -12,6 +12,7 @@ import { User } from '@/types';
 import { retryWithBackoff } from '@/lib/utils';
 import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
+import { reportError } from '@/lib/utils/errorTracking';
 
 interface AuthContextType {
   user: User | null;
@@ -139,7 +140,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         await loadUserProfile(data.user.id);
       } catch (profileError) {
-        console.error('Failed to load profile after login, attempting to create:', profileError);
+        reportError(profileError, {
+          operation: 'load_profile_after_login',
+          userId: data.user.id,
+        });
         
         // If profile doesn't exist, try to create it using shared utility
         try {
@@ -148,12 +152,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Try loading profile again
           await loadUserProfile(data.user.id);
         } catch (createError) {
-          console.error('Failed to create missing profile:', createError);
+          reportError(createError, {
+            operation: 'create_missing_profile',
+            userId: data.user.id,
+          });
           throw new Error('Unable to access user profile. Please contact support.');
         }
       }
     } catch (error) {
-      console.error('Login error:', error);
+      reportError(error, {
+        operation: 'login',
+        email: email,
+      });
       throw error;
     }
   };

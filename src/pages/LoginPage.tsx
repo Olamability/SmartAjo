@@ -12,6 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/utils';
 import { getErrorType } from '@/lib/utils/errorHandling';
+import { reportError } from '@/lib/utils/errorTracking';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -55,15 +56,14 @@ export default function LoginPage() {
     } catch (error) {
       if (!isMountedRef.current) return;
 
-      // Log detailed error information for debugging
-      console.error('Login error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        type: getErrorType(error),
-        error: error,
+      // Report error with context for tracking
+      reportError(error, {
+        operation: 'login',
+        email: data.email,
+        errorType: getErrorType(error),
       });
       
       const errorMessage = getErrorMessage(error, 'Invalid email or password');
-      console.error('Showing error to user:', errorMessage);
       toast.error(errorMessage);
       setIsLoading(false);
     }
