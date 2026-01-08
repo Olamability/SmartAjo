@@ -1,27 +1,25 @@
-'use client';
-
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
 const CTASection = () => {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
   const handleCreateGroup = () => {
     if (isAuthenticated) {
-      router.push('/create-group');
+      navigate('/create-group');
     } else {
-      router.push('/signup');
+      navigate('/signup');
     }
   };
 
   const handleJoinGroup = () => {
     if (isAuthenticated) {
-      router.push('/browse-groups');
+      navigate('/groups');
     } else {
-      router.push('/signup');
+      navigate('/signup');
     }
   };
 

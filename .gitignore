@@ -12,7 +12,7 @@ dist
 dist-ssr
 *.local
 
-# Next.js
+# Next.js (legacy)
 /.next/
 /out/
 
@@ -52,3 +52,7 @@ temp
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Backend
+backend/node_modules
+backend/dist
