@@ -235,7 +235,7 @@ BEGIN
   
   -- Create or update payout record
   INSERT INTO payouts (
-    group_id,
+    related_group_id,
     cycle_number,
     recipient_id,
     amount,
@@ -249,7 +249,7 @@ BEGIN
     'pending',
     NOW()
   )
-  ON CONFLICT (group_id, cycle_number)
+  ON CONFLICT (related_group_id, cycle_number)
   DO UPDATE SET
     status = 'pending',
     amount = v_payout_amount,
@@ -262,7 +262,7 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   ) VALUES (
     v_recipient_id,
     'payout_ready',

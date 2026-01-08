@@ -32,7 +32,7 @@ export async function getNextPayoutRecipient(groupId: string): Promise<RotationM
         CASE 
           WHEN EXISTS (
             SELECT 1 FROM payouts p 
-            WHERE p.group_id = $1 AND p.recipient_id = gm.user_id
+            WHERE p.related_group_id = $1 AND p.recipient_id = gm.user_id
           ) THEN true 
           ELSE false 
         END as has_received_payout
@@ -128,7 +128,7 @@ export async function processCyclePayout(groupId: string, cycleNumber: number): 
 
       // Check if payout already exists for this cycle
       const existingPayout = await client.query(
-        `SELECT id FROM payouts WHERE group_id = $1 AND cycle_number = $2`,
+        `SELECT id FROM payouts WHERE related_group_id = $1 AND cycle_number = $2`,
         [groupId, cycleNumber]
       );
 
@@ -155,7 +155,7 @@ export async function processCyclePayout(groupId: string, cycleNumber: number): 
       // Create payout record
       const payoutResult = await client.query(
         `INSERT INTO payouts (
-          group_id,
+          related_group_id,
           recipient_id,
           cycle_number,
           amount,
@@ -277,7 +277,7 @@ export async function shouldCompleteGroup(groupId: string): Promise<boolean> {
     const result = await query(
       `SELECT 
         (SELECT COUNT(*) FROM group_members WHERE group_id = $1 AND status = 'active') as total_members,
-        (SELECT COUNT(*) FROM payouts WHERE group_id = $1) as total_payouts
+        (SELECT COUNT(*) FROM payouts WHERE related_group_id = $1) as total_payouts
       FROM groups WHERE id = $1`,
       [groupId]
     );
