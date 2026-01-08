@@ -36,7 +36,7 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     ) VALUES (
       NEW.user_id,
       'payment_received',
@@ -52,7 +52,7 @@ BEGIN
         type,
         title,
         message,
-        group_id
+        related_group_id
       ) VALUES (
         v_group_creator,
         'payment_received',
@@ -235,7 +235,7 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   ) VALUES (
     NEW.user_id,
     'penalty_applied',
@@ -302,7 +302,7 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   ) VALUES (
     NEW.user_id,
     'group_joined',
@@ -318,7 +318,7 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     ) VALUES (
       v_group_creator,
       'member_joined',
@@ -385,7 +385,7 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     )
     SELECT 
       gm.user_id,

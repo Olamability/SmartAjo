@@ -388,7 +388,7 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   )
   SELECT 
     user_id,
@@ -467,7 +467,7 @@ BEGIN
       type,
       title,
       message,
-      group_id
+      related_group_id
     ) VALUES (
       v_contribution.user_id,
       'penalty_applied',
@@ -681,7 +681,7 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   )
   SELECT 
     c.user_id,
@@ -696,7 +696,7 @@ BEGIN
     AND NOT EXISTS (
       SELECT 1 FROM notifications n
       WHERE n.user_id = c.user_id
-        AND n.group_id = c.group_id
+        AND n.related_group_id = c.group_id
         AND n.type = 'payment_due'
         AND n.created_at > NOW() - INTERVAL '1 day'
     );
@@ -709,7 +709,7 @@ BEGIN
     type,
     title,
     message,
-    group_id
+    related_group_id
   )
   SELECT 
     c.user_id,
@@ -724,7 +724,7 @@ BEGIN
     AND NOT EXISTS (
       SELECT 1 FROM notifications n
       WHERE n.user_id = c.user_id
-        AND n.group_id = c.group_id
+        AND n.related_group_id = c.group_id
         AND n.type = 'payment_overdue'
         AND n.created_at > NOW() - INTERVAL '1 day'
     );
