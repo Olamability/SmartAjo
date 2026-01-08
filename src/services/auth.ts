@@ -41,57 +41,83 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
       return { success: false, error: 'Signup failed - unable to create user account. Please try again or contact support.' };
     }
 
-    // Insert user data into public.users table with timeout
-    try {
-      const insertPromise = supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: data.email,
-          phone: data.phone,
-          full_name: data.fullName,
-          is_verified: false,
-          is_active: true,
-          kyc_status: 'not_started',
-        })
-        .select();
-      
-      const insertResponse = await withTimeout(
-        insertPromise as unknown as Promise<any>,
-        DB_WRITE_TIMEOUT,
-        'Database operation timed out. Your account was created but we couldn\'t save additional details.'
-      );
+    // Wait for database trigger to create user record with retry logic
+    // The trigger should create the record automatically, but we'll add a manual insert as fallback
+    let userData = null;
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (!userData && retries < maxRetries) {
+      try {
+        // First, try to fetch the user record (trigger may have already created it)
+        const fetchPromise = supabase
+          .from('users')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+        
+        const fetchResponse = await withTimeout(
+          fetchPromise as unknown as Promise<any>,
+          USER_DATA_FETCH_TIMEOUT,
+          'Unable to fetch user data.'
+        );
 
-      const { error: insertError } = insertResponse;
+        if (fetchResponse.data) {
+          userData = fetchResponse.data;
+          break;
+        }
 
-      if (insertError) {
-        console.error('Error inserting user data:', insertError);
-        // Database trigger or RLS may handle this, or user record might already exist
-        // Continue to fetch the user record
+        // If user record doesn't exist and this is first attempt, try manual insert
+        if (retries === 0) {
+          console.log('User record not found, attempting manual insert...');
+          const insertPromise = supabase
+            .from('users')
+            .insert({
+              id: authData.user.id,
+              email: data.email,
+              phone: data.phone,
+              full_name: data.fullName,
+              is_verified: false,
+              is_active: true,
+              kyc_status: 'not_started',
+            })
+            .select();
+          
+          const insertResponse = await withTimeout(
+            insertPromise as unknown as Promise<any>,
+            DB_WRITE_TIMEOUT,
+            'Database operation timed out.'
+          );
+
+          if (insertResponse.data && insertResponse.data.length > 0) {
+            userData = insertResponse.data[0];
+            break;
+          }
+
+          if (insertResponse.error) {
+            console.error('Error inserting user data:', insertResponse.error);
+            // If duplicate key error (23505), the trigger may have created it, retry fetch
+            if (insertResponse.error.code === '23505') {
+              console.log('User record already exists (created by trigger), retrying fetch...');
+            }
+          }
+        }
+        
+        // Wait before retrying
+        if (!userData && retries < maxRetries - 1) {
+          await new Promise(resolve => setTimeout(resolve, 500 * (retries + 1)));
+        }
+        
+      } catch (error) {
+        console.error(`Error on attempt ${retries + 1}:`, error);
       }
-    } catch (insertError) {
-      console.error('Error inserting user data (timeout or error):', insertError);
-      // Continue to fetch the user record
+      
+      retries++;
     }
 
-    // Fetch the complete user record with timeout
-    const fetchPromise = supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
-    
-    const fetchResponse = await withTimeout(
-      fetchPromise as unknown as Promise<any>,
-      USER_DATA_FETCH_TIMEOUT,
-      'Unable to fetch user data. Please refresh the page.'
-    );
-
-    const { data: userData, error: fetchError } = fetchResponse;
-
-    if (fetchError || !userData) {
-      console.error('Error fetching user data:', fetchError);
-      // Return basic user info if fetch fails
+    if (!userData) {
+      console.error('Failed to create or fetch user data after multiple attempts');
+      // Return basic user info if all attempts fail
       return {
         success: true,
         user: {
