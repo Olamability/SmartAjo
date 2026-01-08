@@ -1,26 +1,29 @@
 # Architecture Documentation
 
-This document describes the architecture and file organization of the Secured Ajo application, following the RentFlow architecture pattern.
+This document describes the architecture and file organization of the Secured Ajo application.
 
 ## Overview
 
-This application follows a **strict client/server separation** pattern within a **single monorepo**. All code is organized to prevent ChunkLoadError issues and ensure clear boundaries between client and server logic.
+This application follows a **modern serverless architecture** with a single frontend process and Supabase as the complete backend platform. All backend logic is handled by Supabase's built-in features including authentication, database with Row Level Security (RLS), storage, and serverless functions.
 
 ## Technology Stack
 
 ### Frontend / Client
-- **Framework**: Next.js 14 (App Router)
+- **Framework**: Vite + React 18
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **State Management**: React Context API
-- **Client behavior**: All UI-only, layout/page files contain no server logic
+- **UI Components**: shadcn/ui
+- **State Management**: React Context API + React Query
+- **Routing**: React Router v6
+- **Client behavior**: Direct Supabase client calls with RLS enforcement
 
-### Backend / Server Logic
-- **Backend**: Server-only code inside the same repo (not a separate repo)
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth (email + password)
-- **Storage**: Supabase Storage
-- **API**: Next.js API Routes
+### Backend / Serverless
+- **Platform**: Supabase
+- **Database**: PostgreSQL with Row Level Security (RLS)
+- **Authentication**: Supabase Auth (email + password, social providers)
+- **Storage**: Supabase Storage with bucket policies
+- **Serverless Functions**: Supabase Edge Functions (Deno runtime)
+- **Real-time**: Supabase Realtime (when needed)
 
 ## File Organization
 
@@ -28,83 +31,85 @@ This application follows a **strict client/server separation** pattern within a 
 
 ```
 secured-ajo/
-├── app/                 ← Next.js App Router
-│   ├── layout.tsx       ← Root layout (no server logic)
-│   ├── page.tsx         ← Home page (server component, no logic)
-│   ├── login/
-│   ├── signup/
-│   ├── dashboard/
-│   └── api/             ← API route handlers (server-side)
-│
-├── lib/                 ← Core library code (NEW ROOT LOCATION)
-│   ├── server/          ← Server-only code
-│   │   ├── db.ts        ← Database queries
-│   │   ├── auth.ts      ← Auth logic
-│   │   ├── supabase.ts  ← Supabase server client
-│   │   ├── storage.ts   ← File storage helpers
-│   │   ├── validation.ts← Input validation
-│   │   └── ...          ← Other server utilities
+├── src/                    ← Frontend application
+│   ├── components/         ← React components
+│   │   ├── ui/            ← shadcn/ui components
+│   │   └── ...            ← Custom components
 │   │
-│   └── client/          ← Client-safe code
-│       └── supabase.ts  ← Supabase browser client
+│   ├── pages/             ← Page components
+│   │   ├── HomePage.tsx
+│   │   ├── LoginPage.tsx
+│   │   ├── SignupPage.tsx
+│   │   └── DashboardPage.tsx
+│   │
+│   ├── contexts/          ← React contexts
+│   │   └── AuthContext.tsx ← Authentication state
+│   │
+│   ├── services/          ← Service layer (Supabase calls)
+│   │   └── auth.ts        ← Authentication service
+│   │
+│   ├── lib/               ← Utilities and client libraries
+│   │   ├── client/        ← Client-safe code
+│   │   │   └── supabase.ts ← Supabase browser client
+│   │   └── utils.ts       ← Utility functions
+│   │
+│   ├── types/             ← TypeScript type definitions
+│   │   └── index.ts       ← Shared types
+│   │
+│   ├── hooks/             ← Custom React hooks
+│   ├── App.tsx            ← Root component
+│   ├── main.tsx           ← Application entry point
+│   └── index.css          ← Global styles
 │
-├── src/                 ← Application source code
-│   ├── components/      ← React components (client-side)
-│   ├── contexts/        ← React contexts
-│   ├── hooks/           ← Custom React hooks
-│   ├── services/        ← Client-side services
-│   ├── types/           ← TypeScript type definitions
-│   └── lib/             ← Legacy lib (will be migrated)
+├── supabase/              ← Supabase configuration
+│   ├── schema.sql         ← Database schema with RLS policies
+│   ├── storage.sql        ← Storage bucket configuration
+│   └── functions/         ← Edge Functions (if needed)
 │
-├── sql/                 ← Database migrations and queries
-└── supabase/            ← Supabase configuration
+├── sql/                   ← Database migrations and SQL queries
+├── public/                ← Static assets
+├── index.html             ← HTML entry point
+├── vite.config.ts         ← Vite configuration
+├── tailwind.config.ts     ← Tailwind CSS configuration
+└── package.json           ← Dependencies and scripts
 ```
 
 ## Key Architecture Rules
 
-### 1. Server-Only Code (`lib/server/`)
+### 1. Client-Side Code (`src/`)
 
-**Location**: `/lib/server/`
+**Location**: `/src/`
 
-**Purpose**: Contains all server-side business logic, database operations, and sensitive operations.
-
-**Rules**:
-- ✅ Every file MUST start with `import 'server-only';`
-- ✅ Can import Node.js modules (fs, crypto, etc.)
-- ✅ Can access environment variables
-- ✅ Can perform database queries
-- ❌ NEVER import into client components
-- ❌ NEVER expose sensitive data
-
-**Files**:
-- `db.ts` - PostgreSQL connection pool and query helpers
-- `auth.ts` - Authentication utilities (password hashing, OTP generation)
-- `supabase.ts` - Supabase server client (SSR)
-- `storage.ts` - Supabase Storage operations
-- `validation.ts` - Zod schemas for input validation
-- `apiResponse.ts` - Standardized API response helpers
-- `rateLimit.ts` - Rate limiting logic
-- `paystack.ts` - Payment gateway integration
-- `contributions.ts` - Contribution tracking logic
-- `rotation.ts` - Group rotation and payout logic
-- `penalties.ts` - Penalty calculation logic
-- `cron.ts` - Scheduled tasks
-- `middleware.ts` - Session management middleware
-
-### 2. Client-Safe Code (`lib/client/`)
-
-**Location**: `/lib/client/`
-
-**Purpose**: Contains client-safe utilities that can be used in browser environments.
+**Purpose**: Contains all frontend code that runs in the browser.
 
 **Rules**:
-- ✅ Can be imported by client components
+- ✅ Can use Supabase browser client (anon key only)
+- ✅ All data access goes through Supabase client
+- ✅ RLS policies enforce authorization at database level
+- ✅ Can use React hooks and state management
+- ❌ NO server-only operations
+- ❌ NO service role keys or sensitive secrets
+
+**Key Files**:
+- `services/auth.ts` - Authentication service using Supabase Auth
+- `contexts/AuthContext.tsx` - Authentication state management
+- `lib/client/supabase.ts` - Supabase browser client initialization
+
+### 2. Supabase Client (`src/lib/client/`)
+
+**Location**: `/src/lib/client/`
+
+**Purpose**: Contains the Supabase browser client for client-side operations.
+
+**Rules**:
+- ✅ Uses VITE_SUPABASE_ANON_KEY (public key)
 - ✅ Safe for browser environment
-- ❌ NO server-only code
-- ❌ NO sensitive data or secrets
+- ✅ All security enforced via RLS
+- ❌ NO server-only operations
+- ❌ NO service role key
 
 **Files**:
-- `supabase.ts` - Supabase browser client (CSR)
+- `supabase.ts` - Supabase browser client (anon key)
 
 ### 3. React Components (`src/components/`)
 
@@ -113,60 +118,76 @@ secured-ajo/
 **Purpose**: Reusable React components for the UI.
 
 **Rules**:
-- ✅ Must have `'use client'` directive if using hooks/interactivity
-- ✅ Can import from `lib/client/`
+- ✅ Can use React hooks and state
 - ✅ Can import from `src/services/`
-- ❌ NEVER import from `lib/server/`
+- ✅ Can import from `src/lib/client/`
+- ✅ Access data via Supabase client with RLS
+- ❌ NO direct database connections
 
 **Organization**:
-- `ui/` - Shadcn UI components
+- `ui/` - shadcn/ui components
 - Root level - Application-specific components
 
-### 4. API Routes (`app/api/`)
+### 4. Database & Security (Supabase)
 
-**Location**: `/app/api/`
+**Location**: `/supabase/`
 
-**Purpose**: REST API endpoints for client-server communication.
+**Purpose**: Database schema, RLS policies, and Supabase configuration.
 
-**Rules**:
-- ✅ Server-side only (no need for 'use client')
-- ✅ Can import from `lib/server/`
-- ✅ Should use standardized response helpers
-- ✅ Should implement rate limiting
-- ✅ Should validate inputs with Zod schemas
+**Security Model**:
+- ✅ Row Level Security (RLS) enabled on all tables
+- ✅ RLS policies enforce data access rules
+- ✅ Users can only access their own data
+- ✅ Group members can only see group data
+- ✅ All authentication via Supabase Auth
+
+**Files**:
+- `schema.sql` - Complete database schema with RLS policies
+- `storage.sql` - Storage buckets and policies
+- `functions/` - Supabase Edge Functions for complex server-side logic
 
 **Pattern**:
+**Example** - Authentication Service:
 ```typescript
-import { createClient } from '@/lib/server/supabase';
-import { query } from '@/lib/server/db';
-import { successResponse, errorResponse } from '@/lib/server/apiResponse';
+import { createClient } from '@/lib/client/supabase';
 
-export async function POST(req: NextRequest) {
-  // 1. Rate limit check
-  // 2. Validate input
-  // 3. Authenticate user
-  // 4. Perform business logic
-  // 5. Return response
+export async function login(email: string, password: string) {
+  const supabase = createClient();
+  
+  // Supabase Auth handles authentication
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  
+  if (error) return { success: false, error: error.message };
+  
+  // Fetch user data from database (RLS enforced)
+  const { data: userData } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', data.user.id)
+    .single();
+    
+  return { success: true, user: userData };
 }
 ```
 
-### 5. Client Services (`src/services/`)
+### 5. Services Layer (`src/services/`)
 
 **Location**: `/src/services/`
 
-**Purpose**: Client-side service layer for API communication and local storage.
+**Purpose**: Client-side service layer for Supabase operations and business logic.
 
 **Rules**:
 - ✅ Client-safe code only
-- ✅ Can use fetch/axios for API calls
-- ✅ Can use localStorage/sessionStorage
-- ❌ NO server imports
+- ✅ Uses Supabase browser client
+- ✅ RLS enforces all authorization
+- ❌ NO server-side operations
+- ❌ NO service role key access
 
 **Files**:
-- `auth.ts` - Authentication service (calls API routes)
-- `api.ts` - Axios client with interceptors
-- `storage.ts` - Local storage utilities
-- `groupService.ts` - Group-related API calls
+- `auth.ts` - Authentication service (Supabase Auth)
 
 ## Authentication Flow
 
@@ -174,86 +195,141 @@ export async function POST(req: NextRequest) {
 
 1. **Client-side** (`src/services/auth.ts`):
    - Collects user input
-   - Calls API route with credentials
-   - Stores tokens/session
-
-2. **Server-side** (`app/api/auth/*/route.ts`):
-   - Validates input with Zod
-   - Uses Supabase Auth for authentication
-   - Creates user record in database
+   - Calls Supabase Auth directly
+   - Creates user record in database via RLS
    - Returns user data
 
-3. **Email Verification**:
-   - OTP sent via Supabase Auth
-   - User verifies email before access
-   - Profile completion enforced
+2. **Supabase Auth**:
+   - Validates credentials
+   - Creates auth.users record
+   - Issues JWT token
+   - Manages session
 
-4. **Admin Approval**:
-   - User status tracked in database
-   - Approval workflow implemented
-   - RLS policies enforce access control
+3. **Database Trigger**:
+   - Automatically creates public.users record
+   - Links to auth.users via ID
+   - Sets default values
+
+4. **Email Verification**:
+   - OTP sent via Supabase Auth
+   - User verifies email before full access
+   - RLS policies check verification status
+
+5. **Session Management**:
+   - Supabase handles token refresh
+   - Client monitors auth state changes
+   - Automatic logout on token expiry
 
 ## Database
 
 ### Technology
 - **Provider**: Supabase (PostgreSQL)
-- **ORM**: Raw SQL with prepared statements
-- **Connection**: PostgreSQL connection pool
+- **Access Method**: Supabase JS client with RLS
+- **Security**: Row Level Security (RLS) policies
 
 ### Query Pattern
 
-**Preferred**: Use server-side functions for complex queries
+**Direct Supabase Queries** (with RLS):
 ```typescript
-import { query } from '@/lib/server/db';
+import { createClient } from '@/lib/client/supabase';
 
-const result = await query(
-  'SELECT * FROM users WHERE email = $1',
-  [email]
-);
+const supabase = createClient();
+
+// RLS automatically filters based on current user
+const { data, error } = await supabase
+  .from('groups')
+  .select('*')
+  .eq('status', 'active');
 ```
 
-**Alternative**: Use Supabase RPC functions for complex operations
+**Complex Operations** (Supabase RPC or Edge Functions):
 ```typescript
-const supabase = await createClient();
-const { data } = await supabase.rpc('complex_query', { param1: value });
+const supabase = createClient();
+
+// Call a database function (RPC)
+const { data } = await supabase.rpc('calculate_group_stats', { 
+  group_id: groupId 
+});
+
+// Or call an Edge Function
+const { data } = await supabase.functions.invoke('process-payout', {
+  body: { groupId, cycle }
+});
 ```
 
 ### Row Level Security (RLS)
 
-All tables use RLS policies to enforce:
-- User can only access their own data
-- Admin approval required for certain operations
-- Group membership verification
+All tables have RLS policies that enforce:
+- Users can only access their own data
+- Group members can only see data for groups they belong to
+- Verification status affects data access
+- Admin operations restricted to admin users
+
+**Example RLS Policy**:
+```sql
+-- Users can only read their own profile
+CREATE POLICY "Users can view own profile"
+  ON users FOR SELECT
+  USING (auth.uid() = id);
+
+-- Group members can view their group
+CREATE POLICY "Members can view their groups"
+  ON groups FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM group_members
+      WHERE group_id = groups.id
+      AND user_id = auth.uid()
+    )
+  );
+```
 
 ## Storage
 
 ### Supabase Storage Buckets
 
 Configured buckets for:
-- User profile images
-- Documents
-- Misc uploads
+- `avatars` - User profile images
+- `documents` - KYC and verification documents
+- `group-files` - Group-related uploads
 
-**Server-side operations** (`lib/server/storage.ts`):
+**Client-side Storage Operations**:
 ```typescript
-import { uploadFile, getPublicUrl } from '@/lib/server/storage';
+import { createClient } from '@/lib/client/supabase';
 
-const data = await uploadFile('avatars', 'user-123.jpg', file);
-const url = await getPublicUrl('avatars', 'user-123.jpg');
+const supabase = createClient();
+
+// Upload file
+const { data, error } = await supabase.storage
+  .from('avatars')
+  .upload(`user-${userId}.jpg`, file);
+
+// Get public URL
+const { data: { publicUrl } } = supabase.storage
+  .from('avatars')
+  .getPublicUrl(`user-${userId}.jpg`);
 ```
+
+**Bucket Policies** enforce access control:
+- Users can only upload to their own folders
+- Public read access where appropriate
+- Automatic file validation
 
 ## Environment Variables
 
 ### Required Variables
 
-**Public** (NEXT_PUBLIC_*):
-- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
+**Public** (VITE_*):
+- `VITE_SUPABASE_URL` - Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` - Supabase anonymous key (public, browser-safe)
+- `VITE_APP_NAME` - Application name
+- `VITE_APP_URL` - Application URL
+- `VITE_PAYSTACK_PUBLIC_KEY` - Payment gateway public key (optional)
 
-**Private** (Server-only):
-- `DATABASE_URL` - PostgreSQL connection string
-- `PAYSTACK_SECRET_KEY` - Payment gateway secret
-- `SUPABASE_SERVICE_ROLE_KEY` - Supabase admin key (if needed)
+**No Private Variables Required**:
+- All backend operations handled by Supabase
+- Service role key only used in Supabase dashboard/Edge Functions
+- No server secrets in the codebase
 
 ## Import Path Aliases
 
@@ -262,102 +338,132 @@ Configured in `tsconfig.json`:
 ```json
 {
   "paths": {
-    "@/*": ["./src/*", "./*"]
+    "@/*": ["./src/*"]
   }
 }
 ```
 
 **Usage examples**:
 ```typescript
-// Server imports
-import { query } from '@/lib/server/db';
-import { createClient } from '@/lib/server/supabase';
-
 // Client imports
 import { createClient } from '@/lib/client/supabase';
 import { login } from '@/services/auth';
 import { Button } from '@/components/ui/button';
+import { User } from '@/types';
 ```
 
 ## Build & Deployment
 
-### Build Process
+### Development
+
+```bash
+npm install
+npm run dev
+```
+
+**What happens**:
+1. Vite dev server starts on port 3000
+2. Hot module replacement enabled
+3. Fast refresh for React components
+4. TypeScript type checking in background
+
+### Production Build
 
 ```bash
 npm run build
 ```
 
 **What happens**:
-1. TypeScript compilation
-2. Next.js optimization
-3. Server/client code separation
-4. Static page generation where possible
-5. API routes compiled as serverless functions
+1. TypeScript compilation check
+2. Vite optimization and tree-shaking
+3. CSS bundling and minification
+4. Asset optimization
+5. Output to `dist/` directory
 
 ### Deployment Targets
 
-- **Vercel** (recommended for Next.js)
-- **Docker** (see Dockerfile)
-- Any Node.js hosting platform
+- **Vercel** (recommended - static hosting)
+- **Netlify** (static hosting)
+- **AWS S3 + CloudFront** (static hosting)
+- Any static hosting platform
+
+**Note**: No server deployment needed - all backend is Supabase
 
 ## Security Best Practices
 
-1. ✅ **Server-only enforcement**: All sensitive code has `import 'server-only'`
-2. ✅ **Input validation**: All API inputs validated with Zod
-3. ✅ **Rate limiting**: API routes implement rate limiting
-4. ✅ **RLS policies**: Database enforces row-level security
-5. ✅ **Environment variables**: Secrets never exposed to client
-6. ✅ **HTTPS only**: All API calls use secure connections
-7. ✅ **Session management**: Supabase handles auth tokens securely
+1. ✅ **Row Level Security**: All database tables have RLS policies
+2. ✅ **Client-only keys**: Only anon key exposed to browser
+3. ✅ **RLS enforcement**: All authorization at database level
+4. ✅ **Supabase Auth**: Secure authentication and session management
+5. ✅ **Storage policies**: Bucket-level access control
+6. ✅ **HTTPS only**: All Supabase connections use TLS
+7. ✅ **Input validation**: Client-side and database-level validation
+8. ✅ **No secrets in code**: All sensitive keys in Supabase dashboard
 
-## Migration Notes
+## Architecture Benefits
 
-### What Changed
+### Before (Express.js Backend)
+- ❌ Two separate processes to run (frontend + backend)
+- ❌ Complex deployment (need Node.js server)
+- ❌ Manual session management
+- ❌ Rate limiting implementation needed
+- ❌ Database connection pool management
+- ❌ More code to maintain (~2300 lines)
 
-**Before**:
-- Server code in `src/lib/server/`
-- Client code mixed throughout
-- Supabase clients in `src/lib/supabase/`
-
-**After**:
-- Server code in `lib/server/` (root level)
-- Client code in `lib/client/` and `src/`
-- Clear separation with `server-only` imports
-- Updated import paths across the codebase
-
-### If You See Errors
-
-**"Module not found: Can't resolve '@/lib/server/...'"**:
-- ✅ Make sure you're not importing server code in client components
-- ✅ Use API routes to access server functionality from client
-
-**"You're importing a component that needs..."**:
-- ✅ Add `'use client'` directive to the component
-- ✅ Move server logic to API routes
+### After (Supabase Only)
+- ✅ Single Vite dev server
+- ✅ Simple deployment (static files only)
+- ✅ Automatic session management
+- ✅ Built-in rate limiting (via Supabase)
+- ✅ Managed database connections
+- ✅ Less code to maintain
+- ✅ Serverless scaling
+- ✅ Built-in real-time capabilities
 
 ## Development Workflow
 
-1. **Client Components**: Use for interactive UI
+1. **All Components are Client Components**:
    ```typescript
-   'use client';
-   import { useState } from 'react';
+   // Use React hooks freely
+   import { useState, useEffect } from 'react';
+   import { createClient } from '@/lib/client/supabase';
    ```
 
-2. **Server Components**: Use for data fetching (default in App Router)
+2. **Direct Supabase Queries**:
    ```typescript
-   // No 'use client' needed
-   import { query } from '@/lib/server/db';
+   const supabase = createClient();
+   
+   // RLS automatically filters data
+   const { data, error } = await supabase
+     .from('groups')
+     .select('*')
+     .eq('user_id', userId);
    ```
 
-3. **API Routes**: Use for server operations called from client
+3. **For Complex Operations**:
    ```typescript
-   import { createClient } from '@/lib/server/supabase';
-   export async function POST(req: NextRequest) { ... }
+   // Option 1: Database RPC function
+   const { data } = await supabase.rpc('complex_operation', params);
+   
+   // Option 2: Edge Function
+   const { data } = await supabase.functions.invoke('function-name', {
+     body: params
+   });
    ```
+
+## Future Enhancements
+
+When backend logic is needed, use:
+
+1. **Supabase RPC Functions**: SQL functions for complex queries
+2. **Supabase Edge Functions**: TypeScript serverless functions
+3. **Database Triggers**: Automatic actions on data changes
+4. **Webhooks**: External service integrations
 
 ## Resources
 
-- [Next.js App Router Docs](https://nextjs.org/docs/app)
-- [Supabase Docs](https://supabase.com/docs)
-- [Server-only Package](https://www.npmjs.com/package/server-only)
-- [Next.js Server Actions](https://nextjs.org/docs/app/building-your-application/data-fetching/server-actions)
+- [Vite Documentation](https://vitejs.dev/)
+- [React Documentation](https://react.dev/)
+- [Supabase Documentation](https://supabase.com/docs)
+- [Supabase RLS Guide](https://supabase.com/docs/guides/auth/row-level-security)
+- [Supabase Edge Functions](https://supabase.com/docs/guides/functions)
