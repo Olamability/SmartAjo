@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/client/supabase';
 import { User } from '@/types';
 import { retryWithBackoff } from '@/lib/utils';
+import { POSTGRES_ERROR_CODES, convertKycStatus } from '@/lib/constants/database';
 
 interface AuthContextType {
   user: User | null;
@@ -75,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         fullName: data.full_name,
         createdAt: data.created_at,
         isVerified: data.is_verified,
-        kycStatus: (data.kyc_status === 'approved' ? 'verified' : data.kyc_status) as 'not_started' | 'pending' | 'verified' | 'rejected',
+        kycStatus: convertKycStatus(data.kyc_status),
         bvn: data.kyc_data?.bvn,
         profileImage: data.avatar_url,
       });
@@ -134,7 +135,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Load user profile with proper error handling
-      await loadUserProfile(data.user.id);
+      try {
+        await loadUserProfile(data.user.id);
+      } catch (profileError) {
+        console.error('Failed to load profile after login, attempting to create:', profileError);
+        
+        // If profile doesn't exist, try to create it from auth metadata
+        const authUser = data.user;
+        const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
+        const phone = authUser.user_metadata?.phone || '';
+        const userEmail = authUser.email || '';
+        
+        if (!userEmail) {
+          throw new Error('User account is missing email address. Please contact support.');
+        }
+        
+        try {
+          const { error: insertError } = await supabase.from('users').insert({
+            id: authUser.id,
+            email: userEmail,
+            full_name: fullName,
+            phone: phone,
+            is_verified: authUser.email_confirmed_at ? true : false,
+            is_active: true,
+            kyc_status: 'not_started',
+          });
+          
+          // Ignore duplicate key errors (profile might have been created concurrently)
+          if (insertError) {
+            const isDuplicateError = insertError.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION;
+            if (!isDuplicateError) {
+              throw insertError;
+            }
+          }
+          
+          // Try loading profile again
+          await loadUserProfile(authUser.id);
+        } catch (createError) {
+          console.error('Failed to create missing profile:', createError);
+          throw new Error('Unable to access user profile. Please contact support.');
+        }
+      }
     } catch (error) {
       console.error('Login error:', error);
       throw error;
@@ -207,10 +248,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
 
             // Ignore duplicate key errors (profile might have been created concurrently)
-            // Check for PostgreSQL duplicate key error code directly
+            // PostgreSQL error code for unique violation
             if (insertError) {
-              // PostgreSQL error code 23505 is unique violation
-              const isDuplicateError = insertError.code === '23505';
+              const isDuplicateError = insertError.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION;
               if (!isDuplicateError) {
                 throw insertError;
               }
@@ -258,12 +298,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const initAuth = async () => {
       try {
-        await refreshUser();
+        console.log('Initializing auth context...');
+        const refreshed = await refreshUser();
+        console.log('Auth initialization complete, user authenticated:', refreshed);
       } catch (error) {
         console.error('Error during auth initialization:', error);
       } finally {
         if (mounted) {
           setLoading(false);
+          console.log('Auth loading state set to false');
         }
       }
     };
@@ -273,15 +316,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, session?.user?.id);
+      console.log('Auth state change event:', event, 'User ID:', session?.user?.id);
       
       if (event === 'SIGNED_OUT') {
+        console.log('User signed out, clearing user state');
         setUser(null);
       }
 
       if (event === 'SIGNED_IN' && session?.user) {
+        console.log('User signed in, loading profile for:', session.user.id);
         try {
           await loadUserProfile(session.user.id);
+          console.log('Profile loaded successfully after sign in');
         } catch (error) {
           console.error('Error loading profile on auth state change:', error);
         }
@@ -289,6 +335,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Handle token refresh
       if (event === 'TOKEN_REFRESHED' && session?.user) {
+        console.log('Token refreshed, reloading profile');
         try {
           await loadUserProfile(session.user.id);
         } catch (error) {
@@ -300,6 +347,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false;
       subscription.unsubscribe();
+      console.log('Auth context cleanup, unsubscribed from auth changes');
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

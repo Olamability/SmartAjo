@@ -7,6 +7,7 @@ import {
   USER_DATA_FETCH_TIMEOUT, 
   DB_WRITE_TIMEOUT 
 } from '@/lib/constants/timeout';
+import { POSTGRES_ERROR_CODES, convertKycStatus } from '@/lib/constants/database';
 
 // Signup function
 // Uses Supabase Auth directly for authentication
@@ -99,8 +100,8 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
 
           if (insertResponse.error) {
             console.error('Error inserting user data:', insertResponse.error);
-            // If duplicate key error (23505), the trigger may have created it, retry fetch
-            if (insertResponse.error.code === '23505') {
+            // If duplicate key error, the trigger may have created it, retry fetch
+            if (insertResponse.error.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION) {
               console.log('User record already exists (created by trigger), retrying fetch...');
             }
           }
@@ -144,7 +145,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
         fullName: userData.full_name,
         createdAt: userData.created_at,
         isVerified: userData.is_verified,
-        kycStatus: userData.kyc_status,
+        kycStatus: convertKycStatus(userData.kyc_status),
         bvn: userData.kyc_data?.bvn,
         profileImage: userData.avatar_url,
       },
@@ -201,11 +202,72 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       'Unable to fetch user data. Please try again.'
     );
 
-    const { data: userData, error: fetchError } = fetchResponse;
+    let { data: userData, error: fetchError } = fetchResponse;
 
+    // If user profile doesn't exist, try to create it from auth metadata
     if (fetchError || !userData) {
-      console.error('Error fetching user data:', fetchError);
-      return { success: false, error: 'Failed to fetch user data. Please try again.' };
+      console.warn('User profile not found, attempting to create from auth metadata:', fetchError?.message);
+      
+      const authUser = authData.user;
+      const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
+      const phone = authUser.user_metadata?.phone || '';
+      const userEmail = authUser.email || '';
+      
+      if (!userEmail) {
+        console.error('Auth user has no email address');
+        return { success: false, error: 'User account is missing email address. Please contact support.' };
+      }
+      
+      try {
+        const insertPromise = supabase
+          .from('users')
+          .insert({
+            id: authUser.id,
+            email: userEmail,
+            phone: phone,
+            full_name: fullName,
+            is_verified: authUser.email_confirmed_at ? true : false,
+            is_active: true,
+            kyc_status: 'not_started',
+          })
+          .select()
+          .single();
+        
+        const insertResponse = await withTimeout(
+          insertPromise as unknown as Promise<any>,
+          DB_WRITE_TIMEOUT,
+          'Failed to create user profile.'
+        );
+
+        // Ignore duplicate key errors (profile might exist now)
+        if (insertResponse.error && insertResponse.error.code !== POSTGRES_ERROR_CODES.UNIQUE_VIOLATION) {
+          console.error('Failed to create missing profile:', insertResponse.error);
+          return { success: false, error: 'Failed to load user profile. Please contact support.' };
+        }
+
+        // If insert succeeded or profile already exists, try fetching again
+        const refetchPromise = supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+        
+        const refetchResponse = await withTimeout(
+          refetchPromise as unknown as Promise<any>,
+          USER_DATA_FETCH_TIMEOUT,
+          'Unable to fetch user data after creation.'
+        );
+
+        userData = refetchResponse.data;
+        
+        if (!userData) {
+          console.error('Still unable to fetch user profile after creation attempt');
+          return { success: false, error: 'Failed to load user profile. Please contact support.' };
+        }
+      } catch (createError) {
+        console.error('Error creating missing profile:', createError);
+        return { success: false, error: 'Unable to access user profile. Please contact support.' };
+      }
     }
 
     // Check if account is active
@@ -244,7 +306,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
         fullName: userData.full_name,
         createdAt: userData.created_at,
         isVerified: userData.is_verified,
-        kycStatus: userData.kyc_status,
+        kycStatus: convertKycStatus(userData.kyc_status),
         bvn: userData.kyc_data?.bvn,
         profileImage: userData.avatar_url,
       },
@@ -384,7 +446,7 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
         fullName: data.full_name,
         createdAt: data.created_at,
         isVerified: data.is_verified,
-        kycStatus: data.kyc_status,
+        kycStatus: convertKycStatus(data.kyc_status),
         bvn: data.kyc_data?.bvn,
         profileImage: data.avatar_url,
       },

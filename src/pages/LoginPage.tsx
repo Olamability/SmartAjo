@@ -41,18 +41,29 @@ export default function LoginPage() {
     if (!isMountedRef.current) return;
 
     setIsLoading(true);
+    console.log('Login attempt for:', data.email);
+    
     try {
+      console.log('Calling login function...');
       await login(data.email, data.password);
       if (!isMountedRef.current) return;
 
+      console.log('Login successful, navigating to dashboard');
       toast.success('Welcome back!');
       navigate('/dashboard');
     } catch (error) {
       if (!isMountedRef.current) return;
 
-      // Don't log full error object - just log minimal info
-      console.error('Login error:', error instanceof Error ? error.message : 'Unknown error');
-      toast.error(getErrorMessage(error, 'Invalid email or password'));
+      // Log detailed error information for debugging
+      console.error('Login error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        type: error?.constructor?.name,
+        error: error,
+      });
+      
+      const errorMessage = getErrorMessage(error, 'Invalid email or password');
+      console.error('Showing error to user:', errorMessage);
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };
