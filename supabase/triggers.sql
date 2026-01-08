@@ -39,7 +39,7 @@ BEGIN
       related_group_id
     ) VALUES (
       NEW.user_id,
-      'payment_received',
+      'contribution_paid',
       'Payment Received',
       'Your contribution of ₦' || NEW.amount || ' for ' || v_group_name || ' has been received.',
       NEW.group_id
@@ -55,7 +55,7 @@ BEGIN
         related_group_id
       ) VALUES (
         v_group_creator,
-        'payment_received',
+        'contribution_paid',
         'Member Payment Received',
         v_user_name || ' has paid their contribution of ₦' || NEW.amount || ' for ' || v_group_name || '.',
         NEW.group_id
@@ -158,7 +158,7 @@ BEGIN
       related_group_id
     ) VALUES (
       NEW.recipient_id,
-      'payout_ready',
+      'payout_received',
       'Payout Completed!',
       'Your payout of ₦' || NEW.amount || ' for ' || v_group_name || ' has been processed successfully.',
       NEW.related_group_id
@@ -194,7 +194,7 @@ BEGIN
       related_group_id
     ) VALUES (
       NEW.recipient_id,
-      'payout_failed',
+      'general',
       'Payout Failed',
       'There was an issue processing your payout for ' || v_group_name || '. Please contact support.',
       NEW.related_group_id
@@ -305,7 +305,7 @@ BEGIN
     related_group_id
   ) VALUES (
     NEW.user_id,
-    'group_joined',
+    'member_joined',
     'Welcome to ' || v_group_name,
     'You have successfully joined ' || v_group_name || '. Your position is ' || NEW.position || '.',
     NEW.group_id
