@@ -39,60 +39,103 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Load user profile from DB
+   * Returns true if successful, false otherwise
    */
-  const loadUserProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+  const loadUserProfile = async (userId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (error || !data) {
-      console.error('Failed to load user profile:', error);
+      if (error) {
+        console.error('Failed to load user profile:', {
+          error,
+          userId,
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+        });
+        
+        // Don't set user to null here - throw error instead
+        throw new Error(`Failed to load user profile: ${error.message}`);
+      }
+
+      if (!data) {
+        console.error('User profile not found for ID:', userId);
+        throw new Error('User profile not found. Please contact support.');
+      }
+
+      setUser({
+        id: data.id,
+        email: data.email,
+        phone: data.phone,
+        fullName: data.full_name,
+        createdAt: data.created_at,
+        isVerified: data.is_verified,
+        kycStatus: (data.kyc_status === 'approved' ? 'verified' : data.kyc_status) as 'not_started' | 'pending' | 'verified' | 'rejected',
+        bvn: data.kyc_data?.bvn,
+        profileImage: data.avatar_url,
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error in loadUserProfile:', error);
+      // Only set user to null on actual errors after logging
       setUser(null);
-      return;
+      throw error;
     }
-
-    setUser({
-      id: data.id,
-      email: data.email,
-      phone: data.phone,
-      fullName: data.full_name,
-      createdAt: data.created_at,
-      isVerified: data.is_verified,
-      kycStatus: (data.kyc_status === 'approved' ? 'verified' : data.kyc_status) as 'not_started' | 'pending' | 'verified' | 'rejected',
-      bvn: data.kyc_data?.bvn,
-      profileImage: data.avatar_url,
-    });
   };
 
   /**
    * Refresh session + user
+   * Returns true if successful, false otherwise
    */
-  const refreshUser = async () => {
-    const { data } = await supabase.auth.getSession();
-    const session = data.session;
+  const refreshUser = async (): Promise<boolean> => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
 
-    if (!session?.user) {
+      if (!session?.user) {
+        setUser(null);
+        return false;
+      }
+
+      return await loadUserProfile(session.user.id);
+    } catch (error) {
+      console.error('Error refreshing user:', error);
       setUser(null);
-      return;
+      return false;
     }
-
-    await loadUserProfile(session.user.id);
   };
 
   /**
    * LOGIN
    */
   const login = async (email: string, password: string) => {
-    const { error, data } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error, data } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) throw error;
+      if (error) {
+        console.error('Login auth error:', error);
+        throw error;
+      }
 
-    await loadUserProfile(data.user.id);
+      if (!data?.user) {
+        throw new Error('Login failed: No user data returned');
+      }
+
+      // Load user profile with proper error handling
+      await loadUserProfile(data.user.id);
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
   /**
@@ -109,70 +152,76 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fullName: string;
     phone: string;
   }) => {
-    // Sign up with metadata - the database trigger will create the user profile
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-          phone: phone,
-        },
-      },
-    });
-
-    if (error || !data.user) throw error;
-
-    // Wait for the trigger to create the profile record
-    // Retry with exponential backoff
     try {
-      await retryWithBackoff(
-        async () => {
-          // Check if profile exists
-          const { data: profile, error: fetchError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
+      // Sign up with metadata - the profile will be created client-side
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            phone: phone,
+          },
+        },
+      });
 
-          if (profile && !fetchError) {
-            // Profile exists, load it and return success
+      if (error || !data.user) {
+        console.error('Signup auth error:', error);
+        throw error || new Error('Signup failed: No user data returned');
+      }
+
+      // Try to create profile with retry logic
+      try {
+        await retryWithBackoff(
+          async () => {
+            // First check if profile exists (might have been created by a webhook/hook)
+            const { data: profile, error: fetchError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('id', data.user.id)
+              .single();
+
+            if (profile && !fetchError) {
+              // Profile exists, load it
+              await loadUserProfile(data.user.id);
+              return true;
+            }
+
+            // Profile doesn't exist, create it manually
+            const { error: insertError } = await supabase.from('users').insert({
+              id: data.user.id,
+              email,
+              full_name: fullName,
+              phone,
+              is_verified: false,
+              is_active: true,
+              kyc_status: 'not_started',
+            });
+
+            // Ignore duplicate key errors (profile might have been created concurrently)
+            if (insertError && 
+                !insertError.code?.includes('23505') && 
+                !insertError.message.includes('duplicate') &&
+                !insertError.message.includes('unique constraint')) {
+              throw insertError;
+            }
+
+            // Load the profile
             await loadUserProfile(data.user.id);
             return true;
-          }
-
-          // Profile doesn't exist yet, throw error to trigger retry
-          throw new Error('Profile not found, retrying...');
-        },
-        MAX_PROFILE_RETRIES,
-        INITIAL_RETRY_DELAY_MS
-      );
-      
-      // Profile loaded successfully via trigger
-      return;
-    } catch (retryError) {
-      // All retries exhausted, try manual insert as fallback
-      console.warn('Trigger did not create profile, attempting manual insert');
+          },
+          MAX_PROFILE_RETRIES,
+          INITIAL_RETRY_DELAY_MS
+        );
+      } catch (retryError) {
+        console.error('Failed to create/load profile after retries:', retryError);
+        // Don't throw - let user proceed to dashboard even if profile load failed
+        // The profile might exist but there could be an RLS policy issue
+      }
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
     }
-
-    // Fallback: Manual insert if trigger didn't work
-    const { error: insertError } = await supabase.from('users').insert({
-      id: data.user.id,
-      email,
-      full_name: fullName,
-      phone,
-    });
-
-    // Ignore duplicate key errors (profile might have been created by trigger)
-    // Check for duplicate/conflict errors using error code or message
-    if (insertError && 
-        !insertError.code?.includes('23505') && // PostgreSQL unique violation code
-        !insertError.message.includes('duplicate') &&
-        !insertError.message.includes('unique constraint')) {
-      throw insertError;
-    }
-
-    await loadUserProfile(data.user.id);
   };
 
   /**
@@ -187,21 +236,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * INIT
    */
   useEffect(() => {
-    refreshUser().finally(() => setLoading(false));
+    let mounted = true;
+
+    const initAuth = async () => {
+      try {
+        await refreshUser();
+      } catch (error) {
+        console.error('Error during auth initialization:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    initAuth();
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state change:', event, session?.user?.id);
+      
       if (event === 'SIGNED_OUT') {
         setUser(null);
       }
 
       if (event === 'SIGNED_IN' && session?.user) {
-        await loadUserProfile(session.user.id);
+        try {
+          await loadUserProfile(session.user.id);
+        } catch (error) {
+          console.error('Error loading profile on auth state change:', error);
+        }
+      }
+      
+      // Handle token refresh
+      if (event === 'TOKEN_REFRESHED' && session?.user) {
+        try {
+          await loadUserProfile(session.user.id);
+        } catch (error) {
+          console.error('Error loading profile on token refresh:', error);
+        }
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
