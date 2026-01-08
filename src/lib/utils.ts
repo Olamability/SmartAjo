@@ -67,3 +67,42 @@ export function withTimeout<T>(
     ),
   ]);
 }
+
+/**
+ * Retries an async operation with exponential backoff
+ * @param operation - The async operation to retry
+ * @param maxRetries - Maximum number of retry attempts (default: 5)
+ * @param initialDelayMs - Initial delay in milliseconds (default: 100)
+ * @param onRetry - Optional callback called before each retry with retry count
+ * @returns Promise that resolves with the operation result or rejects after all retries fail
+ */
+export async function retryWithBackoff<T>(
+  operation: () => Promise<T>,
+  maxRetries: number = 5,
+  initialDelayMs: number = 100,
+  onRetry?: (retryCount: number) => void
+): Promise<T> {
+  let retries = maxRetries;
+  let delay = initialDelayMs;
+  let lastError: Error | null = null;
+
+  while (retries > 0) {
+    try {
+      const result = await operation();
+      return result;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      retries--;
+
+      if (retries > 0) {
+        if (onRetry) {
+          onRetry(maxRetries - retries);
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      }
+    }
+  }
+
+  throw lastError || new Error('Operation failed after retries');
+}

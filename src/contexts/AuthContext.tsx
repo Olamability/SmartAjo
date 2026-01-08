@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { createClient } from '@/lib/client/supabase';
 import { User } from '@/types';
+import { retryWithBackoff } from '@/lib/utils';
 
 interface AuthContextType {
   user: User | null;
@@ -26,6 +27,10 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Retry configuration for profile creation
+const MAX_PROFILE_RETRIES = 5;
+const INITIAL_RETRY_DELAY_MS = 100;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
@@ -119,56 +124,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (error || !data.user) throw error;
 
     // Wait for the trigger to create the profile record
-    // Retry up to 5 times with exponential backoff
-    let retries = 5;
-    let delay = 100; // Start with 100ms
-    let profileLoaded = false;
+    // Retry with exponential backoff
+    try {
+      await retryWithBackoff(
+        async () => {
+          // Check if profile exists
+          const { data: profile, error: fetchError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
 
-    while (retries > 0 && !profileLoaded) {
-      try {
-        // Check if profile exists
-        const { data: profile, error: fetchError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
+          if (profile && !fetchError) {
+            // Profile exists, load it and return success
+            await loadUserProfile(data.user.id);
+            return true;
+          }
 
-        if (profile && !fetchError) {
-          // Profile exists, load it
-          await loadUserProfile(data.user.id);
-          profileLoaded = true;
-          break;
-        }
-
-        // Profile doesn't exist yet, wait and retry
-        if (retries > 1) {
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          delay *= 2; // Exponential backoff
-        }
-      } catch (err) {
-        console.error('Error checking profile:', err);
-      }
-
-      retries--;
-    }
-
-    // If profile still not loaded after retries, try manual insert as fallback
-    if (!profileLoaded) {
+          // Profile doesn't exist yet, throw error to trigger retry
+          throw new Error('Profile not found, retrying...');
+        },
+        MAX_PROFILE_RETRIES,
+        INITIAL_RETRY_DELAY_MS
+      );
+      
+      // Profile loaded successfully via trigger
+      return;
+    } catch (retryError) {
+      // All retries exhausted, try manual insert as fallback
       console.warn('Trigger did not create profile, attempting manual insert');
-      const { error: insertError } = await supabase.from('users').insert({
-        id: data.user.id,
-        email,
-        full_name: fullName,
-        phone,
-      });
-
-      // Ignore duplicate key errors (profile might have been created by trigger)
-      if (insertError && !insertError.message.includes('duplicate')) {
-        throw insertError;
-      }
-
-      await loadUserProfile(data.user.id);
     }
+
+    // Fallback: Manual insert if trigger didn't work
+    const { error: insertError } = await supabase.from('users').insert({
+      id: data.user.id,
+      email,
+      full_name: fullName,
+      phone,
+    });
+
+    // Ignore duplicate key errors (profile might have been created by trigger)
+    // Check for duplicate/conflict errors using error code or message
+    if (insertError && 
+        !insertError.code?.includes('23505') && // PostgreSQL unique violation code
+        !insertError.message.includes('duplicate') &&
+        !insertError.message.includes('unique constraint')) {
+      throw insertError;
+    }
+
+    await loadUserProfile(data.user.id);
   };
 
   /**
