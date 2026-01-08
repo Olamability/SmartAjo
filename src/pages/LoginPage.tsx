@@ -11,6 +11,7 @@ import { Shield, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/utils';
+import { getErrorType } from '@/lib/utils/errorHandling';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -57,7 +58,7 @@ export default function LoginPage() {
       // Log detailed error information for debugging
       console.error('Login error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
-        type: error?.constructor?.name,
+        type: getErrorType(error),
         error: error,
       });
       
