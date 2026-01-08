@@ -117,10 +117,9 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
     };
   } catch (error) {
     console.error('Signup error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An error occurred during signup';
     return { 
       success: false, 
-      error: errorMessage
+      error: getErrorMessage(error, 'An error occurred during signup')
     };
   }
 };
@@ -185,7 +184,8 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       .eq('id', userData.id)
       .select();
     
-    withTimeout(
+    // Explicitly fire-and-forget pattern
+    void withTimeout(
       updatePromise as unknown as Promise<any>,
       10000,
       'Last login update timed out'
@@ -214,10 +214,9 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     };
   } catch (error) {
     console.error('Login error:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An error occurred during login';
     return { 
       success: false, 
-      error: errorMessage
+      error: getErrorMessage(error, 'An error occurred during login')
     };
   }
 };

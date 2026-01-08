@@ -30,11 +30,20 @@ export async function parseJsonResponse<T = any>(
 
 /**
  * Converts an error to a user-friendly message
- * Specifically handles invalid response format errors
+ * Specifically handles invalid response format errors and timeout errors
  */
 export function getErrorMessage(error: unknown, fallbackMessage: string): string {
-  if (error instanceof Error && error.message === 'Invalid response format from server') {
-    return 'Server error: Invalid response format';
+  if (error instanceof Error) {
+    // Return the error message for known error types
+    if (error.message === 'Invalid response format from server') {
+      return 'Server error: Invalid response format';
+    }
+    // Return timeout messages as-is since they're already user-friendly
+    if (error.message.includes('timed out') || error.message.includes('timeout')) {
+      return error.message;
+    }
+    // Return other error messages
+    return error.message;
   }
   return fallbackMessage;
 }

@@ -11,6 +11,7 @@ import { Shield, Loader2 } from 'lucide-react';
 import { signUp } from '@/services/auth';
 import { SignUpFormData } from '@/types';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
@@ -64,8 +65,7 @@ export default function SignUpPage() {
       if (!isMountedRef.current) return;
       
       console.error('Signup error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'An unexpected error occurred'));
       setIsLoading(false);
     }
   };

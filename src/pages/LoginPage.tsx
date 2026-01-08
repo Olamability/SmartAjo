@@ -11,6 +11,7 @@ import { Shield, Loader2 } from 'lucide-react';
 import { login } from '@/services/auth';
 import { LoginFormData } from '@/types';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -56,8 +57,7 @@ export default function LoginPage() {
       if (!isMountedRef.current) return;
       
       console.error('Login error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      toast.error(errorMessage);
+      toast.error(getErrorMessage(error, 'An unexpected error occurred'));
       setIsLoading(false);
     }
   };
