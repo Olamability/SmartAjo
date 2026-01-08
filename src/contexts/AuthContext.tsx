@@ -9,6 +9,7 @@ import {
 } from 'react';
 import { createClient } from '@/lib/client/supabase';
 import { User } from '@/types';
+import { retryWithBackoff } from '@/lib/utils';
 
 interface AuthContextType {
   user: User | null;
@@ -26,6 +27,10 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Retry configuration for profile creation
+const MAX_PROFILE_RETRIES = 5;
+const INITIAL_RETRY_DELAY_MS = 100;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
@@ -104,14 +109,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     fullName: string;
     phone: string;
   }) => {
+    // Sign up with metadata - the database trigger will create the user profile
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          full_name: fullName,
+          phone: phone,
+        },
+      },
     });
 
     if (error || !data.user) throw error;
 
-    // Create profile
+    // Wait for the trigger to create the profile record
+    // Retry with exponential backoff
+    try {
+      await retryWithBackoff(
+        async () => {
+          // Check if profile exists
+          const { data: profile, error: fetchError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
+
+          if (profile && !fetchError) {
+            // Profile exists, load it and return success
+            await loadUserProfile(data.user.id);
+            return true;
+          }
+
+          // Profile doesn't exist yet, throw error to trigger retry
+          throw new Error('Profile not found, retrying...');
+        },
+        MAX_PROFILE_RETRIES,
+        INITIAL_RETRY_DELAY_MS
+      );
+      
+      // Profile loaded successfully via trigger
+      return;
+    } catch (retryError) {
+      // All retries exhausted, try manual insert as fallback
+      console.warn('Trigger did not create profile, attempting manual insert');
+    }
+
+    // Fallback: Manual insert if trigger didn't work
     const { error: insertError } = await supabase.from('users').insert({
       id: data.user.id,
       email,
@@ -119,7 +163,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       phone,
     });
 
-    if (insertError) throw insertError;
+    // Ignore duplicate key errors (profile might have been created by trigger)
+    // Check for duplicate/conflict errors using error code or message
+    if (insertError && 
+        !insertError.code?.includes('23505') && // PostgreSQL unique violation code
+        !insertError.message.includes('duplicate') &&
+        !insertError.message.includes('unique constraint')) {
+      throw insertError;
+    }
 
     await loadUserProfile(data.user.id);
   };

@@ -67,9 +67,14 @@ export default function SignUpPage() {
         phone: data.phone,
       });
 
-      if (!isMountedRef.current) return;
+      if (!isMountedRef.current) {
+        setIsLoading(false);
+        return;
+      }
 
       toast.success('Account created successfully!');
+      // Navigation will unmount component, but set loading to false for consistency
+      setIsLoading(false);
       navigate('/dashboard');
     } catch (error) {
       if (!isMountedRef.current) return;
