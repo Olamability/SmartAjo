@@ -122,7 +122,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) {
-        console.error('Login auth error:', error);
+        console.error('Login auth error:', {
+          message: error.message,
+          status: error.status,
+        });
         throw error;
       }
 
@@ -166,7 +169,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error || !data.user) {
-        console.error('Signup auth error:', error);
+        // Don't log the full error if it might contain sensitive data
+        // Only log error message and code
+        console.error('Signup auth error:', {
+          message: error?.message,
+          status: error?.status,
+        });
         throw error || new Error('Signup failed: No user data returned');
       }
 
