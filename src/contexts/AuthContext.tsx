@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/client/supabase';
 import { User } from '@/types';
 import { retryWithBackoff } from '@/lib/utils';
+import { POSTGRES_ERROR_CODES, convertKycStatus } from '@/lib/constants/database';
 
 interface AuthContextType {
   user: User | null;
@@ -75,7 +76,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         fullName: data.full_name,
         createdAt: data.created_at,
         isVerified: data.is_verified,
-        kycStatus: (data.kyc_status === 'approved' ? 'verified' : data.kyc_status) as 'not_started' | 'pending' | 'verified' | 'rejected',
+        kycStatus: convertKycStatus(data.kyc_status),
         bvn: data.kyc_data?.bvn,
         profileImage: data.avatar_url,
       });
@@ -143,11 +144,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const authUser = data.user;
         const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
         const phone = authUser.user_metadata?.phone || '';
+        const userEmail = authUser.email || '';
+        
+        if (!userEmail) {
+          throw new Error('User account is missing email address. Please contact support.');
+        }
         
         try {
           const { error: insertError } = await supabase.from('users').insert({
             id: authUser.id,
-            email: authUser.email!,
+            email: userEmail,
             full_name: fullName,
             phone: phone,
             is_verified: authUser.email_confirmed_at ? true : false,
@@ -156,8 +162,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
           
           // Ignore duplicate key errors (profile might have been created concurrently)
-          if (insertError && insertError.code !== '23505') {
-            throw insertError;
+          if (insertError) {
+            const isDuplicateError = insertError.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION;
+            if (!isDuplicateError) {
+              throw insertError;
+            }
           }
           
           // Try loading profile again
@@ -239,10 +248,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
 
             // Ignore duplicate key errors (profile might have been created concurrently)
-            // Check for PostgreSQL duplicate key error code directly
+            // PostgreSQL error code for unique violation
             if (insertError) {
-              // PostgreSQL error code 23505 is unique violation
-              const isDuplicateError = insertError.code === '23505';
+              const isDuplicateError = insertError.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION;
               if (!isDuplicateError) {
                 throw insertError;
               }
