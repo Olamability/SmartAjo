@@ -6,23 +6,31 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
-import { signUp } from '@/services/auth';
-import { SignUpFormData } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/utils';
 
-const signUpSchema = z.object({
-  fullName: z.string().min(2, 'Full name must be at least 2 characters'),
-  email: z.string().email('Invalid email address'),
-  phone: z.string().min(10, 'Phone number must be at least 10 characters'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
+const signUpSchema = z
+  .object({
+    fullName: z.string().min(2, 'Full name must be at least 2 characters'),
+    email: z.string().email('Invalid email address'),
+    phone: z.string().min(10, 'Phone number must be at least 10 characters'),
+    password: z.string().min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 type SignUpForm = z.infer<typeof signUpSchema>;
 
@@ -30,13 +38,17 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const isMountedRef = useRef(true);
+  const { signUp } = useAuth();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<SignUpForm>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
   });
 
   useEffect(() => {
-    // Track if component is mounted to prevent state updates after unmount
     return () => {
       isMountedRef.current = false;
     };
@@ -44,28 +56,26 @@ export default function SignUpPage() {
 
   const onSubmit = async (data: SignUpForm) => {
     if (!isMountedRef.current) return;
-    
-    setIsLoading(true);
-    try {
-      // Remove confirmPassword before sending to API
-      const { confirmPassword, ...signupData } = data;
-      const result = await signUp(signupData as SignUpFormData);
 
-      // Check if component is still mounted before updating state
+    setIsLoading(true);
+        console.log('Signup form submitted', data);
+    try {
+      await signUp({
+        email: data.email,
+        password: data.password,
+        fullName: data.fullName,
+        phone: data.phone,
+      });
+
       if (!isMountedRef.current) return;
 
-      if (result.success) {
-        toast.success('Account created successfully!');
-        navigate('/dashboard');
-      } else {
-        toast.error(result.error || 'Failed to create account');
-        setIsLoading(false);
-      }
+      toast.success('Account created successfully!');
+      navigate('/dashboard');
     } catch (error) {
       if (!isMountedRef.current) return;
-      
+
       console.error('Signup error:', error);
-      toast.error(getErrorMessage(error, 'An unexpected error occurred'));
+      toast.error(getErrorMessage(error, 'Failed to create account'));
       setIsLoading(false);
     }
   };
@@ -84,47 +94,101 @@ export default function SignUpPage() {
             Enter your details to get started
           </CardDescription>
         </CardHeader>
+
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="fullName">Full Name</Label>
-              <Input id="fullName" placeholder="John Doe" {...register('fullName')} disabled={isLoading} />
-              {errors.fullName && <p className="text-sm text-destructive">{errors.fullName.message}</p>}
+              <Input
+                id="fullName"
+                placeholder="John Doe"
+                {...register('fullName')}
+                disabled={isLoading}
+              />
+              {errors.fullName && (
+                <p className="text-sm text-destructive">
+                  {errors.fullName.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="john@example.com" {...register('email')} disabled={isLoading} />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+              <Input
+                id="email"
+                type="email"
+                placeholder="john@example.com"
+                {...register('email')}
+                disabled={isLoading}
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">
+                  {errors.email.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input id="phone" type="tel" placeholder="+234 800 000 0000" {...register('phone')} disabled={isLoading} />
-              {errors.phone && <p className="text-sm text-destructive">{errors.phone.message}</p>}
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="+234 800 000 0000"
+                {...register('phone')}
+                disabled={isLoading}
+              />
+              {errors.phone && (
+                <p className="text-sm text-destructive">
+                  {errors.phone.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="••••••••" {...register('password')} disabled={isLoading} />
-              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                {...register('password')}
+                disabled={isLoading}
+              />
+              {errors.password && (
+                <p className="text-sm text-destructive">
+                  {errors.password.message}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm Password</Label>
-              <Input id="confirmPassword" type="password" placeholder="••••••••" {...register('confirmPassword')} disabled={isLoading} />
-              {errors.confirmPassword && <p className="text-sm text-destructive">{errors.confirmPassword.message}</p>}
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                {...register('confirmPassword')}
+                disabled={isLoading}
+              />
+              {errors.confirmPassword && (
+                <p className="text-sm text-destructive">
+                  {errors.confirmPassword.message}
+                </p>
+              )}
             </div>
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating account...
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating account...
                 </>
-              ) : 'Create account'}
+              ) : (
+                <span onClick={() => console.log('Create Account button clicked')}>Create account</span>
+              )}
             </Button>
           </form>
         </CardContent>
+
         <CardFooter className="flex flex-col space-y-4">
           <div className="text-sm text-muted-foreground text-center">
             Already have an account?{' '}

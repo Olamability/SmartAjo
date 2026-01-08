@@ -1,8 +1,6 @@
-import { NextRequest } from 'next/server';
-
 // Mark route as dynamic to prevent static optimization
 export const dynamic = 'force-dynamic';
-import { createClient } from '@/lib/server/supabase';
+import { createClient } from '@/lib/client/supabase';
 import { query } from '@/lib/server/db';
 import { loginSchema } from '@/lib/server/validation';
 import { authRateLimiter } from '@/lib/server/rateLimit';
@@ -14,7 +12,8 @@ import {
   unauthorizedResponse 
 } from '@/lib/server/apiResponse';
 
-export async function POST(req: NextRequest) {
+// Use standard Request type for Vercel Edge API or fetch handlers
+export async function POST(req: Request) {
   try {
     // Apply rate limiting
     const rateLimitResult = await authRateLimiter(req);

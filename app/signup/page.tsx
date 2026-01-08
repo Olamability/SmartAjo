@@ -37,6 +37,7 @@ export default function SignUpPage() {
   });
 
   const onSubmit = async (data: SignUpForm) => {
+    console.log('Signup form submitted', data);
     setIsLoading(true);
     try {
       // Remove confirmPassword before sending to API

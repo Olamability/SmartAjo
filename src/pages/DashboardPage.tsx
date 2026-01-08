@@ -2,22 +2,29 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { user, loading, logoutUser } = useAuth();
+  const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
 
+  // Redirect unauthenticated users
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/login');
+      navigate('/login', { replace: true });
     }
   }, [user, loading, navigate]);
 
   const handleLogout = async () => {
-    await logoutUser();
-    navigate('/login');
+    await logout();
+    navigate('/login', { replace: true });
   };
 
   if (loading) {
@@ -28,13 +35,12 @@ export default function DashboardPage() {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-8">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-gradient-hero flex items-center justify-center">
@@ -42,7 +48,9 @@ export default function DashboardPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold">Dashboard</h1>
-              <p className="text-muted-foreground">Welcome back, {user.fullName}</p>
+              <p className="text-muted-foreground">
+                Welcome back, {user.fullName}
+              </p>
             </div>
           </div>
           <Button onClick={handleLogout} variant="outline">
@@ -50,6 +58,7 @@ export default function DashboardPage() {
           </Button>
         </div>
 
+        {/* Profile Card */}
         <Card>
           <CardHeader>
             <CardTitle>User Profile</CardTitle>
@@ -71,20 +80,24 @@ export default function DashboardPage() {
               )}
             </div>
             <div>
-              <span className="font-medium">KYC Status:</span> {user.kycStatus || 'Not started'}
+              <span className="font-medium">KYC Status:</span>{' '}
+              {user.kycStatus || 'Not started'}
             </div>
           </CardContent>
         </Card>
 
+        {/* Auth Info */}
         <Card>
           <CardHeader>
             <CardTitle>Authentication Status</CardTitle>
-            <CardDescription>Supabase Auth integration is working!</CardDescription>
+            <CardDescription>
+              Supabase Auth integration is working!
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              You are successfully authenticated using Supabase Auth. Your session is managed
-              automatically and will be refreshed when needed.
+              You are successfully authenticated using Supabase Auth. Your
+              session is managed automatically and refreshed when needed.
             </p>
           </CardContent>
         </Card>

@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
-import { login } from '@/services/auth';
+import { useAuth } from '@/contexts/AuthContext';
 import { LoginFormData } from '@/types';
 import { toast } from 'sonner';
 import { getErrorMessage } from '@/lib/utils';
@@ -24,6 +24,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const isMountedRef = useRef(true);
+  const { login } = useAuth();
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -38,26 +39,20 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     if (!isMountedRef.current) return;
-    
+
+    console.log('Login form submitted', data);
     setIsLoading(true);
     try {
-      const result = await login(data as LoginFormData);
-
-      // Check if component is still mounted before updating state
+      await login(data.email, data.password);
       if (!isMountedRef.current) return;
 
-      if (result.success) {
-        toast.success('Welcome back!');
-        navigate('/dashboard');
-      } else {
-        toast.error(result.error || 'Failed to log in');
-        setIsLoading(false);
-      }
+      toast.success('Welcome back!');
+      navigate('/dashboard');
     } catch (error) {
       if (!isMountedRef.current) return;
-      
+
       console.error('Login error:', error);
-      toast.error(getErrorMessage(error, 'An unexpected error occurred'));
+      toast.error(getErrorMessage(error, 'Invalid email or password'));
       setIsLoading(false);
     }
   };

@@ -31,6 +31,7 @@ export default function LoginPage() {
   });
 
   const onSubmit = async (data: LoginForm) => {
+    console.log('Login form submitted', data);
     setIsLoading(true);
     try {
       // Form validation ensures all required fields are present
