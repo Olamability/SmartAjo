@@ -89,12 +89,51 @@ WHERE p.status = 'pending'
 ORDER BY p.scheduled_date ASC, p.created_at ASC;
 
 -- Update group_financial_summary view
--- Note: This assumes the view exists and only needs the JOIN updated
--- The full view recreation would be done if we had the complete definition
--- For now, we'll document that the JOIN needs to be updated from:
--- LEFT JOIN payouts p ON g.id = p.group_id
--- to:
--- LEFT JOIN payouts p ON g.id = p.related_group_id
+DROP VIEW IF EXISTS group_financial_summary;
+
+CREATE OR REPLACE VIEW group_financial_summary AS
+SELECT 
+  g.id AS group_id,
+  g.name AS group_name,
+  g.status,
+  g.contribution_amount,
+  g.frequency,
+  g.total_members,
+  g.current_cycle,
+  g.total_cycles,
+  -- Security deposits
+  COALESCE(SUM(DISTINCT gm.security_deposit_amount), 0) AS total_security_deposits,
+  COUNT(DISTINCT CASE WHEN gm.has_paid_security_deposit THEN gm.user_id END) AS members_paid_deposit,
+  -- Contributions
+  COALESCE(SUM(CASE WHEN c.status = 'paid' THEN c.amount ELSE 0 END), 0) AS total_contributions_collected,
+  COALESCE(SUM(CASE WHEN c.status = 'paid' THEN c.service_fee ELSE 0 END), 0) AS total_service_fees,
+  COUNT(CASE WHEN c.status = 'paid' THEN 1 END) AS total_paid_contributions,
+  COUNT(CASE WHEN c.status = 'pending' THEN 1 END) AS total_pending_contributions,
+  -- Payouts
+  COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0) AS total_payouts_disbursed,
+  COUNT(CASE WHEN p.status = 'completed' THEN 1 END) AS total_payouts_completed,
+  -- Penalties
+  COALESCE(SUM(CASE WHEN pen.status = 'unpaid' THEN pen.amount ELSE 0 END), 0) AS total_penalties_applied,
+  COALESCE(SUM(CASE WHEN pen.status = 'paid' THEN pen.amount ELSE 0 END), 0) AS total_penalties_collected,
+  -- Expected totals
+  (g.contribution_amount * g.total_members * g.current_cycle) AS expected_total_contributions,
+  -- Balance calculation
+  (
+    COALESCE(SUM(CASE WHEN c.status = 'paid' THEN c.amount ELSE 0 END), 0) -
+    COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0)
+  ) AS current_pool_balance
+FROM groups g
+LEFT JOIN group_members gm ON g.id = gm.group_id
+LEFT JOIN contributions c ON g.id = c.group_id
+LEFT JOIN payouts p ON g.id = p.related_group_id
+LEFT JOIN penalties pen ON g.id = pen.group_id
+GROUP BY 
+  g.id, g.name, g.status, g.contribution_amount, g.frequency,
+  g.total_members, g.current_cycle, g.total_cycles
+ORDER BY g.created_at DESC;
+
+COMMENT ON VIEW group_financial_summary IS 
+  'Complete financial summary for each group including all money flows';
 
 -- ============================================================================
 -- STEP 5: Add migration tracking comment
