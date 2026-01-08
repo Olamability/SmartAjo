@@ -284,7 +284,7 @@ SELECT
   u.phone AS recipient_phone,
   p.amount,
   p.status,
-  p.scheduled_date,
+  p.payout_date,
   p.created_at,
   -- Group details
   g.contribution_amount,
@@ -312,7 +312,7 @@ JOIN groups g ON p.related_group_id = g.id
 JOIN users u ON p.recipient_id = u.id
 WHERE p.status = 'pending'
   AND g.status = 'active'
-ORDER BY p.scheduled_date ASC, p.created_at ASC;
+ORDER BY p.payout_date ASC, p.created_at ASC;
 
 COMMENT ON VIEW pending_payouts_view IS 
   'Pending payouts with readiness status for processing';
@@ -383,7 +383,7 @@ SELECT
   n.title,
   n.message,
   n.created_at,
-  n.group_id,
+  n.related_group_id,
   g.name AS group_name,
   -- Calculate age of notification
   EXTRACT(EPOCH FROM (NOW() - n.created_at))::INTEGER AS seconds_old,
@@ -394,7 +394,7 @@ SELECT
     ELSE 'older'
   END AS age_category
 FROM notifications n
-LEFT JOIN groups g ON n.group_id = g.id
+LEFT JOIN groups g ON n.related_group_id = g.id
 WHERE n.is_read = false
 ORDER BY n.created_at DESC;
 
@@ -421,15 +421,34 @@ SELECT
   a.ip_address,
   a.user_agent,
   a.created_at,
-  -- Add context based on resource type
+
+  -- Resolve resource name safely based on resource type
   CASE a.resource_type
-    WHEN 'group' THEN (SELECT name FROM groups WHERE id = a.resource_id::uuid)
-    WHEN 'contribution' THEN (SELECT 'Contribution #' || id FROM contributions WHERE id = a.resource_id::uuid LIMIT 1)
-    WHEN 'payout' THEN (SELECT 'Payout #' || id FROM payouts WHERE id = a.resource_id::uuid LIMIT 1)
-    ELSE a.resource_id
+    WHEN 'group' THEN (
+      SELECT g.name
+      FROM groups g
+      WHERE g.id = a.resource_id
+      LIMIT 1
+    )
+    WHEN 'contribution' THEN (
+      SELECT 'Contribution #' || c.id
+      FROM contributions c
+      WHERE c.id = a.resource_id
+      LIMIT 1
+    )
+    WHEN 'payout' THEN (
+      SELECT 'Payout #' || p.id
+      FROM payouts p
+      WHERE p.id = a.resource_id
+      LIMIT 1
+    )
+    ELSE a.resource_id::text
   END AS resource_name
+
 FROM audit_logs a
-LEFT JOIN users u ON a.user_id = u.id
+LEFT JOIN users u 
+  ON a.user_id = u.id
+
 ORDER BY a.created_at DESC;
 
 COMMENT ON VIEW audit_trail_view IS 
