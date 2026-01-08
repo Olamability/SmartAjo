@@ -189,7 +189,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       .eq('id', userData.id)
       .select();
     
-    // Explicitly fire-and-forget pattern (10 seconds for non-critical operation)
+    // Explicitly fire-and-forget pattern (15 seconds for non-critical operation)
     void withTimeout(
       updatePromise as unknown as Promise<any>,
       DB_WRITE_TIMEOUT,
