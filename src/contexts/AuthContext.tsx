@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@/types';
 import { createClient } from '@/lib/client/supabase';
+import { withTimeout } from '@/lib/utils';
 
 interface AuthContextType {
   user: User | null;
@@ -22,15 +23,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshUser = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // Get session with timeout
+      const sessionResponse = await withTimeout(
+        supabase.auth.getSession(),
+        10000,
+        'Session check timed out'
+      );
+      
+      const { data: { session } } = sessionResponse;
       
       if (session?.user) {
-        // Fetch user details from database using Supabase
-        const { data: userData, error: fetchError } = await supabase
+        // Fetch user details from database using Supabase with timeout
+        const fetchPromise = supabase
           .from('users')
           .select('*')
           .eq('id', session.user.id)
           .single();
+        
+        const fetchResponse = await withTimeout(
+          fetchPromise as unknown as Promise<any>,
+          10000,
+          'User data fetch timed out'
+        );
+        
+        const { data: userData, error: fetchError } = fetchResponse;
         
         // Handle fetch errors
         if (fetchError) {
@@ -62,7 +78,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
     } catch (error) {
       console.error('Failed to refresh user:', error);
-      // On network or unexpected errors, clear user state
+      // On timeout or unexpected errors, clear user state
+      // This prevents the app from getting stuck
       setUser(null);
     }
   };

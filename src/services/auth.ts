@@ -1,7 +1,7 @@
 // Authentication service using Supabase Auth
 import { User, SignUpFormData, LoginFormData } from '@/types';
 import { createClient } from '@/lib/client/supabase';
-import { getErrorMessage } from '@/lib/utils';
+import { getErrorMessage, withTimeout } from '@/lib/utils';
 
 // Signup function
 // Uses Supabase Auth directly for authentication
@@ -9,19 +9,26 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
   try {
     const supabase = createClient();
     
-    // Sign up with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: data.email,
-      password: data.password,
-      options: {
-        data: {
-          full_name: data.fullName,
-          phone: data.phone,
+    // Sign up with Supabase Auth with timeout
+    const authResponse = await withTimeout(
+      supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.fullName,
+            phone: data.phone,
+          },
         },
-      },
-    });
+      }),
+      30000,
+      'Signup request timed out. Please check your internet connection and try again.'
+    );
+
+    const { data: authData, error: authError } = authResponse;
 
     if (authError) {
+      console.error('Signup auth error:', authError);
       return { success: false, error: authError.message };
     }
 
@@ -29,33 +36,56 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
       return { success: false, error: 'Signup failed - unable to create user account. Please try again or contact support.' };
     }
 
-    // Insert user data into public.users table
-    const { error: insertError } = await supabase
-      .from('users')
-      .insert({
-        id: authData.user.id,
-        email: data.email,
-        phone: data.phone,
-        full_name: data.fullName,
-        is_verified: false,
-        is_active: true,
-        kyc_status: 'not_started',
-      });
+    // Insert user data into public.users table with timeout
+    try {
+      const insertPromise = supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: data.email,
+          phone: data.phone,
+          full_name: data.fullName,
+          is_verified: false,
+          is_active: true,
+          kyc_status: 'not_started',
+        })
+        .select();
+      
+      const insertResponse = await withTimeout(
+        insertPromise as unknown as Promise<any>,
+        15000,
+        'Database operation timed out. Your account was created but we couldn\'t save additional details.'
+      );
 
-    if (insertError) {
-      console.error('Error inserting user data:', insertError);
-      // Database trigger or RLS may handle this, or user record might already exist
+      const { error: insertError } = insertResponse;
+
+      if (insertError) {
+        console.error('Error inserting user data:', insertError);
+        // Database trigger or RLS may handle this, or user record might already exist
+        // Continue to fetch the user record
+      }
+    } catch (insertError) {
+      console.error('Error inserting user data (timeout or error):', insertError);
       // Continue to fetch the user record
     }
 
-    // Fetch the complete user record
-    const { data: userData, error: fetchError } = await supabase
+    // Fetch the complete user record with timeout
+    const fetchPromise = supabase
       .from('users')
       .select('*')
       .eq('id', authData.user.id)
       .single();
+    
+    const fetchResponse = await withTimeout(
+      fetchPromise as unknown as Promise<any>,
+      15000,
+      'Unable to fetch user data. Please refresh the page.'
+    );
+
+    const { data: userData, error: fetchError } = fetchResponse;
 
     if (fetchError || !userData) {
+      console.error('Error fetching user data:', fetchError);
       // Return basic user info if fetch fails
       return {
         success: true,
@@ -100,13 +130,20 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
   try {
     const supabase = createClient();
     
-    // Sign in with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: data.email,
-      password: data.password,
-    });
+    // Sign in with Supabase Auth with timeout
+    const authResponse = await withTimeout(
+      supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      }),
+      30000,
+      'Login request timed out. Please check your internet connection and try again.'
+    );
+
+    const { data: authData, error: authError } = authResponse;
 
     if (authError) {
+      console.error('Login auth error:', authError);
       return { success: false, error: authError.message };
     }
 
@@ -114,16 +151,24 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       return { success: false, error: 'Login failed - invalid credentials or account not found' };
     }
 
-    // Fetch user data from public.users table
-    const { data: userData, error: fetchError } = await supabase
+    // Fetch user data from public.users table with timeout
+    const fetchPromise = supabase
       .from('users')
       .select('*')
       .eq('id', authData.user.id)
       .single();
+    
+    const fetchResponse = await withTimeout(
+      fetchPromise as unknown as Promise<any>,
+      15000,
+      'Unable to fetch user data. Please try again.'
+    );
+
+    const { data: userData, error: fetchError } = fetchResponse;
 
     if (fetchError || !userData) {
       console.error('Error fetching user data:', fetchError);
-      return { success: false, error: 'Failed to fetch user data' };
+      return { success: false, error: 'Failed to fetch user data. Please try again.' };
     }
 
     // Check if account is active
@@ -132,11 +177,26 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       return { success: false, error: 'Account is deactivated. Please contact support.' };
     }
 
-    // Update last login timestamp
-    await supabase
+    // Update last login timestamp (non-blocking, fire and forget with timeout)
+    const updatePromise = supabase
       .from('users')
       .update({ last_login_at: new Date().toISOString() })
-      .eq('id', userData.id);
+      .eq('id', userData.id)
+      .select();
+    
+    // Explicitly fire-and-forget pattern
+    void withTimeout(
+      updatePromise as unknown as Promise<any>,
+      10000,
+      'Last login update timed out'
+    )
+      .then(() => {
+        console.log('Last login timestamp updated');
+      })
+      .catch((error) => {
+        console.error('Failed to update last login timestamp:', error);
+        // Non-critical, don't block login
+      });
 
     return {
       success: true,

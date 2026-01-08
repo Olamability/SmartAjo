@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -11,6 +11,7 @@ import { Shield, Loader2 } from 'lucide-react';
 import { signUp } from '@/services/auth';
 import { SignUpFormData } from '@/types';
 import { toast } from 'sonner';
+import { getErrorMessage } from '@/lib/utils';
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
@@ -28,28 +29,43 @@ type SignUpForm = z.infer<typeof signUpSchema>;
 export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const isMountedRef = useRef(true);
 
   const { register, handleSubmit, formState: { errors } } = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
   });
 
+  useEffect(() => {
+    // Track if component is mounted to prevent state updates after unmount
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const onSubmit = async (data: SignUpForm) => {
+    if (!isMountedRef.current) return;
+    
     setIsLoading(true);
     try {
       // Remove confirmPassword before sending to API
       const { confirmPassword, ...signupData } = data;
       const result = await signUp(signupData as SignUpFormData);
 
+      // Check if component is still mounted before updating state
+      if (!isMountedRef.current) return;
+
       if (result.success) {
         toast.success('Account created successfully!');
         navigate('/dashboard');
       } else {
         toast.error(result.error || 'Failed to create account');
+        setIsLoading(false);
       }
     } catch (error) {
-      console.error(error);
-      toast.error('An unexpected error occurred');
-    } finally {
+      if (!isMountedRef.current) return;
+      
+      console.error('Signup error:', error);
+      toast.error(getErrorMessage(error, 'An unexpected error occurred'));
       setIsLoading(false);
     }
   };

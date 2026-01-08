@@ -30,11 +30,40 @@ export async function parseJsonResponse<T = any>(
 
 /**
  * Converts an error to a user-friendly message
- * Specifically handles invalid response format errors
+ * Specifically handles invalid response format errors and timeout errors
  */
 export function getErrorMessage(error: unknown, fallbackMessage: string): string {
-  if (error instanceof Error && error.message === 'Invalid response format from server') {
-    return 'Server error: Invalid response format';
+  if (error instanceof Error) {
+    // Return the error message for known error types
+    if (error.message === 'Invalid response format from server') {
+      return 'Server error: Invalid response format';
+    }
+    // Return timeout messages as-is since they're already user-friendly
+    if (error.message.includes('timed out') || error.message.includes('timeout')) {
+      return error.message;
+    }
+    // Return other error messages
+    return error.message;
   }
   return fallbackMessage;
+}
+
+/**
+ * Wraps a promise with a timeout
+ * @param promise - The promise to wrap
+ * @param timeoutMs - Timeout in milliseconds (default: 30000)
+ * @param timeoutMessage - Custom timeout error message
+ * @returns Promise that rejects if timeout is reached
+ */
+export function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number = 30000,
+  timeoutMessage: string = 'Request timed out. Please check your internet connection and try again.'
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
+    ),
+  ]);
 }
