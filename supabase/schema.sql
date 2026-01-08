@@ -204,13 +204,22 @@ CREATE TABLE IF NOT EXISTS contributions (
 );
 
 -- Indexes for contributions table
-CREATE INDEX idx_contributions_group_id ON contributions(group_id);
-CREATE INDEX idx_contributions_user_id ON contributions(user_id);
-CREATE INDEX idx_contributions_cycle_number ON contributions(group_id, cycle_number);
-CREATE INDEX idx_contributions_status ON contributions(status);
-CREATE INDEX idx_contributions_due_date ON contributions(due_date);
-CREATE INDEX idx_contributions_pending ON contributions(group_id, cycle_number, status) WHERE status = 'pending';
-CREATE INDEX idx_contributions_overdue ON contributions(status, due_date) WHERE status = 'pending' AND due_date < NOW();
+-- Indexes for contributions table
+CREATE INDEX IF NOT EXISTS idx_contributions_group_id ON contributions(group_id);
+CREATE INDEX IF NOT EXISTS idx_contributions_user_id ON contributions(user_id);
+CREATE INDEX IF NOT EXISTS idx_contributions_cycle_number ON contributions(group_id, cycle_number);
+CREATE INDEX IF NOT EXISTS idx_contributions_status ON contributions(status);
+CREATE INDEX IF NOT EXISTS idx_contributions_due_date ON contributions(due_date);
+CREATE INDEX IF NOT EXISTS idx_contributions_pending 
+    ON contributions(group_id, cycle_number, status) 
+    WHERE status = 'pending';
+
+-- Optional: use generated column for overdue instead of NOW()
+ALTER TABLE contributions 
+ADD COLUMN IF NOT EXISTS is_overdue boolean GENERATED ALWAYS AS (due_date < NOW() AND status = 'pending') STORED;
+
+CREATE INDEX IF NOT EXISTS idx_contributions_is_overdue ON contributions(is_overdue);
+
 
 -- ============================================================================
 -- TABLE: payouts
