@@ -204,7 +204,6 @@ CREATE TABLE IF NOT EXISTS contributions (
 );
 
 -- Indexes for contributions table
--- Indexes for contributions table
 CREATE INDEX IF NOT EXISTS idx_contributions_group_id ON contributions(group_id);
 CREATE INDEX IF NOT EXISTS idx_contributions_user_id ON contributions(user_id);
 CREATE INDEX IF NOT EXISTS idx_contributions_cycle_number ON contributions(group_id, cycle_number);
