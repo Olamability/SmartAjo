@@ -1,20 +1,40 @@
 -- ============================================================================
--- MIGRATION: Add automatic user profile creation on signup
+-- MIGRATION: Fix user profile creation on signup
 -- Date: 2026-01-08
--- Description: Fixes registration issue by automatically creating user records
---              in public.users when a user signs up in auth.users
+-- Description: Provides client-side user profile creation function
+--              Note: Cannot create trigger on auth.users in Supabase (permission denied)
+--              Solution: Use client-side profile creation with RLS policy
 -- ============================================================================
 
 -- ============================================================================
--- STEP 1: Create trigger function to auto-create user profiles
+-- IMPORTANT: Supabase Limitation
 -- ============================================================================
--- This function runs with SECURITY DEFINER to bypass RLS during user creation
--- It extracts user metadata from auth.users and creates a corresponding record
--- in public.users table
+-- In Supabase, you CANNOT create triggers on auth.users because:
+-- 1. auth.users is owned by supabase_auth_admin role
+-- 2. Your database role doesn't have permission to modify it
+-- 
+-- Solutions:
+-- 1. Client-side profile creation (FREE TIER - implemented in this project)
+-- 2. Database Webhooks (REQUIRES PRO TIER)
+-- 3. Auth Hooks via Edge Functions (REQUIRES PRO TIER)
+--
+-- This migration implements Solution #1
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+-- ============================================================================
+-- STEP 1: Create helper function for manual profile creation
+-- ============================================================================
+-- This function can be called from client-side or RPC
+-- Runs with SECURITY DEFINER to bypass RLS during user creation
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION create_user_profile(
+  p_user_id UUID,
+  p_email VARCHAR(255),
+  p_phone VARCHAR(20),
+  p_full_name VARCHAR(255)
+)
+RETURNS UUID AS $$
 BEGIN
   INSERT INTO public.users (
     id,
@@ -25,44 +45,29 @@ BEGIN
     is_active,
     kyc_status
   ) VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'phone', ''),
-    COALESCE(NEW.raw_user_meta_data->>'full_name', ''),
+    p_user_id,
+    p_email,
+    p_phone,
+    p_full_name,
     FALSE,
     TRUE,
     'not_started'
   )
   ON CONFLICT (id) DO NOTHING;
   
-  RETURN NEW;
+  RETURN p_user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION handle_new_user() IS 
-  'Automatically creates a user profile in public.users when a user signs up in auth.users';
+COMMENT ON FUNCTION create_user_profile IS 
+  'Creates a user profile in public.users. Called from client-side during signup.
+   Note: Cannot use trigger on auth.users in Supabase due to permission restrictions.';
 
 -- ============================================================================
--- STEP 2: Create trigger on auth.users table
+-- STEP 2: Ensure RLS policy for user self-registration exists
 -- ============================================================================
--- This trigger fires after a new user is inserted into auth.users
--- and automatically creates the corresponding record in public.users
--- ============================================================================
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
-
-COMMENT ON TRIGGER on_auth_user_created ON auth.users IS 
-  'Triggers automatic user profile creation on signup';
-
--- ============================================================================
--- STEP 3: Add RLS policy for user self-registration
--- ============================================================================
--- As a backup mechanism, allow users to insert their own records
--- This ensures registration works even if the trigger has a delay
+-- PRIMARY mechanism: Allow users to insert their own records during signup
+-- This is essential since we cannot use triggers on auth.users
 -- ============================================================================
 
 -- Drop existing policy if it exists
@@ -74,7 +79,8 @@ CREATE POLICY users_insert_own ON users
   WITH CHECK (auth.uid() = id);
 
 COMMENT ON POLICY users_insert_own ON users IS 
-  'Allows users to insert their own profile during registration as a backup to the trigger';
+  'Allows users to insert their own profile during registration. This is the primary
+   mechanism for profile creation since triggers on auth.users are not possible in Supabase.';
 
 -- ============================================================================
 -- VERIFICATION QUERIES
@@ -82,20 +88,12 @@ COMMENT ON POLICY users_insert_own ON users IS
 -- Run these queries to verify the migration was successful
 -- ============================================================================
 
--- Verify trigger function exists
+-- Verify helper function exists
 SELECT 
   p.proname as function_name,
   pg_get_functiondef(p.oid) as definition
 FROM pg_proc p
-WHERE p.proname = 'handle_new_user';
-
--- Verify trigger exists on auth.users
-SELECT 
-  tgname as trigger_name,
-  tgrelid::regclass as table_name,
-  tgenabled as enabled
-FROM pg_trigger
-WHERE tgname = 'on_auth_user_created';
+WHERE p.proname = 'create_user_profile';
 
 -- Verify RLS policy exists
 SELECT 
@@ -110,14 +108,21 @@ SELECT
 FROM pg_policies
 WHERE tablename = 'users' AND policyname = 'users_insert_own';
 
+-- Test profile creation (replace with actual values)
+-- SELECT create_user_profile(
+--   'test-uuid'::uuid,
+--   'test@example.com',
+--   '+1234567890',
+--   'Test User'
+-- );
+
 -- ============================================================================
 -- ROLLBACK (if needed)
 -- ============================================================================
 -- Uncomment and run these commands to rollback this migration
 -- ============================================================================
 
--- DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
--- DROP FUNCTION IF EXISTS handle_new_user();
+-- DROP FUNCTION IF EXISTS create_user_profile(UUID, VARCHAR, VARCHAR, VARCHAR);
 -- DROP POLICY IF EXISTS users_insert_own ON users;
 
 -- ============================================================================
