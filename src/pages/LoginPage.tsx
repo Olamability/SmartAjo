@@ -40,7 +40,6 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginForm) => {
     if (!isMountedRef.current) return;
 
-    console.log('Login form submitted', data);
     setIsLoading(true);
     try {
       await login(data.email, data.password);
@@ -51,7 +50,8 @@ export default function LoginPage() {
     } catch (error) {
       if (!isMountedRef.current) return;
 
-      console.error('Login error:', error);
+      // Don't log full error object - just log minimal info
+      console.error('Login error:', error instanceof Error ? error.message : 'Unknown error');
       toast.error(getErrorMessage(error, 'Invalid email or password'));
       setIsLoading(false);
     }

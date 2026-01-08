@@ -33,7 +33,10 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
     const { data: authData, error: authError } = authResponse;
 
     if (authError) {
-      console.error('Signup auth error:', authError);
+      console.error('Signup auth error:', {
+        message: authError.message,
+        status: authError.status,
+      });
       return { success: false, error: authError.message };
     }
 
@@ -174,7 +177,10 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     const { data: authData, error: authError } = authResponse;
 
     if (authError) {
-      console.error('Login auth error:', authError);
+      console.error('Login auth error:', {
+        message: authError.message,
+        status: authError.status,
+      });
       return { success: false, error: authError.message };
     }
 
