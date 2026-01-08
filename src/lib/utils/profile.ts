@@ -5,6 +5,7 @@
 
 import { SupabaseClient, User as AuthUser } from '@supabase/supabase-js';
 import { POSTGRES_ERROR_CODES } from '@/lib/constants/database';
+import { validateAuthUser } from './validation';
 
 /**
  * Ensures a user profile exists in the database
@@ -19,6 +20,9 @@ export async function ensureUserProfile(
   supabase: SupabaseClient,
   authUser: AuthUser
 ): Promise<boolean> {
+  // Validate auth user has email
+  validateAuthUser(authUser);
+  
   // Check if profile exists
   const { data: profile } = await supabase
     .from('users')
@@ -31,11 +35,7 @@ export async function ensureUserProfile(
   }
   
   // Create profile from auth metadata
-  const userEmail = authUser.email || '';
-  if (!userEmail) {
-    throw new Error('User account is missing email address. Please contact support.');
-  }
-  
+  const userEmail = authUser.email!; // We validated this above
   const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
   const phone = authUser.user_metadata?.phone || '';
   
