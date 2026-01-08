@@ -2,6 +2,11 @@
 import { User, SignUpFormData, LoginFormData } from '@/types';
 import { createClient } from '@/lib/client/supabase';
 import { getErrorMessage, withTimeout } from '@/lib/utils';
+import { 
+  AUTH_OPERATION_TIMEOUT, 
+  USER_DATA_FETCH_TIMEOUT, 
+  DB_WRITE_TIMEOUT 
+} from '@/lib/constants/timeout';
 
 // Signup function
 // Uses Supabase Auth directly for authentication
@@ -9,7 +14,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
   try {
     const supabase = createClient();
     
-    // Sign up with Supabase Auth with timeout
+    // Sign up with Supabase Auth with timeout (30 seconds for auth operations)
     const authResponse = await withTimeout(
       supabase.auth.signUp({
         email: data.email,
@@ -21,7 +26,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
           },
         },
       }),
-      30000,
+      AUTH_OPERATION_TIMEOUT,
       'Signup request timed out. Please check your internet connection and try again.'
     );
 
@@ -53,7 +58,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
       
       const insertResponse = await withTimeout(
         insertPromise as unknown as Promise<any>,
-        15000,
+        DB_WRITE_TIMEOUT,
         'Database operation timed out. Your account was created but we couldn\'t save additional details.'
       );
 
@@ -78,7 +83,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
     
     const fetchResponse = await withTimeout(
       fetchPromise as unknown as Promise<any>,
-      15000,
+      USER_DATA_FETCH_TIMEOUT,
       'Unable to fetch user data. Please refresh the page.'
     );
 
@@ -130,13 +135,13 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
   try {
     const supabase = createClient();
     
-    // Sign in with Supabase Auth with timeout
+    // Sign in with Supabase Auth with timeout (30 seconds for auth operations)
     const authResponse = await withTimeout(
       supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       }),
-      30000,
+      AUTH_OPERATION_TIMEOUT,
       'Login request timed out. Please check your internet connection and try again.'
     );
 
@@ -160,7 +165,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     
     const fetchResponse = await withTimeout(
       fetchPromise as unknown as Promise<any>,
-      15000,
+      USER_DATA_FETCH_TIMEOUT,
       'Unable to fetch user data. Please try again.'
     );
 
@@ -184,10 +189,10 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       .eq('id', userData.id)
       .select();
     
-    // Explicitly fire-and-forget pattern
+    // Explicitly fire-and-forget pattern (15 seconds for non-critical operation)
     void withTimeout(
       updatePromise as unknown as Promise<any>,
-      10000,
+      DB_WRITE_TIMEOUT,
       'Last login update timed out'
     )
       .then(() => {

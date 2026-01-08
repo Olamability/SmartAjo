@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { User } from '@/types';
 import { createClient } from '@/lib/client/supabase';
 import { withTimeout } from '@/lib/utils';
+import { AUTH_SESSION_TIMEOUT, USER_DATA_FETCH_TIMEOUT } from '@/lib/constants/timeout';
 
 interface AuthContextType {
   user: User | null;
@@ -23,17 +24,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshUser = async () => {
     try {
-      // Get session with timeout
+      // Get session with timeout (30 seconds for financial app security)
       const sessionResponse = await withTimeout(
         supabase.auth.getSession(),
-        10000,
-        'Session check timed out'
+        AUTH_SESSION_TIMEOUT,
+        'Session check timed out. Please check your internet connection and try again.'
       );
       
       const { data: { session } } = sessionResponse;
       
       if (session?.user) {
-        // Fetch user details from database using Supabase with timeout
+        // Fetch user details from database using Supabase with timeout (15 seconds)
         const fetchPromise = supabase
           .from('users')
           .select('*')
@@ -42,8 +43,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         const fetchResponse = await withTimeout(
           fetchPromise as unknown as Promise<any>,
-          10000,
-          'User data fetch timed out'
+          USER_DATA_FETCH_TIMEOUT,
+          'Unable to load user data. Please check your internet connection and try again.'
         );
         
         const { data: userData, error: fetchError } = fetchResponse;
