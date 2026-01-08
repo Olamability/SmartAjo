@@ -4,22 +4,20 @@ A modern rotating savings and credit association (ROSCA) platform built with Vit
 
 ## 🏗️ Architecture
 
-This application follows a **strict client-server separation** with two separate processes:
+This application uses a **modern serverless architecture** with a single frontend process:
 
 - **Frontend** (Port 3000): Vite + React + TypeScript + shadcn/ui
-- **Backend** (Port 3001): Express.js + TypeScript + Supabase Admin Layer
-- **Database**: PostgreSQL (via Supabase)
+- **Backend**: Supabase (Authentication, Database, Storage, RLS, Edge Functions)
+- **Database**: PostgreSQL (via Supabase with Row Level Security)
 - **Authentication**: Supabase Auth
 - **Storage**: Supabase Storage
 
 **Key Points:**
-- Frontend and backend run as **separate Node.js processes**
-- Single command (`npm run dev`) orchestrates both using `concurrently`
+- Single Vite dev server - no separate backend process
+- All backend logic handled by Supabase
+- Row Level Security (RLS) enforces data access rules
 - Frontend uses Supabase **anon key** (browser-safe)
-- Backend uses Supabase **service role key** (server-only)
-- Clear separation prevents backend logic from leaking into frontend
-
-📖 **[Read detailed architecture documentation](./ARCHITECTURE_SEPARATION.md)**
+- No Express.js or Node.js backend server required
 
 ## 📁 Project Structure
 
@@ -30,26 +28,22 @@ secured-ajo/
 │   ├── pages/             # Page components
 │   ├── contexts/          # React contexts
 │   ├── hooks/             # Custom React hooks
-│   ├── services/          # Frontend services (API calls)
+│   ├── services/          # Frontend services (Supabase calls)
 │   ├── lib/               # Utilities and client libraries
 │   ├── types/             # TypeScript type definitions
 │   ├── App.tsx            # Root component
 │   ├── main.tsx           # Application entry point
 │   └── index.css          # Global styles
 │
-├── backend/               # Backend server
-│   ├── src/
-│   │   ├── routes/       # Express routes
-│   │   ├── lib/          # Server utilities
-│   │   └── server.ts     # Server entry point
-│   ├── package.json
-│   └── tsconfig.json
+├── supabase/              # Supabase configuration
+│   ├── schema.sql         # Database schema
+│   └── storage.sql        # Storage setup
 │
-├── public/               # Static assets
-├── index.html           # HTML entry point
-├── vite.config.ts       # Vite configuration
-├── tailwind.config.ts   # Tailwind CSS configuration
-└── package.json         # Frontend dependencies
+├── public/                # Static assets
+├── index.html            # HTML entry point
+├── vite.config.ts        # Vite configuration
+├── tailwind.config.ts    # Tailwind CSS configuration
+└── package.json          # Dependencies
 ```
 
 ## 🚀 Quick Start
@@ -67,66 +61,44 @@ secured-ajo/
 3. Wait ~2 minutes for project creation
 4. Run the database schema from `/supabase/schema.sql` in SQL Editor
 5. Run the storage setup from `/supabase/storage.sql`
+6. Enable Row Level Security (RLS) on all tables as defined in the schema
 
 ### 2️⃣ Configure Environment Variables
 
-**Frontend (.env)**
+Create a `.env` file in the root directory:
+
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 VITE_APP_NAME=Ajo Secure
 VITE_APP_URL=http://localhost:3000
-VITE_API_BASE_URL=http://localhost:3001
+VITE_PAYSTACK_PUBLIC_KEY=pk_test_your_paystack_public_key_here
 ```
 
-**Backend (backend/.env)**
-```env
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key-here
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here
-DATABASE_URL=postgresql://postgres:password@db.yourproject.supabase.co:5432/postgres
-PORT=3001
-NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
-```
+**Important**: Only use the anon key (public key) in the frontend. All security is enforced via Supabase RLS policies.
 
 ### 3️⃣ Install Dependencies
 
 ```bash
-# Install frontend dependencies
 npm install
-
-# Install backend dependencies
-cd backend && npm install && cd ..
 ```
 
 ### 4️⃣ Run the Application
 
 ```bash
-# Start both frontend and backend servers
 npm run dev
 ```
 
-This will start:
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:3001
+This will start the Vite dev server at http://localhost:3000
 
 ## 🛠️ Development
 
 ### Available Scripts
 
-**Frontend:**
-- `npm run dev` - Start both frontend and backend servers
-- `npm run dev:frontend` - Start only frontend dev server
-- `npm run dev:backend` - Start only backend dev server
-- `npm run build` - Build frontend for production
+- `npm run dev` - Start Vite dev server
+- `npm run build` - Build for production
 - `npm run preview` - Preview production build
-- `npm run lint` - Lint frontend code
-
-**Backend:**
-- `cd backend && npm run dev` - Start backend in watch mode
-- `cd backend && npm run build` - Build backend for production
-- `cd backend && npm start` - Start production backend
+- `npm run lint` - Lint code
 
 ### Dynamic Port Handling
 
@@ -134,44 +106,39 @@ The Vite dev server is configured with `strictPort: false`, which means:
 - If port 3000 is busy, Vite will automatically find the next available port
 - You'll see the actual port in the console output
 
-## 🏗️ API Structure
-
-The backend API is organized into routes:
-
-- `/api/auth` - Authentication endpoints (login, signup, logout)
-- `/api/users` - User management
-- `/api/groups` - Group operations
-- `/api/contributions` - Contribution tracking
-- `/api/payments` - Payment processing
-- `/api/notifications` - User notifications
-- `/api/transactions` - Transaction history
-- `/api/cron` - Scheduled tasks
-
 ## 🔐 Security
 
-- **Frontend**: Only uses public Supabase anon key
-- **Backend**: Uses service role key for admin operations
-- **Sensitive operations**: All handled server-side
-- **File uploads**: Processed through backend, frontend gets signed URLs
-- **Environment variables**: Properly separated (VITE_ prefix for public vars)
+- **Authentication**: Handled entirely by Supabase Auth
+- **Authorization**: Enforced via Row Level Security (RLS) policies in Supabase
+- **Database Access**: Direct from frontend using Supabase client with RLS
+- **File Uploads**: Managed through Supabase Storage with bucket policies
+- **Sensitive Operations**: Use Supabase Edge Functions or RPC functions when needed
+- **Environment Variables**: Only public keys (VITE_ prefixed) in frontend
+
+### Row Level Security (RLS)
+
+All database tables have RLS enabled. Access control is enforced at the database level:
+- Users can only access their own data
+- Group members can only see data for groups they belong to
+- All policies are defined in `/supabase/schema.sql`
 
 ## 📚 Key Technologies
 
 - **Frontend**:
-  - Vite - Build tool
+  - Vite - Build tool and dev server
   - React 18 - UI library
   - TypeScript - Type safety
   - React Router - Client-side routing
   - shadcn/ui - UI components
   - Tailwind CSS - Styling
-  - React Query - Data fetching
+  - React Query - Data fetching and caching
 
 - **Backend**:
-  - Express.js - Web framework
-  - TypeScript - Type safety
-  - Supabase JS - Database client
-  - PostgreSQL - Database
-  - Zod - Schema validation
+  - Supabase - Complete backend platform
+  - PostgreSQL - Database with RLS
+  - Supabase Auth - Authentication
+  - Supabase Storage - File storage
+  - Supabase Edge Functions - Serverless functions (when needed)
 
 ## 🎨 UI Components
 
@@ -185,38 +152,29 @@ npx shadcn@latest add [component-name]
 ## 🧪 Testing
 
 The application can be tested by:
-1. Running the dev servers (`npm run dev`)
+1. Running the dev server (`npm run dev`)
 2. Accessing http://localhost:3000
 3. Creating a test account
 4. Exploring the features
 
-## 📝 Migration from Next.js
-
-This project was migrated from Next.js to Vite. Key changes:
-
-- ✅ Replaced Next.js App Router with React Router
-- ✅ Converted Next.js API routes to Express.js
-- ✅ Separated frontend and backend into distinct services
-- ✅ Updated all Next.js-specific imports (useRouter → useNavigate)
-- ✅ Removed server-only code from frontend bundle
-- ✅ Updated environment variable handling (NEXT_PUBLIC_ → VITE_)
-
 ## 🐛 Troubleshooting
 
-### Frontend build errors
+### Build errors
 - Make sure all dependencies are installed: `npm install`
 - Check that TypeScript is configured correctly
 - Verify all imports are correct
+- Ensure Supabase environment variables are set
 
-### Backend won't start
-- Ensure all backend dependencies are installed: `cd backend && npm install`
-- Check `.env` file in backend directory
-- Verify database connection string is correct
+### Can't connect to Supabase
+- Verify your `.env` file has correct Supabase URL and anon key
+- Check that your Supabase project is running
+- Ensure RLS policies are properly configured
+- Check browser console for detailed error messages
 
-### Can't connect to API
-- Make sure both servers are running (`npm run dev`)
-- Check that backend is running on port 3001
-- Verify CORS settings in backend allow frontend origin
+### Authentication issues
+- Verify email confirmation settings in Supabase Auth
+- Check RLS policies on the users table
+- Ensure the anon key has proper permissions
 
 ## 📖 Additional Documentation
 
