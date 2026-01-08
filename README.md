@@ -4,13 +4,22 @@ A modern rotating savings and credit association (ROSCA) platform built with Vit
 
 ## 🏗️ Architecture
 
-This application follows a **client-server architecture** with:
+This application follows a **strict client-server separation** with two separate processes:
 
-- **Frontend**: Vite + React + TypeScript + shadcn/ui
-- **Backend**: Express.js + TypeScript + Supabase
+- **Frontend** (Port 3000): Vite + React + TypeScript + shadcn/ui
+- **Backend** (Port 3001): Express.js + TypeScript + Supabase Admin Layer
 - **Database**: PostgreSQL (via Supabase)
 - **Authentication**: Supabase Auth
 - **Storage**: Supabase Storage
+
+**Key Points:**
+- Frontend and backend run as **separate Node.js processes**
+- Single command (`npm run dev`) orchestrates both using `concurrently`
+- Frontend uses Supabase **anon key** (browser-safe)
+- Backend uses Supabase **service role key** (server-only)
+- Clear separation prevents backend logic from leaking into frontend
+
+📖 **[Read detailed architecture documentation](./ARCHITECTURE_SEPARATION.md)**
 
 ## 📁 Project Structure
 
