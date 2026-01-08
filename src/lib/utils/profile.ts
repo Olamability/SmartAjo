@@ -39,7 +39,8 @@ export async function ensureUserProfile(
   const fullName = authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User';
   
   // Phone is required (NOT NULL in schema)
-  // Generate temporary unique phone if not provided
+  // Generate temporary unique phone if not provided using first 12 chars of UUID for brevity
+  // Format: temp_xxxxxxxxxxxx (5 + 12 = 17 chars, within VARCHAR(20) limit)
   const phone = authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`;
   
   const { error } = await supabase.from('users').insert({

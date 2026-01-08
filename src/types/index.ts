@@ -114,10 +114,18 @@ export interface Penalty {
 export interface Notification {
   id: string;
   userId: string;
-  type: 'payment_due' | 'payment_received' | 'payment_overdue' | 
-        'payout_ready' | 'payout_processed' | 
-        'penalty_applied' | 'group_complete' | 'group_started' |
-        'member_joined' | 'member_removed' | 'system_announcement';
+  type: 
+    | 'payment_due' 
+    | 'payment_received' 
+    | 'payment_overdue' 
+    | 'payout_ready' 
+    | 'payout_processed' 
+    | 'penalty_applied' 
+    | 'group_complete' 
+    | 'group_started' 
+    | 'member_joined' 
+    | 'member_removed' 
+    | 'system_announcement';
   title: string;
   message: string;
   isRead: boolean; // SQL: is_read
