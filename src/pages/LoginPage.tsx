@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -22,26 +22,42 @@ type LoginForm = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const isMountedRef = useRef(true);
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
   });
 
+  useEffect(() => {
+    // Track if component is mounted to prevent state updates after unmount
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const onSubmit = async (data: LoginForm) => {
+    if (!isMountedRef.current) return;
+    
     setIsLoading(true);
     try {
       const result = await login(data as LoginFormData);
+
+      // Check if component is still mounted before updating state
+      if (!isMountedRef.current) return;
 
       if (result.success) {
         toast.success('Welcome back!');
         navigate('/dashboard');
       } else {
         toast.error(result.error || 'Failed to log in');
+        setIsLoading(false);
       }
     } catch (error) {
-      console.error(error);
-      toast.error('An unexpected error occurred');
-    } finally {
+      if (!isMountedRef.current) return;
+      
+      console.error('Login error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast.error(errorMessage);
       setIsLoading(false);
     }
   };

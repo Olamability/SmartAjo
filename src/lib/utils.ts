@@ -38,3 +38,23 @@ export function getErrorMessage(error: unknown, fallbackMessage: string): string
   }
   return fallbackMessage;
 }
+
+/**
+ * Wraps a promise with a timeout
+ * @param promise - The promise to wrap
+ * @param timeoutMs - Timeout in milliseconds (default: 30000)
+ * @param timeoutMessage - Custom timeout error message
+ * @returns Promise that rejects if timeout is reached
+ */
+export function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number = 30000,
+  timeoutMessage: string = 'Request timed out. Please check your internet connection and try again.'
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
+    ),
+  ]);
+}
