@@ -72,14 +72,31 @@ export default function SignUpPage() {
         return;
       }
 
-      toast.success('Account created successfully!');
+      // If we get here, signup was successful and user is authenticated
+      toast.success('Account created successfully! Redirecting to dashboard...');
       navigate('/dashboard');
     } catch (error) {
       if (!isMountedRef.current) return;
 
-      // Don't log sensitive data - error object should not contain password
+      // Check if this is an email confirmation required error
       const errorMessage = getErrorMessage(error, 'Failed to create account');
-      toast.error(errorMessage);
+      
+      if (errorMessage.includes('CONFIRMATION_REQUIRED:')) {
+        // Extract the actual message after the prefix
+        const actualMessage = errorMessage.replace('CONFIRMATION_REQUIRED:', '');
+        toast.success('Account created! ' + actualMessage, {
+          duration: 6000,
+        });
+        // Redirect to login page after showing message
+        setTimeout(() => {
+          if (isMountedRef.current) {
+            navigate('/login');
+          }
+        }, 2000);
+      } else {
+        // Show error for actual failures
+        toast.error(errorMessage);
+      }
     } finally {
       // Always reset the loading state
       if (isMountedRef.current) {

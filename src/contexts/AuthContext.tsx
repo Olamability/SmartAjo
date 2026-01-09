@@ -198,6 +198,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error || new Error('Signup failed: No user data returned');
       }
 
+      // Check if email confirmation is required
+      const needsEmailConfirmation = data.user && !data.session;
+      
+      console.log('Signup successful:', {
+        userId: data.user.id,
+        email: data.user.email,
+        needsEmailConfirmation,
+      });
+
       // Create user profile in database using RPC function with SECURITY DEFINER
       // This bypasses RLS policies and prevents "new row violates row-level security" errors
       const { error: insertError } = await supabase.rpc('create_user_profile', {
@@ -211,13 +220,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Only throw on actual errors
       if (insertError) {
         console.error('Failed to create user profile:', insertError);
+        
+        // Check if the function doesn't exist in the database
+        if (insertError.message?.includes('Could not find the function') || 
+            insertError.message?.includes('function') && insertError.message?.includes('does not exist')) {
+          throw new Error(
+            'Database setup incomplete. Please run the migration file: supabase/migrations/2026-01-08-add-user-creation-trigger.sql in your Supabase SQL Editor. See supabase/README.md for instructions.'
+          );
+        }
+        
         throw new Error(
           `Failed to create user profile: ${insertError.message}. Please contact support.`
         );
       }
 
-      // Load the user profile
-      await loadUserProfile(data.user.id);
+      console.log('User profile created successfully in database');
+
+      // If email confirmation is required, don't try to load profile yet
+      // The user will need to confirm their email first
+      if (needsEmailConfirmation) {
+        console.log('Email confirmation required - profile will be loaded after confirmation');
+        throw new Error('CONFIRMATION_REQUIRED:Please check your email to confirm your account before signing in.');
+      }
+
+      // Load the user profile only if we have an active session
+      if (data.session) {
+        await loadUserProfile(data.user.id);
+      }
     } catch (error) {
       console.error('Signup error:', error);
       throw error;
