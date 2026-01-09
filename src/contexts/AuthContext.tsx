@@ -183,9 +183,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   /**
-   * LOGIN
+   * LOGIN  
    * Uses event-driven session handling via onAuthStateChange
-   * No arbitrary delays needed
+   * Immediately loads profile after authentication
    */
   const login = async (email: string, password: string) => {
     try {
@@ -207,8 +207,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log('login: Auth successful, session established');
       
-      // Session is now active, load profile immediately
-      // If profile doesn't exist, try to create it
+      // Load profile immediately after successful auth
+      // The retry logic with exponential backoff will handle any session propagation delays
       try {
         await loadUserProfile(data.user.id);
         console.log('login: Profile loaded successfully');
