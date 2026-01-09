@@ -46,12 +46,21 @@ async function createUserProfileViaRPC(
   const fullName = authUser.user_metadata?.full_name || userEmail.split('@')[0] || 'User';
   const phone = authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`;
   
+  console.log('createUserProfileViaRPC: Calling RPC with params:', {
+    userId: authUser.id,
+    email: userEmail,
+    phone: phone,
+    fullName: fullName
+  });
+  
   const rpcResponse = await supabase.rpc('create_user_profile_atomic', {
     p_user_id: authUser.id,
     p_email: userEmail,
     p_phone: phone,
     p_full_name: fullName,
   });
+  
+  console.log('createUserProfileViaRPC: RPC response:', rpcResponse);
   
   parseAtomicRPCResponse(rpcResponse, 'User profile creation');
   console.log('createUserProfileViaRPC: Profile created successfully');
@@ -292,9 +301,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('signUp: User profile created successfully');
       } catch (profileCreationError) {
         console.error('signUp: Failed to create user profile:', profileCreationError);
+        // Log only user ID for privacy, not email
+        console.error('signUp: Profile creation error for user:', data.user.id);
         
-        // Sign out the auth user since profile creation failed
-        await supabase.auth.signOut();
+        // If profile creation fails, clean up the auth user
+        console.log('signUp: Signing out auth user due to profile creation failure');
+        try {
+          await supabase.auth.signOut();
+        } catch (signOutError) {
+          console.error('signUp: Error signing out after profile creation failure:', signOutError);
+        }
         
         throw new Error(
           `Failed to create user profile: ${profileCreationError instanceof Error ? profileCreationError.message : 'Unknown error'}. Please contact support.`

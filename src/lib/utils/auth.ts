@@ -13,17 +13,32 @@ export function parseAtomicRPCResponse(
   rpcResponse: { data?: any; error?: any },
   operationName: string
 ): void {
+  // Check for RPC-level errors first
   if (rpcResponse.error) {
     throw new Error(`${operationName} failed: ${rpcResponse.error.message}`);
   }
 
-  // Check result from atomic function
-  if (rpcResponse.data && Array.isArray(rpcResponse.data) && rpcResponse.data.length > 0) {
-    const result = rpcResponse.data[0];
-    if (!result.success && result.error_message) {
-      throw new Error(`${operationName} failed: ${result.error_message}`);
-    }
+  // Check if data exists
+  if (!rpcResponse.data) {
+    throw new Error(`${operationName} failed: No data returned from RPC call`);
   }
+
+  // For functions returning a single row, data might be an object or an array
+  const result = Array.isArray(rpcResponse.data) 
+    ? rpcResponse.data[0] 
+    : rpcResponse.data;
+  
+  if (!result) {
+    throw new Error(`${operationName} failed: Empty response from RPC call`);
+  }
+
+  // Check the success flag from the atomic function
+  if (result.success === false || result.success === undefined || result.success === null) {
+    const errorMsg = result.error_message || 'Unknown error - no success status returned';
+    throw new Error(`${operationName} failed: ${errorMsg}`);
+  }
+  
+  // If we get here, the operation was successful
 }
 
 /**
