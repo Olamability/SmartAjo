@@ -43,17 +43,17 @@ export async function ensureUserProfile(
   // Format: temp_xxxxxxxxxxxx (5 + 12 = 17 chars, within VARCHAR(20) limit)
   const phone = authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`;
   
-  const { error } = await supabase.from('users').insert({
-    id: authUser.id,
-    email: userEmail,
-    full_name: fullName,
-    phone: phone,
-    is_verified: !!authUser.email_confirmed_at,
-    is_active: true,
-    kyc_status: 'not_started',
+  // Use the create_user_profile RPC function which has SECURITY DEFINER
+  // This bypasses RLS policies and prevents "new row violates row-level security" errors
+  const { error } = await supabase.rpc('create_user_profile', {
+    p_user_id: authUser.id,
+    p_email: userEmail,
+    p_phone: phone,
+    p_full_name: fullName,
   });
   
   // Ignore duplicate key errors (profile might have been created concurrently)
+  // The function uses ON CONFLICT DO NOTHING, so it's safe to call multiple times
   if (error && error.code !== POSTGRES_ERROR_CODES.UNIQUE_VIOLATION) {
     throw error;
   }

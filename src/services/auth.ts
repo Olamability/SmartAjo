@@ -72,39 +72,27 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
           break;
         }
 
-        // If user record doesn't exist and this is first attempt, try manual insert
+        // If user record doesn't exist and this is first attempt, try manual insert using RPC
         if (retries === 0) {
-          console.log('User record not found, attempting manual insert...');
-          const insertPromise = supabase
-            .from('users')
-            .insert({
-              id: authData.user.id,
-              email: data.email,
-              phone: data.phone,
-              full_name: data.fullName,
-              is_verified: false,
-              is_active: true,
-              kyc_status: 'not_started',
-            })
-            .select();
+          console.log('User record not found, attempting manual insert using RPC...');
+          const rpcPromise = supabase.rpc('create_user_profile', {
+            p_user_id: authData.user.id,
+            p_email: data.email,
+            p_phone: data.phone,
+            p_full_name: data.fullName,
+          });
           
-          const insertResponse = await withTimeout(
-            insertPromise as unknown as Promise<any>,
+          const rpcResponse = await withTimeout(
+            rpcPromise as unknown as Promise<any>,
             DB_WRITE_TIMEOUT,
             'Database operation timed out.'
           );
 
-          if (insertResponse.data && insertResponse.data.length > 0) {
-            userData = insertResponse.data[0];
-            break;
-          }
-
-          if (insertResponse.error) {
-            console.error('Error inserting user data:', insertResponse.error);
-            // If duplicate key error, the trigger may have created it, retry fetch
-            if (insertResponse.error.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION) {
-              console.log('User record already exists (created by trigger), retrying fetch...');
-            }
+          if (rpcResponse.error) {
+            console.error('Error calling create_user_profile RPC:', rpcResponse.error);
+            // Continue to retry fetch, the trigger may have created it
+          } else {
+            console.log('User profile created via RPC, fetching...');
           }
         }
         
