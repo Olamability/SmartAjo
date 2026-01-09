@@ -1,5 +1,3 @@
-'use client';
-
 import {
   createContext,
   useContext,
@@ -12,6 +10,24 @@ import { User } from '@/types';
 import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
 import { reportError } from '@/lib/utils/errorTracking';
+
+// Session propagation timing constants
+// Supabase auth sessions take time to propagate to PostgreSQL RLS policies
+const SESSION_PROPAGATION_DELAY = 1000; // Initial wait after auth
+const SESSION_PROPAGATION_RETRY_DELAY = 1500; // Wait between retries
+const PROFILE_COMMIT_DELAY = 500; // Wait for profile creation to commit
+
+/**
+ * Check if an error is a duplicate key error
+ * @param error - Error object from Supabase
+ * @returns true if the error is a duplicate key violation
+ */
+function isDuplicateError(error: any): boolean {
+  return (
+    error?.message?.includes('duplicate') ||
+    error?.message?.includes('already exists')
+  );
+}
 
 interface AuthContextType {
   user: User | null;
@@ -97,7 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.error('loadUserProfile: RLS policy blocking access - session may not be properly established');
             if (attempt < retries) {
               console.log('loadUserProfile: Waiting for session to propagate...');
-              await new Promise(resolve => setTimeout(resolve, 1500 * (attempt + 1)));
+              await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_RETRY_DELAY * (attempt + 1)));
               continue;
             }
           }
@@ -105,7 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // If not found and we have retries left, wait before retry
           if (attempt < retries && (error.code === 'PGRST116' || error.message?.includes('not found'))) {
             console.log(`loadUserProfile: Profile not found, waiting before retry...`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_DELAY * (attempt + 1))); // Exponential backoff
             continue;
           }
           
@@ -118,7 +134,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           if (attempt < retries) {
             console.log(`loadUserProfile: No data returned, waiting before retry...`);
-            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_DELAY * (attempt + 1)));
             continue;
           }
           
@@ -144,7 +160,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         lastError = error;
         
         if (attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_DELAY * (attempt + 1)));
           continue;
         }
       }
@@ -222,7 +238,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // IMPORTANT: Wait for session to propagate to database connections
       // This ensures RLS policies can properly access auth.uid()
       console.log('login: Waiting for session to propagate...');
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_DELAY));
 
       console.log('login: Now loading profile');
 
@@ -250,7 +266,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               p_full_name: data.user.user_metadata?.full_name || email.split('@')[0],
             });
             
-            if (rpcError && !rpcError.message?.includes('duplicate')) {
+            if (rpcError && !isDuplicateError(rpcError)) {
               console.warn('login: RPC function failed, trying direct insert:', rpcError.message);
               throw rpcError;
             }
@@ -263,7 +279,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           
           // Wait for the profile to be fully committed AND session to propagate
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_RETRY_DELAY));
           
           // Try loading profile again with retries
           console.log('login: Retrying profile load after creation');
@@ -372,7 +388,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 kyc_status: 'not_started',
               });
             
-            if (insertError && !insertError.message?.includes('duplicate')) {
+            if (insertError && !isDuplicateError(insertError)) {
               console.error('signUp: Direct insert also failed:', insertError);
               throw new Error(
                 'Database setup incomplete. Please ensure the create_user_profile function exists in your Supabase database. See supabase/migrations/2026-01-08-add-user-creation-trigger.sql'
@@ -380,7 +396,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
             
             console.log('signUp: Profile created via direct insert');
-          } else if (!rpcError.message?.includes('duplicate') && !rpcError.message?.includes('already exists')) {
+          } else if (!isDuplicateError(rpcError)) {
             throw rpcError;
           } else {
             console.log('signUp: Profile already exists (duplicate), continuing');
@@ -412,7 +428,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.log('signUp: Loading user profile after signup');
           
           // Wait a moment for the profile to be fully committed
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, PROFILE_COMMIT_DELAY));
           
           await loadUserProfile(data.user.id, 2); // Use retries
           console.log('User profile loaded successfully after signup');
@@ -490,7 +506,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 p_full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
               });
               
-              if (rpcError && !rpcError.message?.includes('duplicate')) {
+              if (rpcError && !isDuplicateError(rpcError)) {
                 console.warn('RPC failed, using ensureUserProfile:', rpcError.message);
                 throw rpcError;
               }
@@ -498,7 +514,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               await ensureUserProfile(supabase, session.user);
             }
             
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, PROFILE_COMMIT_DELAY));
             await loadUserProfile(session.user.id, 2);
             console.log('Profile created and loaded successfully');
           } catch (createError) {

@@ -8,6 +8,19 @@ import { POSTGRES_ERROR_CODES } from '@/lib/constants/database';
 import { validateAuthUser } from './validation';
 
 /**
+ * Check if an error is a duplicate key error
+ * @param error - Error object from Supabase
+ * @returns true if the error is a duplicate key violation
+ */
+function isDuplicateError(error: any): boolean {
+  return (
+    error?.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION ||
+    error?.message?.includes('duplicate') ||
+    error?.message?.includes('already exists')
+  );
+}
+
+/**
  * Ensures a user profile exists in the database
  * If the profile doesn't exist, creates it from auth metadata
  * 
@@ -60,8 +73,7 @@ export async function ensureUserProfile(
     });
     
     // Ignore duplicate key errors (profile might have been created concurrently)
-    if (rpcError && rpcError.code !== POSTGRES_ERROR_CODES.UNIQUE_VIOLATION && 
-        !rpcError.message?.includes('duplicate') && !rpcError.message?.includes('already exists')) {
+    if (rpcError && !isDuplicateError(rpcError)) {
       
       // If RPC function doesn't exist, try fallback
       if (rpcError.message?.includes('Could not find the function') || 
@@ -97,8 +109,7 @@ export async function ensureUserProfile(
       });
     
     // Ignore duplicate key errors
-    if (insertError && insertError.code !== POSTGRES_ERROR_CODES.UNIQUE_VIOLATION &&
-        !insertError.message?.includes('duplicate') && !insertError.message?.includes('already exists')) {
+    if (insertError && !isDuplicateError(insertError)) {
       console.error('ensureUserProfile: Direct insert failed:', insertError);
       throw insertError;
     }
