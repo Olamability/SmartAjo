@@ -688,17 +688,23 @@ CREATE POLICY users_select_own ON users
 -- Users can update their own profile
 CREATE POLICY users_update_own ON users
   FOR UPDATE
-  USING (auth.uid() = id);
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
 
--- Users can insert their own profile during signup
+-- Users can insert their own profile during signup (CRITICAL for free tier)
 CREATE POLICY users_insert_own ON users
   FOR INSERT
   WITH CHECK (auth.uid() = id);
 
--- Service role can do anything
+-- Service role can do anything (for admin operations)
 CREATE POLICY users_service_role_all ON users
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- RLS POLICIES: email_verification_tokens
@@ -709,34 +715,70 @@ CREATE POLICY email_verification_tokens_select_own ON email_verification_tokens
   FOR SELECT
   USING (auth.uid() = user_id);
 
+-- Users can create their own tokens
+CREATE POLICY email_verification_tokens_insert_own ON email_verification_tokens
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own tokens (mark as used)
+CREATE POLICY email_verification_tokens_update_own ON email_verification_tokens
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 -- Service role can do anything
 CREATE POLICY email_verification_tokens_service_role_all ON email_verification_tokens
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- RLS POLICIES: groups
 -- ============================================================================
 
--- Anyone can view active/forming groups (for browsing)
+-- Anyone authenticated can view active/forming groups (for browsing) + their own groups
 CREATE POLICY groups_select_public ON groups
   FOR SELECT
-  USING (status IN ('forming', 'active'));
+  USING (
+    status IN ('forming', 'active') OR
+    EXISTS (
+      SELECT 1 FROM group_members
+      WHERE group_members.group_id = groups.id
+        AND group_members.user_id = auth.uid()
+    )
+  );
 
--- Users can create groups
+-- Authenticated users can create groups
 CREATE POLICY groups_insert_authenticated ON groups
   FOR INSERT
-  WITH CHECK (auth.uid() = created_by);
+  WITH CHECK (auth.uid() = created_by AND auth.uid() IS NOT NULL);
 
--- Group creators can update their groups
+-- Group creators and members can update their groups
 CREATE POLICY groups_update_creator ON groups
   FOR UPDATE
-  USING (auth.uid() = created_by);
+  USING (
+    auth.uid() = created_by OR
+    EXISTS (
+      SELECT 1 FROM group_members
+      WHERE group_members.group_id = groups.id
+        AND group_members.user_id = auth.uid()
+        AND group_members.is_creator = true
+    )
+  );
 
 -- Service role can do anything
 CREATE POLICY groups_service_role_all ON groups
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- RLS POLICIES: group_members
@@ -758,10 +800,21 @@ CREATE POLICY group_members_insert_own ON group_members
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+-- Users can update their own membership
+CREATE POLICY group_members_update_own ON group_members
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 -- Service role can do anything
 CREATE POLICY group_members_service_role_all ON group_members
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- RLS POLICIES: contributions
@@ -771,6 +824,7 @@ CREATE POLICY group_members_service_role_all ON group_members
 CREATE POLICY contributions_select_own_groups ON contributions
   FOR SELECT
   USING (
+    auth.uid() = user_id OR
     EXISTS (
       SELECT 1 FROM group_members gm 
       WHERE gm.group_id = contributions.group_id 
@@ -778,10 +832,26 @@ CREATE POLICY contributions_select_own_groups ON contributions
     )
   );
 
+-- Users can create their own contributions
+CREATE POLICY contributions_insert_own ON contributions
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can update their own contributions (e.g., mark as paid)
+CREATE POLICY contributions_update_own ON contributions
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 -- Service role can do anything
 CREATE POLICY contributions_service_role_all ON contributions
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- RLS POLICIES: payouts
@@ -791,6 +861,7 @@ CREATE POLICY contributions_service_role_all ON contributions
 CREATE POLICY payouts_select_own_groups ON payouts
   FOR SELECT
   USING (
+    auth.uid() = recipient_id OR
     EXISTS (
       SELECT 1 FROM group_members gm 
       WHERE gm.group_id = payouts.related_group_id 
@@ -801,21 +872,38 @@ CREATE POLICY payouts_select_own_groups ON payouts
 -- Service role can do anything
 CREATE POLICY payouts_service_role_all ON payouts
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- RLS POLICIES: penalties
 -- ============================================================================
 
--- Users can view their own penalties
+-- Users can view their own penalties or penalties in their groups
 CREATE POLICY penalties_select_own ON penalties
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (
+    auth.uid() = user_id OR
+    EXISTS (
+      SELECT 1 FROM group_members gm 
+      WHERE gm.group_id = penalties.group_id 
+        AND gm.user_id = auth.uid()
+    )
+  );
 
 -- Service role can do anything
 CREATE POLICY penalties_service_role_all ON penalties
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- RLS POLICIES: transactions
@@ -826,10 +914,20 @@ CREATE POLICY transactions_select_own ON transactions
   FOR SELECT
   USING (auth.uid() = user_id);
 
+-- Users can create their own transactions
+CREATE POLICY transactions_insert_own ON transactions
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
 -- Service role can do anything
 CREATE POLICY transactions_service_role_all ON transactions
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- RLS POLICIES: notifications
@@ -843,21 +941,42 @@ CREATE POLICY notifications_select_own ON notifications
 -- Users can update their own notifications (mark as read)
 CREATE POLICY notifications_update_own ON notifications
   FOR UPDATE
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- Users can create their own notifications
+CREATE POLICY notifications_insert_own ON notifications
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
 
 -- Service role can do anything
 CREATE POLICY notifications_service_role_all ON notifications
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- RLS POLICIES: audit_logs
 -- ============================================================================
 
--- Only service role can access audit logs
+-- Users can insert their own audit logs
+CREATE POLICY audit_logs_insert_own ON audit_logs
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+-- Only service role can read/update/delete audit logs
 CREATE POLICY audit_logs_service_role_all ON audit_logs
   FOR ALL
-  USING (auth.jwt()->>'role' = 'service_role');
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
 
 -- ============================================================================
 -- END OF SCHEMA
