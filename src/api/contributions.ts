@@ -115,8 +115,8 @@ export const getUserContributions = async (): Promise<{
 
 /**
  * Record a contribution payment
- * Note: In production, this would be called by a Supabase Edge Function
- * after payment verification from Paystack webhook
+ * Note: In production, this would be triggered automatically by database triggers
+ * after payment verification from Paystack webhook (handled by database functions or triggers)
  */
 export const recordContributionPayment = async (
   contributionId: string,

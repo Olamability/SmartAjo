@@ -4,7 +4,7 @@ This directory contains the API service layer for the Smart Ajo platform. All fu
 
 ## Architecture
 
-This is **NOT** a traditional REST API server. Instead, this directory contains:
+This is **NOT** a traditional REST API server or Node.js backend. Instead, this directory contains:
 - **Service functions** that call Supabase client directly
 - **Type-safe wrappers** around Supabase operations
 - **Business logic** for complex operations
@@ -13,7 +13,10 @@ All server-side logic (authentication, database operations, storage) is handled 
 - **Authentication**: Supabase Auth
 - **Database**: PostgreSQL with Row Level Security (RLS)
 - **Storage**: Supabase Storage
-- **Edge Functions**: Supabase Edge Functions (for sensitive operations)
+- **Server-side Logic**: Database triggers, PostgreSQL functions, and views
+- **Real-time**: Supabase Realtime subscriptions
+
+**Note**: We use Supabase's built-in database features (triggers, functions, RLS policies, views) for all server-side operations. No separate backend server or Edge Functions are needed.
 
 ## Structure
 
