@@ -7,8 +7,92 @@ import {
   USER_DATA_FETCH_TIMEOUT, 
   DB_WRITE_TIMEOUT 
 } from '@/lib/constants/timeout';
-import { convertKycStatus, POSTGRES_ERROR_CODES } from '@/lib/constants/database';
+import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
+import type { PostgrestSingleResponse, PostgrestResponse, SupabaseClient } from '@supabase/supabase-js';
+
+// Database user type
+interface DbUser {
+  id: string;
+  email: string;
+  phone: string;
+  full_name: string;
+  created_at: string;
+  is_verified: boolean;
+  kyc_status: 'not_started' | 'pending' | 'approved' | 'rejected';
+  kyc_data?: {
+    bvn?: string;
+    nin?: string;
+    verification_status?: string;
+    verified_at?: string;
+  };
+  avatar_url?: string;
+  is_active?: boolean;
+}
+
+/**
+ * Type-safe wrapper for fetching a single user from the database
+ */
+async function fetchUserById(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<PostgrestSingleResponse<DbUser>> {
+  return supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
+}
+
+/**
+ * Type-safe wrapper for creating a user profile via RPC
+ */
+async function createUserProfileRPC(
+  supabase: SupabaseClient,
+  params: {
+    userId: string;
+    email: string;
+    phone: string;
+    fullName: string;
+  }
+): Promise<PostgrestSingleResponse<string>> {
+  return supabase.rpc('create_user_profile', {
+    p_user_id: params.userId,
+    p_email: params.email,
+    p_phone: params.phone,
+    p_full_name: params.fullName,
+  }) as unknown as Promise<PostgrestSingleResponse<string>>;
+}
+
+/**
+ * Type-safe wrapper for updating user last login
+ */
+async function updateUserLastLogin(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<PostgrestResponse<DbUser>> {
+  return supabase
+    .from('users')
+    .update({ last_login_at: new Date().toISOString() })
+    .eq('id', userId)
+    .select() as unknown as Promise<PostgrestResponse<DbUser>>;
+}
+
+/**
+ * Type-safe wrapper for updating user profile data
+ */
+async function updateUserData(
+  supabase: SupabaseClient,
+  userId: string,
+  updates: Record<string, string | Record<string, unknown>>
+): Promise<PostgrestSingleResponse<DbUser>> {
+  return supabase
+    .from('users')
+    .update(updates)
+    .eq('id', userId)
+    .select()
+    .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
+}
 
 // Signup function
 // Uses Supabase Auth directly for authentication
@@ -48,21 +132,15 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
 
     // Wait for database trigger to create user record with retry logic
     // The trigger should create the record automatically, but we'll add a manual insert as fallback
-    let userData = null;
+    let userData: DbUser | null = null;
     let retries = 0;
     const maxRetries = 3;
     
     while (!userData && retries < maxRetries) {
       try {
         // First, try to fetch the user record (trigger may have already created it)
-        const fetchPromise = supabase
-          .from('users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
-        
         const fetchResponse = await withTimeout(
-          fetchPromise as unknown as Promise<any>,
+          fetchUserById(supabase, authData.user.id),
           USER_DATA_FETCH_TIMEOUT,
           'Unable to fetch user data.'
         );
@@ -72,39 +150,25 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
           break;
         }
 
-        // If user record doesn't exist and this is first attempt, try manual insert
+        // If user record doesn't exist and this is first attempt, try manual insert using RPC
         if (retries === 0) {
-          console.log('User record not found, attempting manual insert...');
-          const insertPromise = supabase
-            .from('users')
-            .insert({
-              id: authData.user.id,
+          console.log('User record not found, attempting manual insert using RPC...');
+          const rpcResponse = await withTimeout(
+            createUserProfileRPC(supabase, {
+              userId: authData.user.id,
               email: data.email,
               phone: data.phone,
-              full_name: data.fullName,
-              is_verified: false,
-              is_active: true,
-              kyc_status: 'not_started',
-            })
-            .select();
-          
-          const insertResponse = await withTimeout(
-            insertPromise as unknown as Promise<any>,
+              fullName: data.fullName,
+            }),
             DB_WRITE_TIMEOUT,
             'Database operation timed out.'
           );
 
-          if (insertResponse.data && insertResponse.data.length > 0) {
-            userData = insertResponse.data[0];
-            break;
-          }
-
-          if (insertResponse.error) {
-            console.error('Error inserting user data:', insertResponse.error);
-            // If duplicate key error, the trigger may have created it, retry fetch
-            if (insertResponse.error.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION) {
-              console.log('User record already exists (created by trigger), retrying fetch...');
-            }
+          if (rpcResponse.error) {
+            console.error('Error calling create_user_profile RPC:', rpcResponse.error);
+            // Continue to retry fetch, the trigger may have created it
+          } else {
+            console.log('User profile created via RPC, fetching...');
           }
         }
         
@@ -147,7 +211,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
         createdAt: userData.created_at,
         isVerified: userData.is_verified,
         kycStatus: convertKycStatus(userData.kyc_status),
-        bvn: userData.kyc_data?.bvn,
+        bvn: typeof userData.kyc_data?.bvn === 'string' ? userData.kyc_data.bvn : undefined,
         profileImage: userData.avatar_url,
       },
     };
@@ -191,14 +255,8 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     }
 
     // Fetch user data from public.users table with timeout
-    const fetchPromise = supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single();
-    
     const fetchResponse = await withTimeout(
-      fetchPromise as unknown as Promise<any>,
+      fetchUserById(supabase, authData.user.id),
       USER_DATA_FETCH_TIMEOUT,
       'Unable to fetch user data. Please try again.'
     );
@@ -214,14 +272,8 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
         await ensureUserProfile(supabase, authData.user);
         
         // Try fetching again after creating profile
-        const refetchPromise = supabase
-          .from('users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
-        
         const refetchResponse = await withTimeout(
-          refetchPromise as unknown as Promise<any>,
+          fetchUserById(supabase, authData.user.id),
           USER_DATA_FETCH_TIMEOUT,
           'Unable to fetch user data after creation.'
         );
@@ -245,15 +297,9 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     }
 
     // Update last login timestamp (non-blocking, fire and forget with timeout)
-    const updatePromise = supabase
-      .from('users')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', userData.id)
-      .select();
-    
     // Explicitly fire-and-forget pattern (15 seconds for non-critical operation)
     void withTimeout(
-      updatePromise as unknown as Promise<any>,
+      updateUserLastLogin(supabase, userData.id),
       DB_WRITE_TIMEOUT,
       'Last login update timed out'
     )
@@ -275,7 +321,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
         createdAt: userData.created_at,
         isVerified: userData.is_verified,
         kycStatus: convertKycStatus(userData.kyc_status),
-        bvn: userData.kyc_data?.bvn,
+        bvn: typeof userData.kyc_data?.bvn === 'string' ? userData.kyc_data.bvn : undefined,
         profileImage: userData.avatar_url,
       },
     };
@@ -371,7 +417,7 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
     }
 
     // Map frontend fields to database fields
-    const dbUpdates: Record<string, any> = {};
+    const dbUpdates: Record<string, string | Record<string, unknown>> = {};
     if (updates.fullName) dbUpdates.full_name = updates.fullName;
     if (updates.phone) dbUpdates.phone = updates.phone;
     if (updates.profileImage) dbUpdates.avatar_url = updates.profileImage;
@@ -389,12 +435,7 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
     }
 
     // Update user in database
-    const { data, error } = await supabase
-      .from('users')
-      .update(dbUpdates)
-      .eq('id', authUser.id)
-      .select()
-      .single();
+    const { data, error } = await updateUserData(supabase, authUser.id, dbUpdates);
 
     if (error) {
       console.error('Error updating user:', error);
@@ -415,7 +456,7 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
         createdAt: data.created_at,
         isVerified: data.is_verified,
         kycStatus: convertKycStatus(data.kyc_status),
-        bvn: data.kyc_data?.bvn,
+        bvn: typeof data.kyc_data?.bvn === 'string' ? data.kyc_data.bvn : undefined,
         profileImage: data.avatar_url,
       },
     };

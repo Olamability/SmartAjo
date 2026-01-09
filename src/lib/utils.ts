@@ -12,7 +12,7 @@ export function cn(...inputs: ClassValue[]) {
  * @returns Parsed JSON data if successful, or throws an error
  * @throws Error if response is not JSON
  */
-export async function parseJsonResponse<T = any>(
+export async function parseJsonResponse<T = unknown>(
   response: Response,
   context?: string
 ): Promise<T> {

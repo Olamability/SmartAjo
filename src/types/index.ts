@@ -9,7 +9,7 @@ export interface User {
   isVerified: boolean;
   isActive?: boolean;
   kycStatus: 'not_started' | 'pending' | 'verified' | 'rejected';
-  kycData?: Record<string, any>;
+  kycData?: Record<string, string | number | boolean | null>;
   bvn?: string;
   profileImage?: string;
   dateOfBirth?: string;

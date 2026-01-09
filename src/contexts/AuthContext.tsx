@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { createClient } from '@/lib/client/supabase';
 import { User } from '@/types';
-import { convertKycStatus, POSTGRES_ERROR_CODES } from '@/lib/constants/database';
+import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
 import { reportError } from '@/lib/utils/errorTracking';
 
@@ -198,19 +198,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error || new Error('Signup failed: No user data returned');
       }
 
-      // Create user profile in database (RLS policy allows self-registration)
-      const { error: insertError } = await supabase.from('users').insert({
-        id: data.user.id,
-        email,
-        full_name: fullName,
-        phone,
-        is_verified: false,
-        is_active: true,
-        kyc_status: 'not_started',
+      // Create user profile in database using RPC function with SECURITY DEFINER
+      // This bypasses RLS policies and prevents "new row violates row-level security" errors
+      const { error: insertError } = await supabase.rpc('create_user_profile', {
+        p_user_id: data.user.id,
+        p_email: email,
+        p_phone: phone,
+        p_full_name: fullName,
       });
 
-      // Ignore duplicate key errors (profile might already exist)
-      if (insertError && insertError.code !== POSTGRES_ERROR_CODES.UNIQUE_VIOLATION) {
+      // The RPC function uses ON CONFLICT DO NOTHING, so duplicate key errors are handled internally
+      // Only throw on actual errors
+      if (insertError) {
         console.error('Failed to create user profile:', insertError);
         throw new Error(
           `Failed to create user profile: ${insertError.message}. Please contact support.`
@@ -312,6 +311,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
