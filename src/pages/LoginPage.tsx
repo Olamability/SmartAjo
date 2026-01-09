@@ -43,19 +43,25 @@ export default function LoginPage() {
     if (!isMountedRef.current) return;
 
     setIsLoading(true);
-    console.log('Login attempt for:', data.email);
+    console.log('LoginPage: Starting login for:', data.email);
     
     try {
-      console.log('Calling login function...');
+      console.log('LoginPage: Calling login function...');
       await login(data.email, data.password);
-      if (!isMountedRef.current) return;
+      
+      if (!isMountedRef.current) {
+        console.log('LoginPage: Component unmounted, aborting');
+        return;
+      }
 
-      console.log('Login successful, navigating to dashboard');
+      console.log('LoginPage: Login successful, navigating to dashboard');
       toast.success('Welcome back!');
       navigate('/dashboard');
     } catch (error) {
       if (!isMountedRef.current) return;
 
+      console.error('LoginPage: Login failed with error:', error);
+      
       // Report error with context for tracking
       reportError(error, {
         operation: 'login',
@@ -64,8 +70,14 @@ export default function LoginPage() {
       });
       
       const errorMessage = getErrorMessage(error, 'Invalid email or password');
+      console.error('LoginPage: Showing error to user:', errorMessage);
       toast.error(errorMessage);
-      setIsLoading(false);
+    } finally {
+      // ALWAYS reset loading state, whether success or failure
+      if (isMountedRef.current) {
+        console.log('LoginPage: Resetting loading state');
+        setIsLoading(false);
+      }
     }
   };
 

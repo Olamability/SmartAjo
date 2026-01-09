@@ -59,8 +59,10 @@ export default function SignUpPage() {
     if (!isMountedRef.current) return;
     
     setIsLoading(true);
+    console.log('SignupPage: Starting signup process for', data.email);
     
     try {
+      console.log('SignupPage: Calling signUp function...');
       await signUp({
         email: data.email,
         password: data.password,
@@ -69,10 +71,12 @@ export default function SignUpPage() {
       });
 
       if (!isMountedRef.current) {
+        console.log('SignupPage: Component unmounted, aborting');
         return;
       }
 
       // If we get here, signup was successful and user is authenticated
+      console.log('SignupPage: Signup successful, navigating to dashboard');
       toast.success('Account created successfully! Redirecting to dashboard...');
       navigate('/dashboard');
     } catch (error) {
@@ -80,21 +84,25 @@ export default function SignUpPage() {
 
       // Check if this is an email confirmation required error
       const errorMessage = getErrorMessage(error, 'Failed to create account');
+      console.error('SignupPage: Signup error:', errorMessage);
       
       if (errorMessage.includes('CONFIRMATION_REQUIRED:')) {
         // Extract the actual message after the prefix
         const actualMessage = errorMessage.replace('CONFIRMATION_REQUIRED:', '');
+        console.log('SignupPage: Email confirmation required, showing message');
         toast.success('Account created! ' + actualMessage, {
           duration: 6000,
         });
         // Redirect to login page after showing message
         setTimeout(() => {
           if (isMountedRef.current) {
+            console.log('SignupPage: Redirecting to login page');
             navigate('/login');
           }
         }, 2000);
       } else {
         // Show error for actual failures
+        console.error('SignupPage: Signup failed:', errorMessage);
         toast.error(errorMessage);
       }
     } finally {
