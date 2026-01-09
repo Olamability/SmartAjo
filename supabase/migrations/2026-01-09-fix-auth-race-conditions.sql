@@ -116,7 +116,7 @@ CREATE OR REPLACE FUNCTION verify_user_profile_access(
   p_user_id UUID
 )
 RETURNS TABLE(
-  exists BOOLEAN,
+  profile_exists BOOLEAN,
   accessible BOOLEAN,
   error_message TEXT
 ) AS $$
