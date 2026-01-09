@@ -167,25 +167,37 @@ The application can be tested by:
 
 ## 🐛 Troubleshooting
 
-### Build errors
+**For detailed troubleshooting, see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)**
+
+### Common Issues Quick Fixes
+
+#### Stuck at "Signing in..." or Cannot Login After Signup
+- Run the database migration: `/supabase/migrations/2026-01-08-add-user-creation-trigger.sql`
+- Verify RLS policies exist on `users` table
+- Check console logs for detailed error messages
+- See [TROUBLESHOOTING.md](./TROUBLESHOOTING.md#authentication-issues) for full solutions
+
+#### Build errors
 - Make sure all dependencies are installed: `npm install`
 - Check that TypeScript is configured correctly
 - Verify all imports are correct
 - Ensure Supabase environment variables are set
 
-### Can't connect to Supabase
+#### Can't connect to Supabase
 - Verify your `.env` file has correct Supabase URL and anon key
 - Check that your Supabase project is running
 - Ensure RLS policies are properly configured
 - Check browser console for detailed error messages
 
-### Authentication issues
+#### Authentication issues
 - Verify email confirmation settings in Supabase Auth
 - Check RLS policies on the users table
 - Ensure the anon key has proper permissions
+- Run database migrations for profile creation function
 
 ## 📖 Additional Documentation
 
+- [Troubleshooting Guide](./TROUBLESHOOTING.md) - Detailed solutions for common issues
 - [Architecture Documentation](./ARCHITECTURE.md) - Complete architecture guide
 - [Supabase Setup](./supabase/README.md) - Database and backend setup
 
