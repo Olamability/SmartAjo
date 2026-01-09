@@ -422,7 +422,7 @@ DECLARE
   v_contribution RECORD;
   v_penalty_amount DECIMAL(15, 2);
 BEGIN
-  -- Loop through overdue contributions without penalties
+  -- Loop through overdue contributions without existing late-payment penalties
   FOR v_contribution IN
     SELECT 
       c.id,
@@ -434,21 +434,23 @@ BEGIN
     WHERE c.status = 'pending'
       AND c.due_date < NOW()
       AND NOT EXISTS (
-        SELECT 1 FROM penalties p
+        SELECT 1
+        FROM penalties p
         WHERE p.contribution_id = c.id
-        AND p.penalty_type = 'late_payment'
+          AND p.type = 'late_payment'
       )
   LOOP
-    -- Calculate penalty
-    v_penalty_amount := calculate_late_penalty(v_contribution.id, v_contribution.days_overdue);
-    
-    -- Insert penalty record
+    -- Calculate penalty amount
+    v_penalty_amount :=
+      calculate_late_penalty(v_contribution.id, v_contribution.days_overdue);
+
+    -- Insert penalty
     INSERT INTO penalties (
       group_id,
       user_id,
       contribution_id,
       amount,
-      penalty_type,
+      type,
       reason,
       status
     ) VALUES (
@@ -458,10 +460,10 @@ BEGIN
       v_penalty_amount,
       'late_payment',
       'Late payment - ' || v_contribution.days_overdue || ' days overdue',
-      'unpaid'
+      'applied'
     );
-    
-    -- Create notification
+
+    -- Notify user
     INSERT INTO notifications (
       user_id,
       type,
@@ -475,16 +477,16 @@ BEGIN
       'A penalty of ₦' || v_penalty_amount || ' has been applied for late payment.',
       v_contribution.group_id
     );
-    
+
     v_count := v_count + 1;
   END LOOP;
-  
+
   RETURN v_count;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION apply_late_penalties IS 
-  'Automatically applies penalties to overdue contributions';
+COMMENT ON FUNCTION apply_late_penalties IS
+'Automatically applies late-payment penalties to overdue contributions';
 
 -- ============================================================================
 -- FUNCTION: check_and_process_complete_cycles
