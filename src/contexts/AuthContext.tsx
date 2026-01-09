@@ -10,24 +10,13 @@ import { User } from '@/types';
 import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
 import { reportError } from '@/lib/utils/errorTracking';
+import { isDuplicateError, calculateRetryDelay } from '@/lib/utils/errors';
 
 // Session propagation timing constants
 // Supabase auth sessions take time to propagate to PostgreSQL RLS policies
 const SESSION_PROPAGATION_DELAY = 1000; // Initial wait after auth
-const SESSION_PROPAGATION_RETRY_DELAY = 1500; // Wait between retries
+const SESSION_PROPAGATION_RETRY_DELAY = 1500; // Wait between retries for RLS
 const PROFILE_COMMIT_DELAY = 500; // Wait for profile creation to commit
-
-/**
- * Check if an error is a duplicate key error
- * @param error - Error object from Supabase
- * @returns true if the error is a duplicate key violation
- */
-function isDuplicateError(error: any): boolean {
-  return (
-    error?.message?.includes('duplicate') ||
-    error?.message?.includes('already exists')
-  );
-}
 
 interface AuthContextType {
   user: User | null;
@@ -75,7 +64,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.error('loadUserProfile: No active session found');
           if (attempt < retries) {
             console.log('loadUserProfile: Waiting for session to be established...');
-            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_DELAY)));
             continue;
           }
           throw new Error('No active session. Please try logging in again.');
@@ -108,20 +97,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           lastError = error;
           
-          // Special handling for RLS policy violations
+          // Special handling for RLS policy violations  
           if (error.code === 'PGRST301' || error.message?.includes('row-level security')) {
             console.error('loadUserProfile: RLS policy blocking access - session may not be properly established');
             if (attempt < retries) {
               console.log('loadUserProfile: Waiting for session to propagate...');
-              await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_RETRY_DELAY * (attempt + 1)));
+              await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_RETRY_DELAY)));
               continue;
             }
           }
           
-          // If not found and we have retries left, wait before retry
+          // If not found and we have retries left, wait before retry with linear backoff
           if (attempt < retries && (error.code === 'PGRST116' || error.message?.includes('not found'))) {
             console.log(`loadUserProfile: Profile not found, waiting before retry...`);
-            await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_DELAY * (attempt + 1))); // Exponential backoff
+            await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_DELAY)));
             continue;
           }
           
@@ -134,7 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           if (attempt < retries) {
             console.log(`loadUserProfile: No data returned, waiting before retry...`);
-            await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_DELAY * (attempt + 1)));
+            await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_DELAY)));
             continue;
           }
           
@@ -160,7 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         lastError = error;
         
         if (attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_DELAY * (attempt + 1)));
+          await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_DELAY)));
           continue;
         }
       }

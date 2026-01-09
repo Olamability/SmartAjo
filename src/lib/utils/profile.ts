@@ -4,21 +4,8 @@
  */
 
 import { SupabaseClient, User as AuthUser } from '@supabase/supabase-js';
-import { POSTGRES_ERROR_CODES } from '@/lib/constants/database';
 import { validateAuthUser } from './validation';
-
-/**
- * Check if an error is a duplicate key error
- * @param error - Error object from Supabase
- * @returns true if the error is a duplicate key violation
- */
-function isDuplicateError(error: any): boolean {
-  return (
-    error?.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION ||
-    error?.message?.includes('duplicate') ||
-    error?.message?.includes('already exists')
-  );
-}
+import { isDuplicateError } from './errors';
 
 /**
  * Ensures a user profile exists in the database
