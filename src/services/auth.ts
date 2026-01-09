@@ -203,7 +203,8 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       'Unable to fetch user data. Please try again.'
     );
 
-    let { data: userData, error: fetchError } = fetchResponse;
+    const { error: fetchError } = fetchResponse;
+    let { data: userData } = fetchResponse;
 
     // If user profile doesn't exist, try to create it using shared utility
     if (fetchError || !userData) {
