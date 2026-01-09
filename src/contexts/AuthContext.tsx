@@ -301,11 +301,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('signUp: User profile created successfully');
       } catch (profileCreationError) {
         console.error('signUp: Failed to create user profile:', profileCreationError);
-        console.error('signUp: Profile creation error details:', {
-          userId: data.user.id,
-          email: data.user.email,
-          errorMessage: profileCreationError instanceof Error ? profileCreationError.message : String(profileCreationError)
-        });
+        // Log only user ID for privacy, not email
+        console.error('signUp: Profile creation error for user:', data.user.id);
         
         // If profile creation fails, clean up the auth user
         console.log('signUp: Signing out auth user due to profile creation failure');

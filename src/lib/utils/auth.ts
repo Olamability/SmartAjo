@@ -33,8 +33,8 @@ export function parseAtomicRPCResponse(
   }
 
   // Check the success flag from the atomic function
-  if (result.success === false) {
-    const errorMsg = result.error_message || 'Unknown error';
+  if (result.success === false || result.success === undefined || result.success === null) {
+    const errorMsg = result.error_message || 'Unknown error - no success status returned';
     throw new Error(`${operationName} failed: ${errorMsg}`);
   }
   

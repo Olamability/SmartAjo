@@ -50,19 +50,20 @@ ORDER BY p.proname;
 -- This simulates what happens during signup with email confirmation
 
 -- Generate a test user ID (you can replace with a real auth user ID)
+-- Note: Uses timestamp in email to avoid conflicts on repeated runs
 SELECT 
   create_user_profile_atomic(
     gen_random_uuid(),  -- Test user ID
-    'test-verification@example.com',
+    'test-verify-' || extract(epoch from now())::text || '@example.com',
     '+1234567890',
     'Test User'
   ) as test_result;
 
 -- Expected output: Should return success = true
--- Note: This creates a test record - you may want to delete it after verification
+-- Note: This creates a test record. Clean up with query below:
 
--- Clean up test record (optional)
--- DELETE FROM public.users WHERE email = 'test-verification@example.com';
+-- Clean up test record (recommended after verification)
+-- DELETE FROM public.users WHERE email LIKE 'test-verify-%@example.com';
 
 -- ============================================================================
 -- Summary Report
