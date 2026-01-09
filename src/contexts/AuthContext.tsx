@@ -12,7 +12,6 @@ import { User } from '@/types';
 import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
 import { reportError } from '@/lib/utils/errorTracking';
-import { withTimeout } from '@/lib/utils';
 
 interface AuthContextType {
   user: User | null;
@@ -44,19 +43,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('loadUserProfile: Loading profile for user:', userId);
       
-      // Note: Promise.resolve() is needed because Supabase returns a PromiseLike, not a full Promise
-      // TypeScript requires a full Promise for the withTimeout generic, so we convert it here
-      const { data, error } = await withTimeout(
-        Promise.resolve(
-          supabase
-            .from('users')
-            .select('*')
-            .eq('id', userId)
-            .single()
-        ),
-        15000, // 15 second timeout
-        'Profile loading timed out. Please check your connection and try again.'
-      );
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
       if (error) {
         console.error('loadUserProfile: Failed to load user profile:', {
@@ -143,14 +134,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('login: Starting login for:', email);
       
-      const { error, data } = await withTimeout(
-        supabase.auth.signInWithPassword({
-          email,
-          password,
-        }),
-        30000, // 30 second timeout for auth
-        'Login request timed out. Please check your internet connection and try again.'
-      );
+      const { error, data } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (error) {
         console.error('login: Auth error:', {
