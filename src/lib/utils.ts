@@ -30,7 +30,7 @@ export async function parseJsonResponse<T = unknown>(
 
 /**
  * Converts an error to a user-friendly message
- * Specifically handles invalid response format errors and timeout errors
+ * Specifically handles invalid response format errors, timeout errors, and rate limiting
  */
 export function getErrorMessage(error: unknown, fallbackMessage: string): string {
   if (error instanceof Error) {
@@ -42,8 +42,21 @@ export function getErrorMessage(error: unknown, fallbackMessage: string): string
     if (error.message.includes('timed out') || error.message.includes('timeout')) {
       return error.message;
     }
+    // Handle rate limiting errors
+    if (error.message.includes('you can only request this after') || 
+        error.message.includes('rate limit') ||
+        error.message.includes('too many requests')) {
+      return 'Too many attempts. Please wait a moment and try again.';
+    }
     // Return other error messages
     return error.message;
+  }
+  // Check if error object has status property (for HTTP errors)
+  if (error && typeof error === 'object' && 'status' in error) {
+    const statusError = error as { status?: number; message?: string };
+    if (statusError.status === 429) {
+      return 'Too many attempts. Please wait a moment and try again.';
+    }
   }
   return fallbackMessage;
 }
