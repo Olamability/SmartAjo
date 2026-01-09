@@ -236,6 +236,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         needsEmailConfirmation,
       });
 
+      // If email confirmation is required, throw error immediately
+      // Don't try to create profile yet - it will be created when user confirms email and signs in
+      if (needsEmailConfirmation) {
+        console.log('Email confirmation required - user must confirm email before profile creation');
+        throw new Error('CONFIRMATION_REQUIRED:Please check your email to confirm your account before signing in.');
+      }
+
+      // Only create profile if we have an active session (no email confirmation needed)
       // Create user profile in database using RPC function with SECURITY DEFINER
       // This bypasses RLS policies and prevents "new row violates row-level security" errors
       const { error: insertError } = await supabase.rpc('create_user_profile', {
@@ -264,13 +272,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.log('User profile created successfully in database');
-
-      // If email confirmation is required, don't try to load profile yet
-      // The user will need to confirm their email first
-      if (needsEmailConfirmation) {
-        console.log('Email confirmation required - profile will be loaded after confirmation');
-        throw new Error('CONFIRMATION_REQUIRED:Please check your email to confirm your account before signing in.');
-      }
 
       // Load the user profile only if we have an active session
       if (data.session) {
