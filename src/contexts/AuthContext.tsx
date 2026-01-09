@@ -9,7 +9,6 @@ import {
 } from 'react';
 import { createClient } from '@/lib/client/supabase';
 import { User } from '@/types';
-import { retryWithBackoff } from '@/lib/utils';
 import { convertKycStatus, POSTGRES_ERROR_CODES } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
 import { reportError } from '@/lib/utils/errorTracking';
@@ -30,10 +29,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Retry configuration for profile creation
-const MAX_PROFILE_RETRIES = 5;
-const INITIAL_RETRY_DELAY_MS = 100;
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
@@ -183,7 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     phone: string;
   }) => {
     try {
-      // Sign up with metadata - the profile will be created client-side
+      // Sign up with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -196,8 +191,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error || !data.user) {
-        // Don't log the full error if it might contain sensitive data
-        // Only log error message and code
         console.error('Signup auth error:', {
           message: error?.message,
           status: error?.status,
@@ -205,63 +198,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error || new Error('Signup failed: No user data returned');
       }
 
-      // Try to create profile with retry logic
-      try {
-        await retryWithBackoff(
-          async () => {
-            // First check if profile exists (might have been created by a webhook/hook)
-            const { data: profile, error: fetchError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', data.user.id)
-              .single();
+      // Create user profile in database (RLS policy allows self-registration)
+      const { error: insertError } = await supabase.from('users').insert({
+        id: data.user.id,
+        email,
+        full_name: fullName,
+        phone,
+        is_verified: false,
+        is_active: true,
+        kyc_status: 'not_started',
+      });
 
-            if (profile && !fetchError) {
-              // Profile exists, load it
-              await loadUserProfile(data.user.id);
-              return true;
-            }
-
-            // Profile doesn't exist, create it manually
-            const { error: insertError } = await supabase.from('users').insert({
-              id: data.user.id,
-              email,
-              full_name: fullName,
-              phone,
-              is_verified: false,
-              is_active: true,
-              kyc_status: 'not_started',
-            });
-
-            // Ignore duplicate key errors (profile might have been created concurrently)
-            // PostgreSQL error code for unique violation
-            if (insertError) {
-              const isDuplicateError = insertError.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION;
-              if (!isDuplicateError) {
-                throw insertError;
-              }
-            }
-
-            // Load the profile
-            await loadUserProfile(data.user.id);
-            return true;
-          },
-          MAX_PROFILE_RETRIES,
-          INITIAL_RETRY_DELAY_MS
-        );
-      } catch (retryError) {
-        console.error('Failed to create/load profile after retries:', retryError);
-        // Profile creation failed - this is a critical error
-        // Log the error and throw to inform the user
-        const errorMessage = retryError instanceof Error 
-          ? retryError.message 
-          : 'Unknown error during profile creation';
-        
+      // Ignore duplicate key errors (profile might already exist)
+      if (insertError && insertError.code !== POSTGRES_ERROR_CODES.UNIQUE_VIOLATION) {
+        console.error('Failed to create user profile:', insertError);
         throw new Error(
-          `Failed to create user profile after multiple attempts. ${errorMessage}. ` +
-          'Please contact support if this issue persists.'
+          `Failed to create user profile: ${insertError.message}. Please contact support.`
         );
       }
+
+      // Load the user profile
+      await loadUserProfile(data.user.id);
     } catch (error) {
       console.error('Signup error:', error);
       throw error;
