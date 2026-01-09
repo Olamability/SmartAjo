@@ -13,6 +13,7 @@ import { retryWithBackoff } from '@/lib/utils';
 import { convertKycStatus, POSTGRES_ERROR_CODES } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
 import { reportError } from '@/lib/utils/errorTracking';
+import { extractErrorMessage } from '@/lib/utils/errorHandling';
 
 interface AuthContextType {
   user: User | null;
@@ -253,9 +254,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.error('Failed to create/load profile after retries:', retryError);
         // Profile creation failed - this is a critical error
         // Log the error and throw to inform the user
-        const errorMessage = retryError instanceof Error 
-          ? retryError.message 
-          : 'Unknown error during profile creation';
+        const errorMessage = extractErrorMessage(
+          retryError,
+          'Unknown error during profile creation'
+        );
         
         throw new Error(
           `Failed to create user profile after multiple attempts. ${errorMessage}. ` +
