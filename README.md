@@ -178,9 +178,8 @@ The application can be tested by:
 
 ## 📖 Additional Documentation
 
-- [Architecture Documentation](./ARCHITECTURE.md)
-- [Quick Start Guide](./QUICK_START.md)
-- [Supabase Setup](./supabase/README.md)
+- [Architecture Documentation](./ARCHITECTURE.md) - Complete architecture guide
+- [Supabase Setup](./supabase/README.md) - Database and backend setup
 
 ## 🤝 Contributing
 

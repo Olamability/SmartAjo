@@ -10,7 +10,6 @@
 
 - **Strict client-server separation**: Frontend only uses `VITE_*` env vars and Supabase anon key
 - **All sensitive logic and data access**: Enforced by Supabase Row Level Security (RLS) and SQL functions
-- **Legacy server code**: `src/lib/server/` and `src/lib/supabase/` are deprecated—do not use for new code
 - **Active Supabase client**: Use `src/lib/client/supabase.ts` for frontend DB access
 
 ## Developer Workflows
@@ -23,7 +22,7 @@
 
 ## Environment & Security
 
-- **Frontend env vars**: Only `VITE_*` keys (see `.env.local`)
+- **Frontend env vars**: Only `VITE_*` keys (see `.env.example`)
 - **Backend secrets**: Never exposed to frontend
 - **RLS**: All tables locked down by default; policies in `supabase/schema.sql`
 - **Auth**: Supabase Auth only; no custom backend auth
@@ -33,17 +32,11 @@
 - `src/` — React app, components, hooks, services, types
 - `supabase/` — DB schema, storage, triggers, functions, docs
 - `public/` — Static assets
-- `scripts/` — Setup/validation scripts
 
 ## Integration Points
 
 - **Supabase**: All data, auth, and storage via Supabase client
 - **Paystack**: Payment integration via public key in frontend, secret key in Supabase Edge Functions (never in frontend)
-
-## Migration Notes
-
-- **Do NOT use**: `src/lib/server/`, `src/lib/supabase/` (legacy Next.js code)
-- **Reference**: `ARCHITECTURE_SEPARATION.md` for separation rationale
 
 ## Examples
 
@@ -55,10 +48,6 @@
 
 ## Documentation
 
-- [README.md](../../README.md): Quick start, env setup, scripts
-- [supabase/README.md](../../supabase/README.md): DB setup, schema, advanced features
-- [ARCHITECTURE_SEPARATION.md](../../ARCHITECTURE_SEPARATION.md): Architecture rationale
-
----
-
-**For legacy/Edge Function code, see migration notes in `src/lib/server/README.md` and `src/lib/supabase/README.md`.**
+- [README.md](../README.md): Quick start, env setup, scripts
+- [ARCHITECTURE.md](../ARCHITECTURE.md): Complete architecture guide
+- [supabase/README.md](../supabase/README.md): DB setup, schema, advanced features
