@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { createClient } from '@/lib/client/supabase';
 import { User } from '@/types';
-import { convertKycStatus, POSTGRES_ERROR_CODES } from '@/lib/constants/database';
+import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
 import { reportError } from '@/lib/utils/errorTracking';
 

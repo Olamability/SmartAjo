@@ -7,7 +7,7 @@ import {
   USER_DATA_FETCH_TIMEOUT, 
   DB_WRITE_TIMEOUT 
 } from '@/lib/constants/timeout';
-import { convertKycStatus, POSTGRES_ERROR_CODES } from '@/lib/constants/database';
+import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
 
 // Signup function
