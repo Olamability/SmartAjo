@@ -44,6 +44,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('loadUserProfile: Loading profile for user:', userId);
       
+      // Note: Promise.resolve() is needed because Supabase returns a PromiseLike, not a full Promise
+      // TypeScript requires a full Promise for the withTimeout generic, so we convert it here
       const { data, error } = await withTimeout(
         Promise.resolve(
           supabase
