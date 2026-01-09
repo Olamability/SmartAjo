@@ -49,7 +49,7 @@ CREATE POLICY users_insert_own ON users
   WITH CHECK (auth.uid() = id);
 
 -- Service role can do anything (for admin operations)
--- Note: Using auth.role() for cleaner service role check
+-- Note: Using current_setting for cleaner service role check
 CREATE POLICY users_service_role_all ON users
   FOR ALL
   USING (
