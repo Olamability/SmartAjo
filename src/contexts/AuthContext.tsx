@@ -245,7 +245,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       // Load the user profile only if we have an active session
       if (data.session) {
-        await loadUserProfile(data.user.id);
+        try {
+          await loadUserProfile(data.user.id);
+          console.log('User profile loaded successfully after signup');
+        } catch (profileError) {
+          console.error('Failed to load profile after signup:', profileError);
+          // If profile loading fails after successful signup, sign out and report error
+          await supabase.auth.signOut();
+          throw new Error('Account created but failed to load profile. Please try logging in.');
+        }
       }
     } catch (error) {
       console.error('Signup error:', error);
@@ -295,12 +303,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (event === 'SIGNED_IN' && session?.user) {
-        console.log('User signed in, loading profile for:', session.user.id);
+        console.log('User signed in via auth state change, loading profile for:', session.user.id);
         try {
           await loadUserProfile(session.user.id);
-          console.log('Profile loaded successfully after sign in');
+          console.log('Profile loaded successfully after sign in via auth state change');
         } catch (error) {
           console.error('Error loading profile on auth state change:', error);
+          // Try to create the profile if it doesn't exist
+          try {
+            console.log('Attempting to create missing profile...');
+            await ensureUserProfile(supabase, session.user);
+            await loadUserProfile(session.user.id);
+            console.log('Profile created and loaded successfully');
+          } catch (createError) {
+            console.error('Failed to create profile on auth state change:', createError);
+            // If profile creation fails, sign out to prevent broken state
+            await supabase.auth.signOut();
+          }
         }
       }
       
