@@ -4,8 +4,8 @@
  */
 
 import { SupabaseClient, User as AuthUser } from '@supabase/supabase-js';
-import { POSTGRES_ERROR_CODES } from '@/lib/constants/database';
 import { validateAuthUser } from './validation';
+import { isDuplicateError } from './errors';
 
 /**
  * Ensures a user profile exists in the database
@@ -31,8 +31,11 @@ export async function ensureUserProfile(
     .single();
   
   if (profile) {
+    console.log('ensureUserProfile: Profile already exists');
     return true;
   }
+  
+  console.log('ensureUserProfile: Profile does not exist, creating...');
   
   // Create profile from auth metadata
   const userEmail = authUser.email!; // We validated this above
@@ -43,20 +46,65 @@ export async function ensureUserProfile(
   // Format: temp_xxxxxxxxxxxx (5 + 12 = 17 chars, within VARCHAR(20) limit)
   const phone = authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`;
   
-  // Use the create_user_profile RPC function which has SECURITY DEFINER
-  // This bypasses RLS policies and prevents "new row violates row-level security" errors
-  const { error } = await supabase.rpc('create_user_profile', {
-    p_user_id: authUser.id,
-    p_email: userEmail,
-    p_phone: phone,
-    p_full_name: fullName,
-  });
+  // Try multiple methods to create the profile
+  let lastError: any = null;
   
-  // Ignore duplicate key errors (profile might have been created concurrently)
-  // The function uses ON CONFLICT DO NOTHING, so it's safe to call multiple times
-  if (error && error.code !== POSTGRES_ERROR_CODES.UNIQUE_VIOLATION) {
-    throw error;
+  // Method 1: Try using the RPC function (preferred)
+  try {
+    console.log('ensureUserProfile: Attempting profile creation via RPC function');
+    const { error: rpcError } = await supabase.rpc('create_user_profile', {
+      p_user_id: authUser.id,
+      p_email: userEmail,
+      p_phone: phone,
+      p_full_name: fullName,
+    });
+    
+    // Ignore duplicate key errors (profile might have been created concurrently)
+    if (rpcError && !isDuplicateError(rpcError)) {
+      
+      // If RPC function doesn't exist, try fallback
+      if (rpcError.message?.includes('Could not find the function') || 
+          rpcError.message?.includes('function') && rpcError.message?.includes('does not exist')) {
+        console.warn('ensureUserProfile: RPC function not found, trying fallback');
+        throw rpcError; // Fall through to Method 2
+      }
+      
+      lastError = rpcError;
+      throw rpcError;
+    }
+    
+    console.log('ensureUserProfile: Profile created successfully via RPC');
+    return true;
+  } catch (rpcError) {
+    console.warn('ensureUserProfile: RPC method failed, trying direct insert:', rpcError);
+    lastError = rpcError;
   }
   
-  return true;
+  // Method 2: Try direct insert as fallback
+  try {
+    console.log('ensureUserProfile: Attempting profile creation via direct insert');
+    const { error: insertError } = await supabase
+      .from('users')
+      .insert({
+        id: authUser.id,
+        email: userEmail,
+        phone: phone,
+        full_name: fullName,
+        is_verified: false,
+        is_active: true,
+        kyc_status: 'not_started',
+      });
+    
+    // Ignore duplicate key errors
+    if (insertError && !isDuplicateError(insertError)) {
+      console.error('ensureUserProfile: Direct insert failed:', insertError);
+      throw insertError;
+    }
+    
+    console.log('ensureUserProfile: Profile created successfully via direct insert');
+    return true;
+  } catch (insertError) {
+    console.error('ensureUserProfile: All methods failed');
+    throw lastError || insertError;
+  }
 }
