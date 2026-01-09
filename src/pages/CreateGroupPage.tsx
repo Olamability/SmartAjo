@@ -230,7 +230,7 @@ export default function CreateGroupPage() {
                     value={frequency}
                     onValueChange={(value) => {
                       setFrequency(value);
-                      setValue('frequency', value as any);
+                      setValue('frequency', value as 'daily' | 'weekly' | 'monthly');
                     }}
                     disabled={isLoading}
                   >
