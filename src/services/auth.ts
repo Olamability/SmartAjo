@@ -1,14 +1,14 @@
 // Authentication service using Supabase Auth
 import { User, SignUpFormData, LoginFormData } from '@/types';
 import { createClient } from '@/lib/client/supabase';
-import { getErrorMessage, withTimeout } from '@/lib/utils';
+import { getErrorMessage, withTimeout, retryWithBackoff } from '@/lib/utils';
+import { parseAtomicRPCResponse, isTransientError } from '@/lib/utils/auth';
 import { 
   AUTH_OPERATION_TIMEOUT, 
   USER_DATA_FETCH_TIMEOUT, 
   DB_WRITE_TIMEOUT 
 } from '@/lib/constants/timeout';
 import { convertKycStatus } from '@/lib/constants/database';
-import { ensureUserProfile } from '@/lib/utils/profile';
 import type { PostgrestSingleResponse, PostgrestResponse, SupabaseClient } from '@supabase/supabase-js';
 
 // Database user type
@@ -45,9 +45,9 @@ async function fetchUserById(
 }
 
 /**
- * Type-safe wrapper for creating a user profile via RPC
+ * Type-safe wrapper for creating a user profile via atomic RPC
  */
-async function createUserProfileRPC(
+async function createUserProfileAtomic(
   supabase: SupabaseClient,
   params: {
     userId: string;
@@ -55,13 +55,13 @@ async function createUserProfileRPC(
     phone: string;
     fullName: string;
   }
-): Promise<PostgrestSingleResponse<string>> {
-  return supabase.rpc('create_user_profile', {
+): Promise<PostgrestSingleResponse<{ success: boolean; user_id: string; error_message: string }>> {
+  return supabase.rpc('create_user_profile_atomic', {
     p_user_id: params.userId,
     p_email: params.email,
     p_phone: params.phone,
     p_full_name: params.fullName,
-  }) as unknown as Promise<PostgrestSingleResponse<string>>;
+  }) as unknown as Promise<PostgrestSingleResponse<{ success: boolean; user_id: string; error_message: string }>>;
 }
 
 /**
@@ -119,10 +119,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
     const { data: authData, error: authError } = authResponse;
 
     if (authError) {
-      console.error('Signup auth error:', {
-        message: authError.message,
-        status: authError.status,
-      });
+      console.error('Signup auth error:', authError.message);
       return { success: false, error: authError.message };
     }
 
@@ -130,63 +127,41 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
       return { success: false, error: 'Signup failed - unable to create user account. Please try again or contact support.' };
     }
 
-    // Wait for database trigger to create user record with retry logic
-    // The trigger should create the record automatically, but we'll add a manual insert as fallback
-    let userData: DbUser | null = null;
-    let retries = 0;
-    const maxRetries = 3;
-    
-    while (!userData && retries < maxRetries) {
-      try {
-        // First, try to fetch the user record (trigger may have already created it)
-        const fetchResponse = await withTimeout(
-          fetchUserById(supabase, authData.user.id),
-          USER_DATA_FETCH_TIMEOUT,
-          'Unable to fetch user data.'
-        );
+    // Create user profile atomically using new RPC function
+    try {
+      const rpcResponse = await withTimeout(
+        createUserProfileAtomic(supabase, {
+          userId: authData.user.id,
+          email: data.email,
+          phone: data.phone,
+          fullName: data.fullName,
+        }),
+        DB_WRITE_TIMEOUT,
+        'Database operation timed out.'
+      );
 
-        if (fetchResponse.data) {
-          userData = fetchResponse.data;
-          break;
-        }
-
-        // If user record doesn't exist and this is first attempt, try manual insert using RPC
-        if (retries === 0) {
-          console.log('User record not found, attempting manual insert using RPC...');
-          const rpcResponse = await withTimeout(
-            createUserProfileRPC(supabase, {
-              userId: authData.user.id,
-              email: data.email,
-              phone: data.phone,
-              fullName: data.fullName,
-            }),
-            DB_WRITE_TIMEOUT,
-            'Database operation timed out.'
-          );
-
-          if (rpcResponse.error) {
-            console.error('Error calling create_user_profile RPC:', rpcResponse.error);
-            // Continue to retry fetch, the trigger may have created it
-          } else {
-            console.log('User profile created via RPC, fetching...');
-          }
-        }
-        
-        // Wait before retrying
-        if (!userData && retries < maxRetries - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500 * (retries + 1)));
-        }
-        
-      } catch (error) {
-        console.error(`Error on attempt ${retries + 1}:`, error);
-      }
-      
-      retries++;
+      parseAtomicRPCResponse(rpcResponse, 'User profile creation');
+      console.log('User profile created successfully');
+    } catch (createError) {
+      console.error('Failed to create user profile:', createError);
+      return {
+        success: false,
+        error: `Failed to create user profile: ${createError instanceof Error ? createError.message : 'Unknown error'}`
+      };
     }
 
+    // Fetch user data to return
+    const fetchResponse = await withTimeout(
+      fetchUserById(supabase, authData.user.id),
+      USER_DATA_FETCH_TIMEOUT,
+      'Unable to fetch user data.'
+    );
+
+    const userData = fetchResponse.data;
+
     if (!userData) {
-      console.error('Failed to create or fetch user data after multiple attempts');
-      // Return basic user info if all attempts fail
+      console.error('Failed to fetch user data after creation');
+      // Return basic user info if fetch fails
       return {
         success: true,
         user: {
@@ -243,10 +218,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     const { data: authData, error: authError } = authResponse;
 
     if (authError) {
-      console.error('Login auth error:', {
-        message: authError.message,
-        status: authError.status,
-      });
+      console.error('Login auth error:', authError.message);
       return { success: false, error: authError.message };
     }
 
@@ -254,50 +226,92 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       return { success: false, error: 'Login failed - invalid credentials or account not found' };
     }
 
-    // Fetch user data from public.users table with timeout
-    const fetchResponse = await withTimeout(
-      fetchUserById(supabase, authData.user.id),
-      USER_DATA_FETCH_TIMEOUT,
-      'Unable to fetch user data. Please try again.'
-    );
+    // Fetch user data from public.users table with exponential backoff for transient errors
+    let userData: DbUser | null = null;
+    
+    try {
+      userData = await retryWithBackoff(
+        async () => {
+          const { data, error } = await withTimeout(
+            fetchUserById(supabase, authData.user.id),
+            USER_DATA_FETCH_TIMEOUT,
+            'Unable to fetch user data. Please try again.'
+          );
 
-    const { error: fetchError } = fetchResponse;
-    let { data: userData } = fetchResponse;
+          if (error) {
+            // Check if this is a transient error worth retrying
+            if (!isTransientError(error)) {
+              // Non-transient error - profile might not exist
+              throw new Error('PROFILE_NOT_FOUND');
+            }
+            
+            throw error;
+          }
 
-    // If user profile doesn't exist, try to create it using shared utility
-    if (fetchError || !userData) {
-      console.warn('User profile not found, attempting to create from auth metadata:', fetchError?.message);
-      
-      try {
-        await ensureUserProfile(supabase, authData.user);
+          if (!data) {
+            throw new Error('PROFILE_NOT_FOUND');
+          }
+
+          return data;
+        },
+        3, // Max 3 retries for transient errors
+        100 // Start with 100ms, exponential backoff
+      );
+    } catch (fetchError) {
+      // If profile doesn't exist, try to create it
+      if (fetchError instanceof Error && fetchError.message === 'PROFILE_NOT_FOUND') {
+        console.warn('User profile not found, attempting to create from auth metadata');
         
-        // Try fetching again after creating profile
-        const refetchResponse = await withTimeout(
-          fetchUserById(supabase, authData.user.id),
-          USER_DATA_FETCH_TIMEOUT,
-          'Unable to fetch user data after creation.'
-        );
+        try {
+          const fullName = authData.user.user_metadata?.full_name || authData.user.email?.split('@')[0] || 'User';
+          const phone = authData.user.user_metadata?.phone || `temp_${authData.user.id.substring(0, 12)}`;
+          
+          const rpcResponse = await withTimeout(
+            createUserProfileAtomic(supabase, {
+              userId: authData.user.id,
+              email: data.email,
+              phone: phone,
+              fullName: fullName,
+            }),
+            DB_WRITE_TIMEOUT,
+            'Database operation timed out.'
+          );
 
-        userData = refetchResponse.data;
-        
-        if (!userData) {
-          console.error('Still unable to fetch user profile after creation attempt');
-          return { success: false, error: 'Failed to load user profile. Please contact support.' };
+          parseAtomicRPCResponse(rpcResponse, 'User profile creation');
+
+          // Try fetching again after creating profile
+          const refetchResponse = await withTimeout(
+            fetchUserById(supabase, authData.user.id),
+            USER_DATA_FETCH_TIMEOUT,
+            'Unable to fetch user data after creation.'
+          );
+
+          userData = refetchResponse.data;
+          
+          if (!userData) {
+            console.error('Still unable to fetch user profile after creation attempt');
+            return { success: false, error: 'Failed to load user profile. Please contact support.' };
+          }
+        } catch (createError) {
+          console.error('Error creating missing profile:', createError);
+          return { success: false, error: 'Unable to access user profile. Please contact support.' };
         }
-      } catch (createError) {
-        console.error('Error creating missing profile:', createError);
-        return { success: false, error: 'Unable to access user profile. Please contact support.' };
+      } else {
+        throw fetchError;
       }
     }
 
     // Check if account is active
+    if (!userData) {
+      return { success: false, error: 'Failed to load user profile. Please contact support.' };
+    }
+
     if (!userData.is_active) {
       await supabase.auth.signOut();
       return { success: false, error: 'Account is deactivated. Please contact support.' };
     }
 
     // Update last login timestamp (non-blocking, fire and forget with timeout)
-    // Explicitly fire-and-forget pattern (15 seconds for non-critical operation)
     void withTimeout(
       updateUserLastLogin(supabase, userData.id),
       DB_WRITE_TIMEOUT,
