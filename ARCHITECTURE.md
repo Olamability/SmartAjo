@@ -67,6 +67,13 @@ This project uses a **modern serverless architecture** with a strict client-serv
 ```
 secured-ajo/
 ├── src/                          # Frontend Application
+│   ├── api/                      # API service layer
+│   │   ├── groups.ts             # Group management operations
+│   │   ├── contributions.ts      # Contribution tracking
+│   │   ├── transactions.ts       # Transaction history
+│   │   ├── notifications.ts      # Notification management
+│   │   └── index.ts              # API exports
+│   │
 │   ├── components/               # React components
 │   │   ├── ui/                   # shadcn/ui components
 │   │   ├── ErrorBoundary.tsx
