@@ -42,7 +42,7 @@ export function parseAtomicRPCResponse(
 }
 
 /**
- * Checks if an error is transient (network/timeout related)
+ * Checks if an error is transient (network/timeout related or RLS propagation delay)
  * Transient errors are worth retrying with exponential backoff
  * 
  * @param error - Error object or message
@@ -53,9 +53,26 @@ export function isTransientError(error: any): boolean {
     ? error 
     : error?.message || '';
   
-  return (
-    errorMessage.includes('timeout') ||
-    errorMessage.includes('network') ||
-    errorMessage.includes('connection')
-  );
+  const errorCode = error?.code || '';
+  
+  // Network and timeout errors are always transient
+  if (errorMessage.includes('timeout') ||
+      errorMessage.includes('network') ||
+      errorMessage.includes('connection')) {
+    return true;
+  }
+  
+  // RLS/permission errors can be transient during session propagation
+  // This happens when signInWithPassword succeeds but the session JWT
+  // hasn't propagated to the PostgreSQL RLS context yet
+  // Common error codes: PGRST301 (no rows), 42501 (insufficient privilege)
+  if (errorCode === 'PGRST301' || 
+      errorCode === '42501' ||
+      errorMessage.includes('row-level security') ||
+      errorMessage.includes('permission denied') ||
+      errorMessage.includes('no rows')) {
+    return true;
+  }
+  
+  return false;
 }

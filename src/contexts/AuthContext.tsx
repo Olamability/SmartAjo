@@ -73,8 +73,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Load user profile from DB
-   * Uses exponential backoff only for genuine transient errors (network issues)
-   * No arbitrary delays - session should be ready when this is called
+   * Uses exponential backoff for transient errors (network, RLS propagation)
+   * Immediately fails for non-transient errors
    */
   const loadUserProfile = async (userId: string): Promise<boolean> => {
     try {
@@ -91,48 +91,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Session user mismatch');
       }
       
-      // Use exponential backoff only for transient network/DB errors
-      const data = await retryWithBackoff(
+      // Query the users table with retry logic for transient errors
+      const result = await retryWithBackoff(
         async () => {
-          const { data, error } = await supabase
+          const queryResult = await supabase
             .from('users')
             .select('*')
             .eq('id', userId)
             .single();
 
-          if (error) {
+          // Check error and decide whether to retry
+          if (queryResult.error) {
             // Check if this is a transient error worth retrying
-            if (!isTransientError(error)) {
-              // Non-transient error (RLS, not found, etc) - don't retry
-              console.error('loadUserProfile: Non-transient error:', error);
-              throw new Error(`Failed to load user profile: ${error.message}`);
+            if (isTransientError(queryResult.error)) {
+              // Transient error - throw it to be retried
+              console.log('loadUserProfile: Transient error, will retry:', queryResult.error.message);
+              throw queryResult.error;
+            } else {
+              // Non-transient error - throw with marker to stop retries
+              console.error('loadUserProfile: Non-transient error:', queryResult.error);
+              const error = new Error(`Failed to load user profile: ${queryResult.error.message}`);
+              (error as any).stopRetry = true;
+              throw error;
             }
-            
-            // Transient error - let retry handle it
+          }
+
+          if (!queryResult.data) {
+            // No data found - could be RLS issue or missing profile
+            // Treat as transient for now (might be RLS propagation delay)
+            console.log('loadUserProfile: No data returned, treating as transient');
+            const error: any = new Error('User profile not found');
+            error.code = 'PGRST301'; // Will be treated as transient
             throw error;
           }
 
-          if (!data) {
-            throw new Error('User profile not found. Please contact support.');
-          }
-
-          return data;
+          // Return the data directly (not wrapped in another object)
+          return queryResult.data;
         },
         3, // Max 3 retries for transient errors
-        100 // Start with 100ms, exponential backoff
+        100, // Start with 100ms, exponential backoff
+        (retryCount) => {
+          console.log(`loadUserProfile: Retry attempt ${retryCount} for user ${userId}`);
+        }
       );
 
       console.log('loadUserProfile: Profile loaded successfully');
       setUser({
-        id: data.id,
-        email: data.email,
-        phone: data.phone,
-        fullName: data.full_name,
-        createdAt: data.created_at,
-        isVerified: data.is_verified,
-        kycStatus: convertKycStatus(data.kyc_status),
-        bvn: data.kyc_data?.bvn,
-        profileImage: data.avatar_url,
+        id: result.id,
+        email: result.email,
+        phone: result.phone,
+        fullName: result.full_name,
+        createdAt: result.created_at,
+        isVerified: result.is_verified,
+        kycStatus: convertKycStatus(result.kyc_status),
+        bvn: result.kyc_data?.bvn,
+        profileImage: result.avatar_url,
       });
       
       return true;
@@ -183,9 +196,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   /**
-   * LOGIN
+   * LOGIN  
    * Uses event-driven session handling via onAuthStateChange
-   * No arbitrary delays needed
+   * Immediately loads profile after authentication
    */
   const login = async (email: string, password: string) => {
     try {
@@ -207,8 +220,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log('login: Auth successful, session established');
       
-      // Session is now active, load profile immediately
-      // If profile doesn't exist, try to create it
+      // Load profile immediately after successful auth
+      // The retry logic with exponential backoff will handle any session propagation delays
       try {
         await loadUserProfile(data.user.id);
         console.log('login: Profile loaded successfully');

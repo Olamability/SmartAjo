@@ -105,6 +105,12 @@ export async function retryWithBackoff<T>(
       return result;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      
+      // Check if error has stopRetry flag to immediately abort retries
+      if ((error as any)?.stopRetry === true) {
+        throw lastError;
+      }
+      
       retries--;
 
       if (retries > 0) {
