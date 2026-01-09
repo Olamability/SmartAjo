@@ -121,38 +121,43 @@ RETURNS TABLE(
   error_message TEXT
 ) AS $$
 DECLARE
-  v_count INTEGER;
+  v_count_with_rls INTEGER;
+  v_count_without_rls INTEGER;
 BEGIN
-  -- Check if profile exists and is accessible via RLS
+  -- Check if profile is accessible via RLS (as the calling user)
   BEGIN
-    SELECT COUNT(*) INTO v_count
+    SELECT COUNT(*) INTO v_count_with_rls
     FROM public.users
     WHERE id = p_user_id;
     
-    IF v_count > 0 THEN
+    IF v_count_with_rls > 0 THEN
+      -- Profile exists and is accessible
       RETURN QUERY SELECT TRUE, TRUE, NULL::TEXT;
-    ELSE
-      -- Check if it exists but RLS blocks it (using SECURITY DEFINER context)
-      SELECT COUNT(*) INTO v_count
-      FROM public.users
-      WHERE id = p_user_id;
-      
-      IF v_count > 0 THEN
-        RETURN QUERY SELECT TRUE, FALSE, 'Profile exists but not accessible (RLS)'::TEXT;
-      ELSE
-        RETURN QUERY SELECT FALSE, FALSE, 'Profile does not exist'::TEXT;
-      END IF;
+      RETURN;
     END IF;
-    
   EXCEPTION WHEN OTHERS THEN
-    RETURN QUERY SELECT FALSE, FALSE, SQLERRM;
+    -- RLS error or other issue
+    v_count_with_rls := 0;
   END;
+  
+  -- Check if it exists but RLS blocks it (bypass RLS with admin check)
+  -- Note: In production, this would need service role access
+  -- For now, we just report that it's not accessible
+  IF v_count_with_rls = 0 THEN
+    -- Could exist but RLS blocks, or doesn't exist at all
+    -- We can't differentiate without service role, so report as not accessible
+    RETURN QUERY SELECT FALSE, FALSE, 'Profile not accessible or does not exist'::TEXT;
+  END IF;
+  
+EXCEPTION WHEN OTHERS THEN
+  RETURN QUERY SELECT FALSE, FALSE, SQLERRM;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION verify_user_profile_access IS
-  'Verifies if a user profile exists and is accessible via RLS.
-   Used for debugging session propagation issues.';
+  'Verifies if a user profile is accessible via RLS.
+   Note: Cannot fully distinguish between "exists but RLS blocks" vs "does not exist"
+   without service role access. Used for debugging session propagation issues.';
 
 -- ============================================================================
 -- STEP 3: Update existing create_user_profile to use atomic version

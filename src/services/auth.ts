@@ -44,6 +44,26 @@ async function fetchUserById(
 }
 
 /**
+ * Helper function to parse atomic RPC response
+ */
+function parseAtomicRPCResponse(
+  rpcResponse: PostgrestSingleResponse<any>,
+  operationName: string
+): void {
+  if (rpcResponse.error) {
+    throw new Error(`${operationName} failed: ${rpcResponse.error.message}`);
+  }
+
+  // Check result from atomic function
+  if (rpcResponse.data && Array.isArray(rpcResponse.data) && rpcResponse.data.length > 0) {
+    const result = rpcResponse.data[0];
+    if (!result.success && result.error_message) {
+      throw new Error(`${operationName} failed: ${result.error_message}`);
+    }
+  }
+}
+
+/**
  * Type-safe wrapper for creating a user profile via atomic RPC
  */
 async function createUserProfileAtomic(
@@ -139,19 +159,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
         'Database operation timed out.'
       );
 
-      if (rpcResponse.error) {
-        console.error('Error calling create_user_profile_atomic:', rpcResponse.error);
-        throw new Error(`Failed to create profile: ${rpcResponse.error.message}`);
-      }
-
-      // Check result from atomic function
-      if (rpcResponse.data && Array.isArray(rpcResponse.data) && rpcResponse.data.length > 0) {
-        const result = rpcResponse.data[0];
-        if (!result.success && result.error_message) {
-          throw new Error(`Failed to create profile: ${result.error_message}`);
-        }
-      }
-
+      parseAtomicRPCResponse(rpcResponse, 'User profile creation');
       console.log('User profile created successfully');
     } catch (createError) {
       console.error('Failed to create user profile:', createError);
@@ -293,17 +301,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
             'Database operation timed out.'
           );
 
-          if (rpcResponse.error) {
-            throw new Error(`Failed to create profile: ${rpcResponse.error.message}`);
-          }
-
-          // Check result from atomic function
-          if (rpcResponse.data && Array.isArray(rpcResponse.data) && rpcResponse.data.length > 0) {
-            const result = rpcResponse.data[0];
-            if (!result.success && result.error_message) {
-              throw new Error(`Failed to create profile: ${result.error_message}`);
-            }
-          }
+          parseAtomicRPCResponse(rpcResponse, 'User profile creation');
 
           // Try fetching again after creating profile
           const refetchResponse = await withTimeout(
@@ -328,14 +326,18 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     }
 
     // Check if account is active
-    if (userData && !userData.is_active) {
+    if (!userData) {
+      return { success: false, error: 'Failed to load user profile. Please contact support.' };
+    }
+
+    if (!userData.is_active) {
       await supabase.auth.signOut();
       return { success: false, error: 'Account is deactivated. Please contact support.' };
     }
 
     // Update last login timestamp (non-blocking, fire and forget with timeout)
     void withTimeout(
-      updateUserLastLogin(supabase, userData!.id),
+      updateUserLastLogin(supabase, userData.id),
       DB_WRITE_TIMEOUT,
       'Last login update timed out'
     )
@@ -350,15 +352,15 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     return {
       success: true,
       user: {
-        id: userData!.id,
-        email: userData!.email,
-        phone: userData!.phone,
-        fullName: userData!.full_name,
-        createdAt: userData!.created_at,
-        isVerified: userData!.is_verified,
-        kycStatus: convertKycStatus(userData!.kyc_status),
-        bvn: typeof userData!.kyc_data?.bvn === 'string' ? userData!.kyc_data.bvn : undefined,
-        profileImage: userData!.avatar_url,
+        id: userData.id,
+        email: userData.email,
+        phone: userData.phone,
+        fullName: userData.full_name,
+        createdAt: userData.created_at,
+        isVerified: userData.is_verified,
+        kycStatus: convertKycStatus(userData.kyc_status),
+        bvn: typeof userData.kyc_data?.bvn === 'string' ? userData.kyc_data.bvn : undefined,
+        profileImage: userData.avatar_url,
       },
     };
   } catch (error) {

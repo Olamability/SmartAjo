@@ -29,6 +29,26 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
+ * Helper function to parse atomic RPC response
+ */
+function parseAtomicRPCResponse(
+  rpcResponse: any,
+  operationName: string
+): void {
+  if (rpcResponse.error) {
+    throw new Error(`${operationName} failed: ${rpcResponse.error.message}`);
+  }
+
+  // Check result from atomic function
+  if (rpcResponse.data && Array.isArray(rpcResponse.data) && rpcResponse.data.length > 0) {
+    const result = rpcResponse.data[0];
+    if (!result.success && result.error_message) {
+      throw new Error(`${operationName} failed: ${result.error_message}`);
+    }
+  }
+}
+
+/**
  * Helper function to create user profile via atomic RPC function
  * Single source of truth for profile creation
  */
@@ -45,26 +65,15 @@ async function createUserProfileViaRPC(
   const fullName = authUser.user_metadata?.full_name || userEmail.split('@')[0] || 'User';
   const phone = authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`;
   
-  const { data, error } = await supabase.rpc('create_user_profile_atomic', {
+  const rpcResponse = await supabase.rpc('create_user_profile_atomic', {
     p_user_id: authUser.id,
     p_email: userEmail,
     p_phone: phone,
     p_full_name: fullName,
   });
   
-  if (error) {
-    console.error('createUserProfileViaRPC: RPC error:', error);
-    throw new Error(`Failed to create user profile: ${error.message}`);
-  }
-  
-  // Check result from atomic function
-  if (data && Array.isArray(data) && data.length > 0) {
-    const result = data[0];
-    if (!result.success && result.error_message) {
-      throw new Error(`Failed to create user profile: ${result.error_message}`);
-    }
-    console.log('createUserProfileViaRPC: Profile created successfully');
-  }
+  parseAtomicRPCResponse(rpcResponse, 'User profile creation');
+  console.log('createUserProfileViaRPC: Profile created successfully');
 }
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
