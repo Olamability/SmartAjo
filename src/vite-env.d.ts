@@ -10,6 +10,7 @@ interface ImportMetaEnv {
   readonly VITE_ENABLE_BVN_VERIFICATION?: string;
   readonly VITE_ENABLE_EMAIL_VERIFICATION?: string;
   readonly VITE_ENABLE_PHONE_VERIFICATION?: string;
+  readonly VITE_BYPASS_AUTH?: string;
 }
 
 interface ImportMeta {

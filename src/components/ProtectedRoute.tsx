@@ -8,6 +8,14 @@ interface ProtectedRouteProps {
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const { isAuthenticated, loading } = useAuth();
+  
+  // ⚠️  TEMPORARY: Check for auth bypass flag (development only)
+  const bypassAuth = import.meta.env.VITE_BYPASS_AUTH === 'true';
+  
+  if (bypassAuth) {
+    console.warn('⚠️  AUTHENTICATION BYPASS ACTIVE - This should only be used during development!');
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (

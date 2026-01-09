@@ -13,13 +13,35 @@ import { useNavigate } from 'react-router-dom';
 export default function DashboardPage() {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
+  
+  // ⚠️  TEMPORARY: Check for auth bypass flag (development only)
+  const bypassAuth = import.meta.env.VITE_BYPASS_AUTH === 'true';
+  
+  // Mock user data for bypass mode
+  const mockUser = bypassAuth && !user ? {
+    id: 'mock-user-id',
+    email: 'demo@example.com',
+    phone: '+234-XXX-XXX-XXXX',
+    fullName: 'Demo User (Bypass Mode)',
+    createdAt: new Date().toISOString(),
+    isVerified: false,
+    kycStatus: 'Not started',
+    bvn: undefined,
+    profileImage: undefined,
+  } : null;
+  
+  const displayUser = user || mockUser;
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/login', { replace: true });
+    if (bypassAuth) {
+      navigate('/login', { replace: true });
+    } else {
+      await logout();
+      navigate('/login', { replace: true });
+    }
   };
 
-  if (loading) {
+  if (loading && !bypassAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -27,7 +49,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (!user) {
+  if (!displayUser) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -38,6 +60,24 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-8">
       <div className="max-w-4xl mx-auto space-y-6">
+        {/* Auth Bypass Warning Banner */}
+        {bypassAuth && (
+          <Card className="border-yellow-500 bg-yellow-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-yellow-600" />
+                <div>
+                  <p className="font-semibold text-yellow-800">⚠️  Authentication Bypass Active</p>
+                  <p className="text-sm text-yellow-700">
+                    You are viewing the dashboard in bypass mode. This is for testing only and should never be used in production.
+                    Set VITE_BYPASS_AUTH=false in your .env file to restore normal authentication.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -47,7 +87,7 @@ export default function DashboardPage() {
             <div>
               <h1 className="text-2xl font-bold">Dashboard</h1>
               <p className="text-muted-foreground">
-                Welcome back, {user.fullName}
+                Welcome back, {displayUser.fullName}
               </p>
             </div>
           </div>
@@ -69,14 +109,14 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent className="space-y-2">
             <div>
-              <span className="font-medium">Email:</span> {user.email}
+              <span className="font-medium">Email:</span> {displayUser.email}
             </div>
             <div>
-              <span className="font-medium">Phone:</span> {user.phone}
+              <span className="font-medium">Phone:</span> {displayUser.phone}
             </div>
             <div>
               <span className="font-medium">Status:</span>{' '}
-              {user.isVerified ? (
+              {displayUser.isVerified ? (
                 <span className="text-green-600">Verified</span>
               ) : (
                 <span className="text-yellow-600">Not Verified</span>
@@ -84,7 +124,7 @@ export default function DashboardPage() {
             </div>
             <div>
               <span className="font-medium">KYC Status:</span>{' '}
-              {user.kycStatus || 'Not started'}
+              {displayUser.kycStatus || 'Not started'}
             </div>
           </CardContent>
         </Card>
@@ -94,13 +134,16 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Authentication Status</CardTitle>
             <CardDescription>
-              Supabase Auth integration is working!
+              {bypassAuth 
+                ? 'Running in bypass mode for testing'
+                : 'Supabase Auth integration is working!'}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              You are successfully authenticated using Supabase Auth. Your
-              session is managed automatically and refreshed when needed.
+              {bypassAuth 
+                ? 'You are viewing the dashboard without authentication. This allows you to test the UI and functionality without needing to fix login issues first. Remember to set VITE_BYPASS_AUTH=false when authentication is working properly.'
+                : 'You are successfully authenticated using Supabase Auth. Your session is managed automatically and refreshed when needed.'}
             </p>
           </CardContent>
         </Card>
