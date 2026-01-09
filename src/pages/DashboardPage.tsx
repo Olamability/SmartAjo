@@ -1,5 +1,3 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,23 +8,11 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Shield, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function DashboardPage() {
-  const { user, loading, logout, isAuthenticated } = useAuth();
+  const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
-
-  // Redirect unauthenticated users - but only after loading is complete
-  useEffect(() => {
-    // Add a small buffer to prevent race conditions during navigation after signup
-    const redirectTimer = setTimeout(() => {
-      if (!loading && !isAuthenticated) {
-        console.log('DashboardPage: Redirecting unauthenticated user to login');
-        navigate('/login', { replace: true });
-      }
-    }, 100);
-
-    return () => clearTimeout(redirectTimer);
-  }, [isAuthenticated, loading, navigate]);
 
   const handleLogout = async () => {
     await logout();
@@ -65,9 +51,14 @@ export default function DashboardPage() {
               </p>
             </div>
           </div>
-          <Button onClick={handleLogout} variant="outline">
-            Logout
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => navigate('/groups')}>
+              My Groups
+            </Button>
+            <Button onClick={handleLogout} variant="outline">
+              Logout
+            </Button>
+          </div>
         </div>
 
         {/* Profile Card */}
