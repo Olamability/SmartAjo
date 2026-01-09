@@ -9,6 +9,26 @@ import {
 } from '@/lib/constants/timeout';
 import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
+import type { PostgrestSingleResponse, PostgrestResponse } from '@supabase/supabase-js';
+
+// Database user type
+interface DbUser {
+  id: string;
+  email: string;
+  phone: string;
+  full_name: string;
+  created_at: string;
+  is_verified: boolean;
+  kyc_status: 'not_started' | 'pending' | 'approved' | 'rejected';
+  kyc_data?: {
+    bvn?: string;
+    [key: string]: unknown;
+  };
+  avatar_url?: string;
+  is_active?: boolean;
+}
+
+type DbKycStatus = 'not_started' | 'pending' | 'approved' | 'rejected';
 
 // Signup function
 // Uses Supabase Auth directly for authentication
@@ -48,7 +68,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
 
     // Wait for database trigger to create user record with retry logic
     // The trigger should create the record automatically, but we'll add a manual insert as fallback
-    let userData = null;
+    let userData: DbUser | null = null;
     let retries = 0;
     const maxRetries = 3;
     
@@ -59,10 +79,10 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
           .from('users')
           .select('*')
           .eq('id', authData.user.id)
-          .single();
+          .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
         
         const fetchResponse = await withTimeout(
-          fetchPromise as unknown as Promise<any>,
+          fetchPromise,
           USER_DATA_FETCH_TIMEOUT,
           'Unable to fetch user data.'
         );
@@ -80,10 +100,10 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
             p_email: data.email,
             p_phone: data.phone,
             p_full_name: data.fullName,
-          });
+          }) as unknown as Promise<PostgrestSingleResponse<string>>;
           
           const rpcResponse = await withTimeout(
-            rpcPromise as unknown as Promise<any>,
+            rpcPromise,
             DB_WRITE_TIMEOUT,
             'Database operation timed out.'
           );
@@ -135,7 +155,7 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
         createdAt: userData.created_at,
         isVerified: userData.is_verified,
         kycStatus: convertKycStatus(userData.kyc_status),
-        bvn: userData.kyc_data?.bvn,
+        bvn: typeof userData.kyc_data?.bvn === 'string' ? userData.kyc_data.bvn : undefined,
         profileImage: userData.avatar_url,
       },
     };
@@ -183,10 +203,10 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       .from('users')
       .select('*')
       .eq('id', authData.user.id)
-      .single();
+      .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
     
     const fetchResponse = await withTimeout(
-      fetchPromise as unknown as Promise<any>,
+      fetchPromise,
       USER_DATA_FETCH_TIMEOUT,
       'Unable to fetch user data. Please try again.'
     );
@@ -206,10 +226,10 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
           .from('users')
           .select('*')
           .eq('id', authData.user.id)
-          .single();
+          .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
         
         const refetchResponse = await withTimeout(
-          refetchPromise as unknown as Promise<any>,
+          refetchPromise,
           USER_DATA_FETCH_TIMEOUT,
           'Unable to fetch user data after creation.'
         );
@@ -237,11 +257,11 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
       .from('users')
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', userData.id)
-      .select();
+      .select() as unknown as Promise<PostgrestResponse<DbUser>>;
     
     // Explicitly fire-and-forget pattern (15 seconds for non-critical operation)
     void withTimeout(
-      updatePromise as unknown as Promise<any>,
+      updatePromise,
       DB_WRITE_TIMEOUT,
       'Last login update timed out'
     )
@@ -263,7 +283,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
         createdAt: userData.created_at,
         isVerified: userData.is_verified,
         kycStatus: convertKycStatus(userData.kyc_status),
-        bvn: userData.kyc_data?.bvn,
+        bvn: typeof userData.kyc_data?.bvn === 'string' ? userData.kyc_data.bvn : undefined,
         profileImage: userData.avatar_url,
       },
     };
@@ -359,7 +379,7 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
     }
 
     // Map frontend fields to database fields
-    const dbUpdates: Record<string, any> = {};
+    const dbUpdates: Record<string, string | Record<string, unknown>> = {};
     if (updates.fullName) dbUpdates.full_name = updates.fullName;
     if (updates.phone) dbUpdates.phone = updates.phone;
     if (updates.profileImage) dbUpdates.avatar_url = updates.profileImage;
@@ -377,12 +397,14 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
     }
 
     // Update user in database
-    const { data, error } = await supabase
+    const updatePromise = supabase
       .from('users')
       .update(dbUpdates)
       .eq('id', authUser.id)
       .select()
-      .single();
+      .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
+    
+    const { data, error } = await updatePromise;
 
     if (error) {
       console.error('Error updating user:', error);
@@ -403,7 +425,7 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
         createdAt: data.created_at,
         isVerified: data.is_verified,
         kycStatus: convertKycStatus(data.kyc_status),
-        bvn: data.kyc_data?.bvn,
+        bvn: typeof data.kyc_data?.bvn === 'string' ? data.kyc_data.bvn : undefined,
         profileImage: data.avatar_url,
       },
     };

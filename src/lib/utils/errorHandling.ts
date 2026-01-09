@@ -29,6 +29,7 @@ export function getErrorType(error: unknown): string {
  * @param errorClass - The error class to check against
  * @returns True if error is an instance of errorClass
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function isErrorOfType(error: unknown, errorClass: new (...args: any[]) => Error): boolean {
   return error instanceof errorClass;
 }
