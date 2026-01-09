@@ -38,7 +38,6 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const isMountedRef = useRef(true);
-  const isSubmittingRef = useRef(false);
   const { signUp } = useAuth();
 
   const {
@@ -53,21 +52,12 @@ export default function SignUpPage() {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      // Reset submitting flag on unmount
-      isSubmittingRef.current = false;
     };
   }, []);
 
   const onSubmit = async (data: SignUpForm) => {
     if (!isMountedRef.current) return;
     
-    // Prevent multiple simultaneous signup attempts
-    if (isSubmittingRef.current) {
-      console.warn('Signup already in progress, ignoring duplicate submission');
-      return;
-    }
-
-    isSubmittingRef.current = true;
     setIsLoading(true);
     
     try {
@@ -89,25 +79,11 @@ export default function SignUpPage() {
 
       // Don't log sensitive data - error object should not contain password
       const errorMessage = getErrorMessage(error, 'Failed to create account');
-      
-      // Check for rate limiting error and provide helpful message
-      // Check both the error message and status code for rate limiting
-      const isRateLimitError = 
-        errorMessage.includes('429') || 
-        errorMessage.includes('Too Many Requests') || 
-        errorMessage.includes('8 seconds') ||
-        (error && typeof error === 'object' && 'status' in error && error.status === 429);
-      
-      if (isRateLimitError) {
-        toast.error('Please wait a moment before trying again. For security, signup attempts are rate-limited.');
-      } else {
-        toast.error(errorMessage);
-      }
+      toast.error(errorMessage);
     } finally {
-      // Always reset the submitting flag and loading state
+      // Always reset the loading state
       if (isMountedRef.current) {
         setIsLoading(false);
-        isSubmittingRef.current = false;
       }
     }
   };
