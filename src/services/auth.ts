@@ -2,6 +2,7 @@
 import { User, SignUpFormData, LoginFormData } from '@/types';
 import { createClient } from '@/lib/client/supabase';
 import { getErrorMessage, withTimeout, retryWithBackoff } from '@/lib/utils';
+import { parseAtomicRPCResponse, isTransientError } from '@/lib/utils/auth';
 import { 
   AUTH_OPERATION_TIMEOUT, 
   USER_DATA_FETCH_TIMEOUT, 
@@ -41,26 +42,6 @@ async function fetchUserById(
     .select('*')
     .eq('id', userId)
     .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
-}
-
-/**
- * Helper function to parse atomic RPC response
- */
-function parseAtomicRPCResponse(
-  rpcResponse: PostgrestSingleResponse<any>,
-  operationName: string
-): void {
-  if (rpcResponse.error) {
-    throw new Error(`${operationName} failed: ${rpcResponse.error.message}`);
-  }
-
-  // Check result from atomic function
-  if (rpcResponse.data && Array.isArray(rpcResponse.data) && rpcResponse.data.length > 0) {
-    const result = rpcResponse.data[0];
-    if (!result.success && result.error_message) {
-      throw new Error(`${operationName} failed: ${result.error_message}`);
-    }
-  }
 }
 
 /**
@@ -259,12 +240,7 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
 
           if (error) {
             // Check if this is a transient error worth retrying
-            const isTransient = 
-              error.message?.includes('timeout') ||
-              error.message?.includes('network') ||
-              error.message?.includes('connection');
-            
-            if (!isTransient) {
+            if (!isTransientError(error)) {
               // Non-transient error - profile might not exist
               throw new Error('PROFILE_NOT_FOUND');
             }

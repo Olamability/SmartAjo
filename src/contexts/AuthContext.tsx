@@ -10,6 +10,7 @@ import { User } from '@/types';
 import { convertKycStatus } from '@/lib/constants/database';
 import { reportError } from '@/lib/utils/errorTracking';
 import { retryWithBackoff } from '@/lib/utils';
+import { parseAtomicRPCResponse, isTransientError } from '@/lib/utils/auth';
 
 interface AuthContextType {
   user: User | null;
@@ -27,26 +28,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-/**
- * Helper function to parse atomic RPC response
- */
-function parseAtomicRPCResponse(
-  rpcResponse: any,
-  operationName: string
-): void {
-  if (rpcResponse.error) {
-    throw new Error(`${operationName} failed: ${rpcResponse.error.message}`);
-  }
-
-  // Check result from atomic function
-  if (rpcResponse.data && Array.isArray(rpcResponse.data) && rpcResponse.data.length > 0) {
-    const result = rpcResponse.data[0];
-    if (!result.success && result.error_message) {
-      throw new Error(`${operationName} failed: ${result.error_message}`);
-    }
-  }
-}
 
 /**
  * Helper function to create user profile via atomic RPC function
@@ -112,12 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           if (error) {
             // Check if this is a transient error worth retrying
-            const isTransient = 
-              error.message?.includes('timeout') ||
-              error.message?.includes('network') ||
-              error.message?.includes('connection');
-            
-            if (!isTransient) {
+            if (!isTransientError(error)) {
               // Non-transient error (RLS, not found, etc) - don't retry
               console.error('loadUserProfile: Non-transient error:', error);
               throw new Error(`Failed to load user profile: ${error.message}`);
