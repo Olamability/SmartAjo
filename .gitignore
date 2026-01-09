@@ -12,10 +12,6 @@ dist
 dist-ssr
 *.local
 
-# Next.js (legacy)
-/.next/
-/out/
-
 # Environment variables
 .env
 .env.local
@@ -23,8 +19,6 @@ dist-ssr
 .env.test.local
 .env.production.local
 !.env.example
-!.env.backend.example
-!.env.local.example
 
 # Editor directories and files
 .vscode/*
@@ -51,13 +45,3 @@ temp
 
 # TypeScript
 *.tsbuildinfo
-next-env.d.ts
-
-# Backend (removed - no longer used)
-backend/
-
-# Legacy Next.js code (not used in Vite app)
-app/
-lib/server/
-src/lib/server/
-src/lib/supabase/
