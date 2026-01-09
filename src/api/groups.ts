@@ -32,7 +32,7 @@ export const createGroup = async (
 
     // Insert group into database
     const { data: groupData, error } = await supabase
-      .from('ajo_groups')
+      .from('groups')
       .insert({
         name: data.name,
         description: data.description,
@@ -108,7 +108,7 @@ export const getUserGroups = async (): Promise<{
 
     // Query groups where user is a member
     const { data, error } = await supabase
-      .from('ajo_groups')
+      .from('groups')
       .select(
         `
         *,
@@ -166,7 +166,7 @@ export const getGroupById = async (
     const supabase = createClient();
 
     const { data, error } = await supabase
-      .from('ajo_groups')
+      .from('groups')
       .select('*')
       .eq('id', groupId)
       .single();
@@ -233,7 +233,7 @@ export const joinGroup = async (
 
     // Check if group is still accepting members
     const { data: group, error: groupError } = await supabase
-      .from('ajo_groups')
+      .from('groups')
       .select('status, total_members, current_members')
       .eq('id', groupId)
       .single();
