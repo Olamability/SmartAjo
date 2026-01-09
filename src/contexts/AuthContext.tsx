@@ -8,15 +8,8 @@ import {
 import { createClient } from '@/lib/client/supabase';
 import { User } from '@/types';
 import { convertKycStatus } from '@/lib/constants/database';
-import { ensureUserProfile } from '@/lib/utils/profile';
 import { reportError } from '@/lib/utils/errorTracking';
-import { isDuplicateError, calculateRetryDelay } from '@/lib/utils/errors';
-
-// Session propagation timing constants
-// Supabase auth sessions take time to propagate to PostgreSQL RLS policies
-const SESSION_PROPAGATION_DELAY = 1000; // Initial wait after auth
-const SESSION_PROPAGATION_RETRY_DELAY = 1500; // Wait between retries for RLS
-const PROFILE_COMMIT_DELAY = 500; // Wait for profile creation to commit
+import { retryWithBackoff } from '@/lib/utils';
 
 interface AuthContextType {
   user: User | null;
@@ -35,6 +28,45 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Helper function to create user profile via atomic RPC function
+ * Single source of truth for profile creation
+ */
+async function createUserProfileViaRPC(
+  authUser: { id: string; email?: string; user_metadata?: any }
+): Promise<void> {
+  const supabase = createClient();
+  
+  const userEmail = authUser.email;
+  if (!userEmail) {
+    throw new Error('User email is required for profile creation');
+  }
+  
+  const fullName = authUser.user_metadata?.full_name || userEmail.split('@')[0] || 'User';
+  const phone = authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`;
+  
+  const { data, error } = await supabase.rpc('create_user_profile_atomic', {
+    p_user_id: authUser.id,
+    p_email: userEmail,
+    p_phone: phone,
+    p_full_name: fullName,
+  });
+  
+  if (error) {
+    console.error('createUserProfileViaRPC: RPC error:', error);
+    throw new Error(`Failed to create user profile: ${error.message}`);
+  }
+  
+  // Check result from atomic function
+  if (data && Array.isArray(data) && data.length > 0) {
+    const result = data[0];
+    if (!result.success && result.error_message) {
+      throw new Error(`Failed to create user profile: ${result.error_message}`);
+    }
+    console.log('createUserProfileViaRPC: Profile created successfully');
+  }
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
@@ -42,123 +74,79 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Load user profile from DB
-   * Returns true if successful, false otherwise
+   * Uses exponential backoff only for genuine transient errors (network issues)
+   * No arbitrary delays - session should be ready when this is called
    */
-  const loadUserProfile = async (userId: string, retries = 2): Promise<boolean> => {
-    let lastError: any;
-    
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      try {
-        console.log(`loadUserProfile: Loading profile for user: ${userId} (attempt ${attempt + 1}/${retries + 1})`);
-        
-        // First, verify we have an active session
-        const { data: sessionData } = await supabase.auth.getSession();
-        console.log('loadUserProfile: Current session:', {
-          hasSession: !!sessionData.session,
-          sessionUserId: sessionData.session?.user?.id,
-          matchesUserId: sessionData.session?.user?.id === userId,
-        });
-        
-        // If no session or mismatched user, this is the problem
-        if (!sessionData.session) {
-          console.error('loadUserProfile: No active session found');
-          if (attempt < retries) {
-            console.log('loadUserProfile: Waiting for session to be established...');
-            await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_DELAY)));
-            continue;
-          }
-          throw new Error('No active session. Please try logging in again.');
-        }
-        
-        if (sessionData.session.user.id !== userId) {
-          console.error('loadUserProfile: Session user ID mismatch', {
-            expected: userId,
-            actual: sessionData.session.user.id,
-          });
-          throw new Error('Session user mismatch');
-        }
-        
-        const { data, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', userId)
-          .single();
-
-        if (error) {
-          console.error('loadUserProfile: Failed to load user profile:', {
-            error,
-            userId,
-            attempt: attempt + 1,
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-          });
-          
-          lastError = error;
-          
-          // Special handling for RLS policy violations  
-          if (error.code === 'PGRST301' || error.message?.includes('row-level security')) {
-            console.error('loadUserProfile: RLS policy blocking access - session may not be properly established');
-            if (attempt < retries) {
-              console.log('loadUserProfile: Waiting for session to propagate...');
-              await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_RETRY_DELAY)));
-              continue;
-            }
-          }
-          
-          // If not found and we have retries left, wait before retry with linear backoff
-          if (attempt < retries && (error.code === 'PGRST116' || error.message?.includes('not found'))) {
-            console.log(`loadUserProfile: Profile not found, waiting before retry...`);
-            await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_DELAY)));
-            continue;
-          }
-          
-          throw new Error(`Failed to load user profile: ${error.message}`);
-        }
-
-        if (!data) {
-          console.error('loadUserProfile: User profile not found for ID:', userId);
-          lastError = new Error('User profile not found');
-          
-          if (attempt < retries) {
-            console.log(`loadUserProfile: No data returned, waiting before retry...`);
-            await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_DELAY)));
-            continue;
-          }
-          
-          throw new Error('User profile not found. Please contact support.');
-        }
-
-        console.log('loadUserProfile: Profile loaded successfully');
-        setUser({
-          id: data.id,
-          email: data.email,
-          phone: data.phone,
-          fullName: data.full_name,
-          createdAt: data.created_at,
-          isVerified: data.is_verified,
-          kycStatus: convertKycStatus(data.kyc_status),
-          bvn: data.kyc_data?.bvn,
-          profileImage: data.avatar_url,
-        });
-        
-        return true;
-      } catch (error) {
-        console.error(`loadUserProfile: Error in loadUserProfile (attempt ${attempt + 1}):`, error);
-        lastError = error;
-        
-        if (attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, calculateRetryDelay(attempt, SESSION_PROPAGATION_DELAY)));
-          continue;
-        }
+  const loadUserProfile = async (userId: string): Promise<boolean> => {
+    try {
+      console.log(`loadUserProfile: Loading profile for user: ${userId}`);
+      
+      // Verify we have an active session (no retry, should be ready)
+      const { data: sessionData } = await supabase.auth.getSession();
+      
+      if (!sessionData.session) {
+        throw new Error('No active session. Please try logging in again.');
       }
+      
+      if (sessionData.session.user.id !== userId) {
+        throw new Error('Session user mismatch');
+      }
+      
+      // Use exponential backoff only for transient network/DB errors
+      const data = await retryWithBackoff(
+        async () => {
+          const { data, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+          if (error) {
+            // Check if this is a transient error worth retrying
+            const isTransient = 
+              error.message?.includes('timeout') ||
+              error.message?.includes('network') ||
+              error.message?.includes('connection');
+            
+            if (!isTransient) {
+              // Non-transient error (RLS, not found, etc) - don't retry
+              console.error('loadUserProfile: Non-transient error:', error);
+              throw new Error(`Failed to load user profile: ${error.message}`);
+            }
+            
+            // Transient error - let retry handle it
+            throw error;
+          }
+
+          if (!data) {
+            throw new Error('User profile not found. Please contact support.');
+          }
+
+          return data;
+        },
+        3, // Max 3 retries for transient errors
+        100 // Start with 100ms, exponential backoff
+      );
+
+      console.log('loadUserProfile: Profile loaded successfully');
+      setUser({
+        id: data.id,
+        email: data.email,
+        phone: data.phone,
+        fullName: data.full_name,
+        createdAt: data.created_at,
+        isVerified: data.is_verified,
+        kycStatus: convertKycStatus(data.kyc_status),
+        bvn: data.kyc_data?.bvn,
+        profileImage: data.avatar_url,
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('loadUserProfile: Error loading profile:', error);
+      setUser(null);
+      throw error;
     }
-    
-    // All retries exhausted
-    console.error('loadUserProfile: All retry attempts exhausted');
-    setUser(null);
-    throw lastError || new Error('Failed to load user profile after multiple attempts');
   };
 
   /**
@@ -180,9 +168,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return true;
       } catch (profileError) {
         console.error('Failed to load profile during refresh:', profileError);
+        
         // Try to create profile if it doesn't exist
+        // This handles edge cases where profile wasn't created during signup
         try {
-          await ensureUserProfile(supabase, session.user);
+          await createUserProfileViaRPC(session.user);
           await loadUserProfile(session.user.id);
           return true;
         } catch (createError) {
@@ -200,6 +190,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * LOGIN
+   * Uses event-driven session handling via onAuthStateChange
+   * No arbitrary delays needed
    */
   const login = async (email: string, password: string) => {
     try {
@@ -211,68 +203,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error) {
-        console.error('login: Auth error:', {
-          message: error.message,
-          status: error.status,
-        });
+        console.error('login: Auth error:', error.message);
         throw error;
       }
 
-      if (!data?.user) {
+      if (!data?.user || !data.session) {
         throw new Error('Login failed: No user data returned');
       }
 
       console.log('login: Auth successful, session established');
       
-      // IMPORTANT: Wait for session to propagate to database connections
-      // This ensures RLS policies can properly access auth.uid()
-      console.log('login: Waiting for session to propagate...');
-      await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_DELAY));
-
-      console.log('login: Now loading profile');
-
-      // Load user profile with proper error handling and retries
+      // Session is now active, load profile immediately
+      // If profile doesn't exist, try to create it
       try {
-        await loadUserProfile(data.user.id, 2); // 2 retries for a total of 3 attempts
+        await loadUserProfile(data.user.id);
         console.log('login: Profile loaded successfully');
       } catch (profileError) {
-        console.error('login: Profile loading failed after retries:', profileError);
+        console.error('login: Profile loading failed:', profileError);
         reportError(profileError, {
           operation: 'load_profile_after_login',
           userId: data.user.id,
         });
         
-        // If profile doesn't exist, try to create it using different methods
+        // If profile doesn't exist, try to create it atomically
         try {
           console.log('login: Attempting to create missing profile');
+          await createUserProfileViaRPC(data.user);
           
-          // Try using the RPC function first
-          try {
-            const { error: rpcError } = await supabase.rpc('create_user_profile', {
-              p_user_id: data.user.id,
-              p_email: email,
-              p_phone: data.user.user_metadata?.phone || `temp_${data.user.id.substring(0, 12)}`,
-              p_full_name: data.user.user_metadata?.full_name || email.split('@')[0],
-            });
-            
-            if (rpcError && !isDuplicateError(rpcError)) {
-              console.warn('login: RPC function failed, trying direct insert:', rpcError.message);
-              throw rpcError;
-            }
-            
-            console.log('login: Profile created via RPC function');
-          } catch (rpcError) {
-            // Fallback to ensureUserProfile if RPC fails
-            console.log('login: RPC failed, falling back to ensureUserProfile');
-            await ensureUserProfile(supabase, data.user);
-          }
-          
-          // Wait for the profile to be fully committed AND session to propagate
-          await new Promise(resolve => setTimeout(resolve, SESSION_PROPAGATION_RETRY_DELAY));
-          
-          // Try loading profile again with retries
-          console.log('login: Retrying profile load after creation');
-          await loadUserProfile(data.user.id, 2);
+          // Try loading again
+          await loadUserProfile(data.user.id);
           console.log('login: Profile loaded successfully after creation');
         } catch (createError) {
           console.error('login: Failed to create/load profile:', createError);
@@ -284,7 +243,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           // Sign out to prevent broken state
           await supabase.auth.signOut();
           
-          throw new Error('Unable to access your account. Your profile may not exist. Please contact support or try signing up again.');
+          throw new Error('Unable to access your account. Please contact support or try signing up again.');
         }
       }
     } catch (error) {
@@ -299,6 +258,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * SIGN UP
+   * Uses atomic profile creation - no delays or retries needed
    */
   const signUp = async ({
     email,
@@ -327,10 +287,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (error || !data.user) {
-        console.error('Signup auth error:', {
-          message: error?.message,
-          status: error?.status,
-        });
+        console.error('Signup auth error:', error?.message);
         throw error || new Error('Signup failed: No user data returned');
       }
 
@@ -343,56 +300,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         needsEmailConfirmation,
       });
 
-      // Create user profile in database with fallback mechanisms
+      // Create user profile atomically - single source of truth
       try {
         console.log('signUp: Creating user profile in database');
-        
-        // Try using RPC function first
-        const { error: rpcError } = await supabase.rpc('create_user_profile', {
-          p_user_id: data.user.id,
-          p_email: email,
-          p_phone: phone,
-          p_full_name: fullName,
-        });
-
-        // Only throw on actual errors (not duplicate key or function missing)
-        if (rpcError) {
-          console.warn('signUp: RPC function issue:', rpcError.message);
-          
-          // Check if the function doesn't exist in the database
-          if (rpcError.message?.includes('Could not find the function') || 
-              rpcError.message?.includes('function') && rpcError.message?.includes('does not exist')) {
-            console.log('signUp: RPC function not found, trying direct insert as fallback');
-            
-            // Fallback: Try direct insert (will work if user has INSERT permission)
-            const { error: insertError } = await supabase
-              .from('users')
-              .insert({
-                id: data.user.id,
-                email: email,
-                phone: phone,
-                full_name: fullName,
-                is_verified: false,
-                is_active: true,
-                kyc_status: 'not_started',
-              });
-            
-            if (insertError && !isDuplicateError(insertError)) {
-              console.error('signUp: Direct insert also failed:', insertError);
-              throw new Error(
-                'Database setup incomplete. Please ensure the create_user_profile function exists in your Supabase database. See supabase/migrations/2026-01-08-add-user-creation-trigger.sql'
-              );
-            }
-            
-            console.log('signUp: Profile created via direct insert');
-          } else if (!isDuplicateError(rpcError)) {
-            throw rpcError;
-          } else {
-            console.log('signUp: Profile already exists (duplicate), continuing');
-          }
-        } else {
-          console.log('signUp: User profile created successfully via RPC');
-        }
+        await createUserProfileViaRPC(data.user);
+        console.log('signUp: User profile created successfully');
       } catch (profileCreationError) {
         console.error('signUp: Failed to create user profile:', profileCreationError);
         
@@ -405,7 +317,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // If email confirmation is required, don't try to load profile yet
-      // The user will need to confirm their email first
       if (needsEmailConfirmation) {
         console.log('Email confirmation required - profile will be loaded after confirmation');
         throw new Error('CONFIRMATION_REQUIRED:Please check your email to confirm your account before signing in.');
@@ -415,11 +326,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data.session) {
         try {
           console.log('signUp: Loading user profile after signup');
-          
-          // Wait a moment for the profile to be fully committed
-          await new Promise(resolve => setTimeout(resolve, PROFILE_COMMIT_DELAY));
-          
-          await loadUserProfile(data.user.id, 2); // Use retries
+          await loadUserProfile(data.user.id);
           console.log('User profile loaded successfully after signup');
         } catch (profileError) {
           console.error('Failed to load profile after signup:', profileError);
@@ -476,35 +383,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       if (event === 'SIGNED_IN' && session?.user) {
-        console.log('User signed in via auth state change, loading profile for:', session.user.id);
+        console.log('User signed in via auth state change, loading profile');
         try {
-          await loadUserProfile(session.user.id, 2);
-          console.log('Profile loaded successfully after sign in via auth state change');
+          await loadUserProfile(session.user.id);
+          console.log('Profile loaded successfully via auth state change');
         } catch (error) {
           console.error('Error loading profile on auth state change:', error);
+          
           // Try to create the profile if it doesn't exist
           try {
             console.log('Attempting to create missing profile...');
-            
-            // Try RPC first
-            try {
-              const { error: rpcError } = await supabase.rpc('create_user_profile', {
-                p_user_id: session.user.id,
-                p_email: session.user.email || '',
-                p_phone: session.user.user_metadata?.phone || `temp_${session.user.id.substring(0, 12)}`,
-                p_full_name: session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'User',
-              });
-              
-              if (rpcError && !isDuplicateError(rpcError)) {
-                console.warn('RPC failed, using ensureUserProfile:', rpcError.message);
-                throw rpcError;
-              }
-            } catch (rpcErr) {
-              await ensureUserProfile(supabase, session.user);
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, PROFILE_COMMIT_DELAY));
-            await loadUserProfile(session.user.id, 2);
+            await createUserProfileViaRPC(session.user);
+            await loadUserProfile(session.user.id);
             console.log('Profile created and loaded successfully');
           } catch (createError) {
             console.error('Failed to create profile on auth state change:', createError);
@@ -514,11 +404,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       
-      // Handle token refresh
+      // Handle token refresh - just reload the profile
       if (event === 'TOKEN_REFRESHED' && session?.user) {
         console.log('Token refreshed, reloading profile');
         try {
-          await loadUserProfile(session.user.id, 1); // Fewer retries for refresh
+          await loadUserProfile(session.user.id);
         } catch (error) {
           console.error('Error loading profile on token refresh:', error);
         }
