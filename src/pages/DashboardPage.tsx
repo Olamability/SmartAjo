@@ -12,15 +12,21 @@ import {
 import { Shield, Loader2 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  // Redirect unauthenticated users
+  // Redirect unauthenticated users - but only after loading is complete
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login', { replace: true });
-    }
-  }, [user, loading, navigate]);
+    // Add a small buffer to prevent race conditions during navigation after signup
+    const redirectTimer = setTimeout(() => {
+      if (!loading && !isAuthenticated) {
+        console.log('DashboardPage: Redirecting unauthenticated user to login');
+        navigate('/login', { replace: true });
+      }
+    }, 100);
+
+    return () => clearTimeout(redirectTimer);
+  }, [isAuthenticated, loading, navigate]);
 
   const handleLogout = async () => {
     await logout();
@@ -35,7 +41,13 @@ export default function DashboardPage() {
     );
   }
 
-  if (!user) return null;
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-8">
