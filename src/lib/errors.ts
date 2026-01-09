@@ -53,9 +53,9 @@ export class InvalidUserDataError extends AuthError {
  * Error thrown when a database operation fails
  */
 export class DatabaseError extends AuthError {
-  cause?: unknown;
+  cause?: Error | unknown;
 
-  constructor(message: string, originalError?: unknown) {
+  constructor(message: string, originalError?: Error | unknown) {
     super(
       message,
       'DATABASE_ERROR',

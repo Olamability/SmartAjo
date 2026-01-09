@@ -41,7 +41,7 @@ This project uses a **modern serverless architecture** with a strict client-serv
 
 ### Payments
 - **Provider**: Paystack
-- **Integration**: Public key in frontend, secret key in Supabase Edge Functions
+- **Integration**: Public key in frontend for client-side operations. For sensitive operations requiring the secret key (e.g., webhook verification, refunds), use Supabase Edge Functions or Supabase Database Functions with secure storage of the secret key.
 
 ## Key Architectural Principles
 
