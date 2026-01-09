@@ -13,21 +13,36 @@ export function parseAtomicRPCResponse(
   rpcResponse: { data?: any; error?: any },
   operationName: string
 ): void {
+  // Check for RPC-level errors first
   if (rpcResponse.error) {
     throw new Error(`${operationName} failed: ${rpcResponse.error.message}`);
   }
 
-  // Check result from atomic function
-  if (rpcResponse.data && Array.isArray(rpcResponse.data) && rpcResponse.data.length > 0) {
-    const result = rpcResponse.data[0];
-    if (!result.success && result.error_message) {
-      throw new Error(`${operationName} failed: ${result.error_message}`);
-    }
+  // Check if data exists
+  if (!rpcResponse.data) {
+    throw new Error(`${operationName} failed: No data returned from RPC call`);
   }
+
+  // For functions returning a single row, data might be an object or an array
+  const result = Array.isArray(rpcResponse.data) 
+    ? rpcResponse.data[0] 
+    : rpcResponse.data;
+  
+  if (!result) {
+    throw new Error(`${operationName} failed: Empty response from RPC call`);
+  }
+
+  // Check the success flag from the atomic function
+  if (result.success === false || result.success === undefined || result.success === null) {
+    const errorMsg = result.error_message || 'Unknown error - no success status returned';
+    throw new Error(`${operationName} failed: ${errorMsg}`);
+  }
+  
+  // If we get here, the operation was successful
 }
 
 /**
- * Checks if an error is transient (network/timeout related)
+ * Checks if an error is transient (network/timeout related or RLS propagation delay)
  * Transient errors are worth retrying with exponential backoff
  * 
  * @param error - Error object or message
@@ -38,9 +53,26 @@ export function isTransientError(error: any): boolean {
     ? error 
     : error?.message || '';
   
-  return (
-    errorMessage.includes('timeout') ||
-    errorMessage.includes('network') ||
-    errorMessage.includes('connection')
-  );
+  const errorCode = error?.code || '';
+  
+  // Network and timeout errors are always transient
+  if (errorMessage.includes('timeout') ||
+      errorMessage.includes('network') ||
+      errorMessage.includes('connection')) {
+    return true;
+  }
+  
+  // RLS/permission errors can be transient during session propagation
+  // This happens when signInWithPassword succeeds but the session JWT
+  // hasn't propagated to the PostgreSQL RLS context yet
+  // Common error codes: PGRST301 (no rows), 42501 (insufficient privilege)
+  if (errorCode === 'PGRST301' || 
+      errorCode === '42501' ||
+      errorMessage.includes('row-level security') ||
+      errorMessage.includes('permission denied') ||
+      errorMessage.includes('no rows')) {
+    return true;
+  }
+  
+  return false;
 }

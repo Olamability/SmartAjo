@@ -65,6 +65,8 @@ BEGIN
   END IF;
 
   -- Insert user profile atomically
+  -- Note: Since this function is SECURITY DEFINER, it runs with elevated privileges
+  -- and bypasses RLS policies, allowing profile creation even without an active session
   BEGIN
     INSERT INTO public.users (
       id,
@@ -106,6 +108,11 @@ COMMENT ON FUNCTION create_user_profile_atomic IS
    Returns success status and error message if any.
    This is the single source of truth for profile creation.';
 
+-- Grant execute permissions to allow profile creation during signup
+-- anon role is used when there's no active session (email confirmation required)
+-- authenticated role is used when session exists immediately after signup
+GRANT EXECUTE ON FUNCTION create_user_profile_atomic TO anon, authenticated;
+
 -- ============================================================================
 -- STEP 2: Create function to check if user profile exists and is accessible
 -- ============================================================================
@@ -116,7 +123,7 @@ CREATE OR REPLACE FUNCTION verify_user_profile_access(
   p_user_id UUID
 )
 RETURNS TABLE(
-  exists BOOLEAN,
+  profile_exists BOOLEAN,
   accessible BOOLEAN,
   error_message TEXT
 ) AS $$
@@ -159,6 +166,9 @@ COMMENT ON FUNCTION verify_user_profile_access IS
    Note: Cannot fully distinguish between "exists but RLS blocks" vs "does not exist"
    without service role access. Used for debugging session propagation issues.';
 
+-- Grant execute permissions for profile verification
+GRANT EXECUTE ON FUNCTION verify_user_profile_access TO anon, authenticated;
+
 -- ============================================================================
 -- STEP 3: Update existing create_user_profile to use atomic version
 -- ============================================================================
@@ -184,6 +194,9 @@ BEGIN
   RETURN v_result.user_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permissions to the wrapper function as well
+GRANT EXECUTE ON FUNCTION create_user_profile TO anon, authenticated;
 
 -- ============================================================================
 -- STEP 4: Add index for faster profile lookups

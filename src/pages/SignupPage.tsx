@@ -80,16 +80,21 @@ export default function SignUpPage() {
       toast.success('Account created successfully! Redirecting to dashboard...');
       navigate('/dashboard');
     } catch (error) {
-      if (!isMountedRef.current) return;
+      console.error('SignupPage: Signup error caught:', error);
+      
+      if (!isMountedRef.current) {
+        console.log('SignupPage: Component unmounted after error, skipping UI updates');
+        return;
+      }
 
       // Check if this is an email confirmation required error
       const errorMessage = getErrorMessage(error, 'Failed to create account');
-      console.error('SignupPage: Signup error:', errorMessage);
+      console.error('SignupPage: Error message:', errorMessage);
       
       if (errorMessage.includes('CONFIRMATION_REQUIRED:')) {
         // Extract the actual message after the prefix
         const actualMessage = errorMessage.replace('CONFIRMATION_REQUIRED:', '');
-        console.log('SignupPage: Email confirmation required, showing message');
+        console.log('SignupPage: Email confirmation required, showing success message');
         toast.success('Account created! ' + actualMessage, {
           duration: 6000,
         });
@@ -102,13 +107,17 @@ export default function SignUpPage() {
         }, 2000);
       } else {
         // Show error for actual failures
-        console.error('SignupPage: Signup failed:', errorMessage);
+        console.error('SignupPage: Signup failed with error:', errorMessage);
         toast.error(errorMessage);
       }
     } finally {
       // Always reset the loading state
+      console.log('SignupPage: Resetting loading state in finally block');
       if (isMountedRef.current) {
         setIsLoading(false);
+        console.log('SignupPage: Loading state set to false');
+      } else {
+        console.log('SignupPage: Component unmounted, skipping loading state reset');
       }
     }
   };
