@@ -73,8 +73,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * Load user profile from DB
-   * Uses exponential backoff only for genuine transient errors (network issues)
-   * No arbitrary delays - session should be ready when this is called
+   * Uses exponential backoff for transient errors (network, RLS propagation)
+   * Immediately fails for non-transient errors
    */
   const loadUserProfile = async (userId: string): Promise<boolean> => {
     try {
@@ -91,48 +91,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Session user mismatch');
       }
       
-      // Use exponential backoff only for transient network/DB errors
-      const data = await retryWithBackoff(
+      // Query the users table with retry logic for transient errors
+      const { data, error } = await retryWithBackoff(
         async () => {
-          const { data, error } = await supabase
+          const result = await supabase
             .from('users')
             .select('*')
             .eq('id', userId)
             .single();
 
-          if (error) {
+          // Check error and decide whether to retry
+          if (result.error) {
             // Check if this is a transient error worth retrying
-            if (!isTransientError(error)) {
-              // Non-transient error (RLS, not found, etc) - don't retry
-              console.error('loadUserProfile: Non-transient error:', error);
-              throw new Error(`Failed to load user profile: ${error.message}`);
+            if (isTransientError(result.error)) {
+              // Transient error - throw it to be retried
+              console.log('loadUserProfile: Transient error, will retry:', result.error.message);
+              throw result.error;
+            } else {
+              // Non-transient error - throw special error to stop retries
+              console.error('loadUserProfile: Non-transient error:', result.error);
+              const nonTransientError: any = new Error(`Failed to load user profile: ${result.error.message}`);
+              nonTransientError.stopRetry = true; // Signal to stop retrying
+              throw nonTransientError;
             }
-            
-            // Transient error - let retry handle it
-            throw error;
           }
 
-          if (!data) {
-            throw new Error('User profile not found. Please contact support.');
+          if (!result.data) {
+            // No data found - could be RLS issue or missing profile
+            // Treat as transient for now (might be RLS propagation delay)
+            console.log('loadUserProfile: No data returned, treating as transient');
+            const notFoundError: any = new Error('User profile not found');
+            notFoundError.code = 'PGRST301'; // Will be treated as transient
+            throw notFoundError;
           }
 
-          return data;
+          return result;
         },
         3, // Max 3 retries for transient errors
-        100 // Start with 100ms, exponential backoff
+        100, // Start with 100ms, exponential backoff
+        (retryCount) => {
+          console.log(`loadUserProfile: Retry attempt ${retryCount} for user ${userId}`);
+        }
       );
 
       console.log('loadUserProfile: Profile loaded successfully');
       setUser({
-        id: data.id,
-        email: data.email,
-        phone: data.phone,
-        fullName: data.full_name,
-        createdAt: data.created_at,
-        isVerified: data.is_verified,
-        kycStatus: convertKycStatus(data.kyc_status),
-        bvn: data.kyc_data?.bvn,
-        profileImage: data.avatar_url,
+        id: data.data.id,
+        email: data.data.email,
+        phone: data.data.phone,
+        fullName: data.data.full_name,
+        createdAt: data.data.created_at,
+        isVerified: data.data.is_verified,
+        kycStatus: convertKycStatus(data.data.kyc_status),
+        bvn: data.data.kyc_data?.bvn,
+        profileImage: data.data.avatar_url,
       });
       
       return true;
