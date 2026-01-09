@@ -9,7 +9,7 @@ import {
 } from '@/lib/constants/timeout';
 import { convertKycStatus } from '@/lib/constants/database';
 import { ensureUserProfile } from '@/lib/utils/profile';
-import type { PostgrestSingleResponse, PostgrestResponse } from '@supabase/supabase-js';
+import type { PostgrestSingleResponse, PostgrestResponse, SupabaseClient } from '@supabase/supabase-js';
 
 // Database user type
 interface DbUser {
@@ -22,13 +22,77 @@ interface DbUser {
   kyc_status: 'not_started' | 'pending' | 'approved' | 'rejected';
   kyc_data?: {
     bvn?: string;
-    [key: string]: unknown;
+    nin?: string;
+    verification_status?: string;
+    verified_at?: string;
   };
   avatar_url?: string;
   is_active?: boolean;
 }
 
-type DbKycStatus = 'not_started' | 'pending' | 'approved' | 'rejected';
+/**
+ * Type-safe wrapper for fetching a single user from the database
+ */
+async function fetchUserById(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<PostgrestSingleResponse<DbUser>> {
+  return supabase
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
+}
+
+/**
+ * Type-safe wrapper for creating a user profile via RPC
+ */
+async function createUserProfileRPC(
+  supabase: SupabaseClient,
+  params: {
+    userId: string;
+    email: string;
+    phone: string;
+    fullName: string;
+  }
+): Promise<PostgrestSingleResponse<string>> {
+  return supabase.rpc('create_user_profile', {
+    p_user_id: params.userId,
+    p_email: params.email,
+    p_phone: params.phone,
+    p_full_name: params.fullName,
+  }) as unknown as Promise<PostgrestSingleResponse<string>>;
+}
+
+/**
+ * Type-safe wrapper for updating user last login
+ */
+async function updateUserLastLogin(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<PostgrestResponse<DbUser>> {
+  return supabase
+    .from('users')
+    .update({ last_login_at: new Date().toISOString() })
+    .eq('id', userId)
+    .select() as unknown as Promise<PostgrestResponse<DbUser>>;
+}
+
+/**
+ * Type-safe wrapper for updating user profile data
+ */
+async function updateUserData(
+  supabase: SupabaseClient,
+  userId: string,
+  updates: Record<string, string | Record<string, unknown>>
+): Promise<PostgrestSingleResponse<DbUser>> {
+  return supabase
+    .from('users')
+    .update(updates)
+    .eq('id', userId)
+    .select()
+    .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
+}
 
 // Signup function
 // Uses Supabase Auth directly for authentication
@@ -75,14 +139,8 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
     while (!userData && retries < maxRetries) {
       try {
         // First, try to fetch the user record (trigger may have already created it)
-        const fetchPromise = supabase
-          .from('users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
-        
         const fetchResponse = await withTimeout(
-          fetchPromise,
+          fetchUserById(supabase, authData.user.id),
           USER_DATA_FETCH_TIMEOUT,
           'Unable to fetch user data.'
         );
@@ -95,15 +153,13 @@ export const signUp = async (data: SignUpFormData): Promise<{ success: boolean; 
         // If user record doesn't exist and this is first attempt, try manual insert using RPC
         if (retries === 0) {
           console.log('User record not found, attempting manual insert using RPC...');
-          const rpcPromise = supabase.rpc('create_user_profile', {
-            p_user_id: authData.user.id,
-            p_email: data.email,
-            p_phone: data.phone,
-            p_full_name: data.fullName,
-          }) as unknown as Promise<PostgrestSingleResponse<string>>;
-          
           const rpcResponse = await withTimeout(
-            rpcPromise,
+            createUserProfileRPC(supabase, {
+              userId: authData.user.id,
+              email: data.email,
+              phone: data.phone,
+              fullName: data.fullName,
+            }),
             DB_WRITE_TIMEOUT,
             'Database operation timed out.'
           );
@@ -199,14 +255,8 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     }
 
     // Fetch user data from public.users table with timeout
-    const fetchPromise = supabase
-      .from('users')
-      .select('*')
-      .eq('id', authData.user.id)
-      .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
-    
     const fetchResponse = await withTimeout(
-      fetchPromise,
+      fetchUserById(supabase, authData.user.id),
       USER_DATA_FETCH_TIMEOUT,
       'Unable to fetch user data. Please try again.'
     );
@@ -222,14 +272,8 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
         await ensureUserProfile(supabase, authData.user);
         
         // Try fetching again after creating profile
-        const refetchPromise = supabase
-          .from('users')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
-        
         const refetchResponse = await withTimeout(
-          refetchPromise,
+          fetchUserById(supabase, authData.user.id),
           USER_DATA_FETCH_TIMEOUT,
           'Unable to fetch user data after creation.'
         );
@@ -253,15 +297,9 @@ export const login = async (data: LoginFormData): Promise<{ success: boolean; us
     }
 
     // Update last login timestamp (non-blocking, fire and forget with timeout)
-    const updatePromise = supabase
-      .from('users')
-      .update({ last_login_at: new Date().toISOString() })
-      .eq('id', userData.id)
-      .select() as unknown as Promise<PostgrestResponse<DbUser>>;
-    
     // Explicitly fire-and-forget pattern (15 seconds for non-critical operation)
     void withTimeout(
-      updatePromise,
+      updateUserLastLogin(supabase, userData.id),
       DB_WRITE_TIMEOUT,
       'Last login update timed out'
     )
@@ -397,14 +435,7 @@ export const updateUserProfile = async (updates: Partial<User>): Promise<{ succe
     }
 
     // Update user in database
-    const updatePromise = supabase
-      .from('users')
-      .update(dbUpdates)
-      .eq('id', authUser.id)
-      .select()
-      .single() as unknown as Promise<PostgrestSingleResponse<DbUser>>;
-    
-    const { data, error } = await updatePromise;
+    const { data, error } = await updateUserData(supabase, authUser.id, dbUpdates);
 
     if (error) {
       console.error('Error updating user:', error);
