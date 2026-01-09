@@ -92,40 +92,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       // Query the users table with retry logic for transient errors
-      const { data, error } = await retryWithBackoff(
+      const result = await retryWithBackoff(
         async () => {
-          const result = await supabase
+          const queryResult = await supabase
             .from('users')
             .select('*')
             .eq('id', userId)
             .single();
 
           // Check error and decide whether to retry
-          if (result.error) {
+          if (queryResult.error) {
             // Check if this is a transient error worth retrying
-            if (isTransientError(result.error)) {
+            if (isTransientError(queryResult.error)) {
               // Transient error - throw it to be retried
-              console.log('loadUserProfile: Transient error, will retry:', result.error.message);
-              throw result.error;
+              console.log('loadUserProfile: Transient error, will retry:', queryResult.error.message);
+              throw queryResult.error;
             } else {
-              // Non-transient error - throw special error to stop retries
-              console.error('loadUserProfile: Non-transient error:', result.error);
-              const nonTransientError: any = new Error(`Failed to load user profile: ${result.error.message}`);
-              nonTransientError.stopRetry = true; // Signal to stop retrying
-              throw nonTransientError;
+              // Non-transient error - throw with marker to stop retries
+              console.error('loadUserProfile: Non-transient error:', queryResult.error);
+              const error = new Error(`Failed to load user profile: ${queryResult.error.message}`);
+              (error as any).stopRetry = true;
+              throw error;
             }
           }
 
-          if (!result.data) {
+          if (!queryResult.data) {
             // No data found - could be RLS issue or missing profile
             // Treat as transient for now (might be RLS propagation delay)
             console.log('loadUserProfile: No data returned, treating as transient');
-            const notFoundError: any = new Error('User profile not found');
-            notFoundError.code = 'PGRST301'; // Will be treated as transient
-            throw notFoundError;
+            const error: any = new Error('User profile not found');
+            error.code = 'PGRST301'; // Will be treated as transient
+            throw error;
           }
 
-          return result;
+          // Return the data directly (not wrapped in another object)
+          return queryResult.data;
         },
         3, // Max 3 retries for transient errors
         100, // Start with 100ms, exponential backoff
@@ -136,15 +137,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log('loadUserProfile: Profile loaded successfully');
       setUser({
-        id: data.data.id,
-        email: data.data.email,
-        phone: data.data.phone,
-        fullName: data.data.full_name,
-        createdAt: data.data.created_at,
-        isVerified: data.data.is_verified,
-        kycStatus: convertKycStatus(data.data.kyc_status),
-        bvn: data.data.kyc_data?.bvn,
-        profileImage: data.data.avatar_url,
+        id: result.id,
+        email: result.email,
+        phone: result.phone,
+        fullName: result.full_name,
+        createdAt: result.created_at,
+        isVerified: result.is_verified,
+        kycStatus: convertKycStatus(result.kyc_status),
+        bvn: result.kyc_data?.bvn,
+        profileImage: result.avatar_url,
       });
       
       return true;

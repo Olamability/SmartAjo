@@ -70,8 +70,7 @@ export function isTransientError(error: any): boolean {
       errorCode === '42501' ||
       errorMessage.includes('row-level security') ||
       errorMessage.includes('permission denied') ||
-      errorMessage.includes('no rows') ||
-      errorMessage.toLowerCase().includes('not found')) {
+      errorMessage.includes('no rows')) {
     return true;
   }
   
