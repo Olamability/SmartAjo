@@ -24,11 +24,17 @@ This application uses a **modern serverless architecture** with a single fronten
 ```
 secured-ajo/
 ├── src/                    # Frontend application
+│   ├── api/               # API service layer (Supabase functions)
+│   │   ├── groups.ts      # Group management operations
+│   │   ├── contributions.ts  # Contribution tracking
+│   │   ├── transactions.ts   # Transaction history
+│   │   ├── notifications.ts  # User notifications
+│   │   └── index.ts       # API exports
 │   ├── components/         # React components
 │   ├── pages/             # Page components
 │   ├── contexts/          # React contexts
 │   ├── hooks/             # Custom React hooks
-│   ├── services/          # Frontend services (Supabase calls)
+│   ├── services/          # Authentication services
 │   ├── lib/               # Utilities and client libraries
 │   ├── types/             # TypeScript type definitions
 │   ├── App.tsx            # Root component
