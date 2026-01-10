@@ -65,14 +65,17 @@ WHERE schemaname = 'public';
 -- 4. Verify group_members Policy is Fixed (No Recursion)
 -- ============================================================================
 SELECT 
-  'group_members Policy Check' as check_type,
+  'group_members Policy Check' AS check_type,
   CASE 
-    WHEN definition LIKE '%gm.id != group_members.id%' THEN 'PASS ✓ - Policy fixed'
-    WHEN definition LIKE '%group_members gm%' AND definition NOT LIKE '%gm.id != group_members.id%' THEN 'WARNING ⚠ - Potential recursion'
+    WHEN qual LIKE '%gm.id != group_members.id%' 
+      OR qual LIKE '%gm.id <> group_members.id%'
+      THEN 'PASS ✓ - Policy fixed'
+    WHEN qual LIKE '%FROM group_members gm%'
+      THEN 'WARNING ⚠ - Potential recursion'
     ELSE 'PASS ✓'
-  END as status,
+  END AS status,
   policyname,
-  LEFT(definition, 200) as policy_definition_preview
+  LEFT(qual, 200) AS policy_definition_preview
 FROM pg_policies
 WHERE tablename = 'group_members'
   AND policyname = 'group_members_select_own_groups';
@@ -108,16 +111,20 @@ WHERE routine_schema = 'public'
 -- 6. Verify create_user_profile_atomic Function Exists (Critical for Registration)
 -- ============================================================================
 SELECT 
-  'Registration Function Check' as check_type,
+  'Registration Function Check' AS check_type,
   CASE 
-    WHEN COUNT(*) > 0 THEN 'PASS ✓ - create_user_profile_atomic exists'
+    WHEN EXISTS (
+      SELECT 1
+      FROM information_schema.routines
+      WHERE routine_schema = 'public'
+        AND routine_name = 'create_user_profile_atomic'
+    )
+    THEN 'PASS ✓ - create_user_profile_atomic exists'
     ELSE 'FAIL ✗ - Missing create_user_profile_atomic (registration will fail!)'
-  END as status,
-  routine_name,
-  data_type as return_type
-FROM information_schema.routines
-WHERE routine_schema = 'public'
-  AND routine_name = 'create_user_profile_atomic';
+  END AS status,
+  'create_user_profile_atomic' AS routine_name,
+  NULL AS return_type;
+
 
 -- ============================================================================
 -- 7. Verify Triggers are Set Up
@@ -175,23 +182,31 @@ FROM (
 -- 10. Overall Setup Status
 -- ============================================================================
 SELECT 
-  '=== OVERALL SETUP STATUS ===' as summary,
+  '=== OVERALL SETUP STATUS ===' AS summary,
   CASE 
     WHEN 
-      (SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public' 
-       AND tablename IN ('users', 'groups', 'group_members')) >= 3
+      -- Check required tables
+      (SELECT COUNT(*) 
+       FROM pg_tables 
+       WHERE schemaname = 'public' 
+         AND tablename IN ('users', 'groups', 'group_members')) >= 3
       AND
-      (SELECT COUNT(*) FROM information_schema.routines 
+      -- Check registration function
+      (SELECT COUNT(*) 
+       FROM information_schema.routines 
        WHERE routine_schema = 'public' 
-       AND routine_name = 'create_user_profile_atomic') > 0
+         AND routine_name = 'create_user_profile_atomic') > 0
       AND
-      (SELECT COUNT(*) FROM pg_policies 
+      -- Check RLS policy with recursion fix
+      (SELECT COUNT(*) 
+       FROM pg_policies 
        WHERE tablename = 'group_members' 
-       AND policyname = 'group_members_select_own_groups'
-       AND definition LIKE '%gm.id != group_members.id%') > 0
+         AND policyname = 'group_members_select_own_groups'
+         AND (qual LIKE '%gm.id != group_members.id%' 
+              OR qual LIKE '%gm.id <> group_members.id%')) > 0
     THEN 'READY ✓ - Database is properly configured!'
     ELSE 'NOT READY ✗ - Please review failed checks above'
-  END as status;
+  END AS status;
 
 -- ============================================================================
 -- END OF VERIFICATION SCRIPT
