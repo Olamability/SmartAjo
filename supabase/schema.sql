@@ -645,6 +645,28 @@ COMMENT ON FUNCTION is_group_member IS
    Uses SECURITY DEFINER to bypass RLS and avoid infinite recursion in policies.';
 
 -- ============================================================================
+-- FUNCTION: Check if user is creator of a group (bypasses RLS)
+-- ============================================================================
+-- This function is used by RLS policies to avoid infinite recursion
+-- when checking if a user is the creator of a group
+
+CREATE OR REPLACE FUNCTION is_group_creator(p_user_id UUID, p_group_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM group_members
+    WHERE user_id = p_user_id
+      AND group_id = p_group_id
+      AND is_creator = true
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+COMMENT ON FUNCTION is_group_creator IS 
+  'Checks if a user is the creator of a group (has is_creator = true). 
+   Uses SECURITY DEFINER to bypass RLS and avoid infinite recursion in policies.';
+
+-- ============================================================================
 -- FUNCTION: Get group progress
 -- ============================================================================
 
@@ -779,13 +801,7 @@ CREATE POLICY groups_update_creator ON groups
   FOR UPDATE
   USING (
     auth.uid() = created_by OR
-    (is_group_member(auth.uid(), groups.id) AND
-     EXISTS (
-       SELECT 1 FROM group_members
-       WHERE group_members.group_id = groups.id
-         AND group_members.user_id = auth.uid()
-         AND group_members.is_creator = true
-     ))
+    is_group_creator(auth.uid(), groups.id)
   );
 
 -- Service role can do anything
