@@ -10,6 +10,7 @@ import SignupPage from '@/pages/SignupPage';
 import DashboardPage from '@/pages/DashboardPage';
 import GroupsPage from '@/pages/GroupsPage';
 import CreateGroupPage from '@/pages/CreateGroupPage';
+import GroupDetailPage from '@/pages/GroupDetailPage';
 import AuthCallbackPage from '@/pages/AuthCallbackPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
@@ -44,6 +45,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CreateGroupPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/groups/:id" 
+              element={
+                <ProtectedRoute>
+                  <GroupDetailPage />
                 </ProtectedRoute>
               } 
             />

@@ -6,7 +6,7 @@
  */
 
 import { createClient } from '@/lib/client/supabase';
-import { Group, CreateGroupFormData } from '@/types';
+import { Group, GroupMember, CreateGroupFormData } from '@/types';
 import { getErrorMessage } from '@/lib/utils';
 
 /**
@@ -165,9 +165,15 @@ export const getGroupById = async (
   try {
     const supabase = createClient();
 
+    // Fetch group with member count
     const { data, error } = await supabase
       .from('groups')
-      .select('*')
+      .select(`
+        *,
+        group_members (
+          count
+        )
+      `)
       .eq('id', groupId)
       .single();
 
@@ -210,6 +216,56 @@ export const getGroupById = async (
     return {
       success: false,
       error: getErrorMessage(error, 'Failed to fetch group'),
+    };
+  }
+};
+
+/**
+ * Get all members of a group
+ */
+export const getGroupMembers = async (
+  groupId: string
+): Promise<{ success: boolean; members?: GroupMember[]; error?: string }> => {
+  try {
+    const supabase = createClient();
+
+    const { data, error } = await supabase
+      .from('group_members')
+      .select(`
+        *,
+        users (
+          full_name,
+          email,
+          phone
+        )
+      `)
+      .eq('group_id', groupId)
+      .order('position', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching group members:', error);
+      return { success: false, error: error.message };
+    }
+
+    const members: GroupMember[] = (data || []).map((member: any) => ({
+      userId: member.user_id,
+      userName: member.users?.full_name || 'Unknown User',
+      joinedAt: member.joined_at,
+      rotationPosition: member.position,
+      securityDepositPaid: member.has_paid_security_deposit,
+      securityDepositAmount: member.security_deposit_amount,
+      status: member.status,
+      totalContributions: 0, // Would need to query contributions table
+      totalPenalties: 0, // Would need to query penalties table
+      hasReceivedPayout: false, // Would need to query payouts table
+    }));
+
+    return { success: true, members };
+  } catch (error) {
+    console.error('Get group members error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to fetch group members'),
     };
   }
 };
@@ -282,6 +338,52 @@ export const joinGroup = async (
     return {
       success: false,
       error: getErrorMessage(error, 'Failed to join group'),
+    };
+  }
+};
+
+/**
+ * Update security deposit payment status
+ */
+export const updateSecurityDepositPayment = async (
+  groupId: string,
+  userId: string,
+  transactionRef: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from('group_members')
+      .update({
+        has_paid_security_deposit: true,
+        security_deposit_paid_at: new Date().toISOString(),
+      })
+      .eq('group_id', groupId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error updating security deposit:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Create a transaction record
+    await supabase.from('transactions').insert({
+      user_id: userId,
+      group_id: groupId,
+      type: 'security_deposit',
+      amount: 0, // Amount will be fetched from group_members
+      status: 'completed',
+      reference: transactionRef,
+      description: 'Security deposit payment',
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Update security deposit error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to update security deposit'),
     };
   }
 };
