@@ -19,6 +19,24 @@ export default function GroupsPage() {
   const navigate = useNavigate();
   const [groups, setGroups] = useState<ApiGroup[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // ⚠️  TEMPORARY: Check for auth bypass flag (development only)
+  const bypassAuth = import.meta.env.VITE_BYPASS_AUTH === 'true';
+  
+  // Mock user data for bypass mode
+  const mockUser = bypassAuth && !user ? {
+    id: 'mock-user-id',
+    email: 'demo@example.com',
+    phone: '+234-XXX-XXX-XXXX',
+    fullName: 'Demo User (Bypass Mode)',
+    createdAt: new Date().toISOString(),
+    isVerified: false,
+    kycStatus: 'Not started',
+    bvn: undefined,
+    profileImage: undefined,
+  } : null;
+  
+  const displayUser = user || mockUser;
 
   useEffect(() => {
     loadGroups();
@@ -26,6 +44,12 @@ export default function GroupsPage() {
   }, []);
 
   const loadGroups = async () => {
+    // Skip loading groups in bypass mode
+    if (bypassAuth && !user) {
+      setLoading(false);
+      return;
+    }
+    
     if (!user) return;
     
     setLoading(true);
@@ -45,8 +69,12 @@ export default function GroupsPage() {
   };
 
   const handleLogout = async () => {
-    await logout();
-    navigate('/login', { replace: true });
+    if (bypassAuth) {
+      navigate('/login', { replace: true });
+    } else {
+      await logout();
+      navigate('/login', { replace: true });
+    }
   };
 
   const formatCurrency = (amount: number) => {
@@ -69,7 +97,7 @@ export default function GroupsPage() {
     }
   };
 
-  if (loading) {
+  if (loading && !bypassAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -80,6 +108,23 @@ export default function GroupsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-8">
       <div className="max-w-6xl mx-auto space-y-6">
+        {/* Auth Bypass Warning Banner */}
+        {bypassAuth && (
+          <Card className="border-yellow-500 bg-yellow-50">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <Shield className="w-5 h-5 text-yellow-600" />
+                <div>
+                  <p className="font-semibold text-yellow-800">⚠️  Authentication Bypass Active</p>
+                  <p className="text-sm text-yellow-700">
+                    You are viewing the groups page in bypass mode. Some features may not work without real authentication.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -89,7 +134,7 @@ export default function GroupsPage() {
             <div>
               <h1 className="text-2xl font-bold">My Groups</h1>
               <p className="text-muted-foreground">
-                Welcome back, {user?.fullName}
+                Welcome back, {displayUser?.fullName}
               </p>
             </div>
           </div>
@@ -124,7 +169,9 @@ export default function GroupsPage() {
               <Users className="w-16 h-16 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No Groups Yet</h3>
               <p className="text-sm text-muted-foreground text-center mb-4">
-                Create or join a group to start saving together
+                {bypassAuth 
+                  ? 'In bypass mode, you need real authentication to load groups data.'
+                  : 'Create or join a group to start saving together'}
               </p>
               <Button onClick={() => navigate('/groups/create')} className="gap-2">
                 <Plus className="w-4 h-4" />
