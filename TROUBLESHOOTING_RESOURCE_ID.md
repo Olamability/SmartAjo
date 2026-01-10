@@ -4,20 +4,35 @@
 Getting error: **"column 'resource_id' is of type uuid but expression is of type text"** when creating a group.
 
 ## Root Cause
-The `audit_logs` table in your Supabase database has `resource_id` column defined as TEXT, but the application code (triggers and functions) is trying to insert UUID values into it.
+The trigger functions were passing `NEW.id` values to the `audit_logs.resource_id` column without explicit UUID type casting. In some PostgreSQL/Supabase configurations, this can cause a type mismatch error even though the source columns are UUID type.
 
 ## Solution
 
-### Option 1: Run Migration Script (Recommended)
-Run the migration script to fix the column type:
+### Option 1: Update Triggers with Latest Code (Recommended)
+The triggers have been fixed to include explicit UUID casting. To apply the fix:
 
 1. Go to your Supabase Dashboard
 2. Navigate to SQL Editor
-3. Open and run: `supabase/migration-fix-resource-id-type.sql`
-4. Verify the fix by checking the column type
+3. Run the updated `supabase/triggers.sql` file
+4. This will replace the trigger functions with versions that explicitly cast `NEW.id::uuid`
 
-### Option 2: Recreate audit_logs Table
-If the migration fails, you can recreate the table:
+### Option 2: Manual Fix
+If you prefer to fix individual triggers manually, add `::uuid` casting to resource_id values:
+
+```sql
+-- Example: Change this
+resource_id,
+) VALUES (
+NEW.id,
+
+-- To this:
+resource_id,
+) VALUES (
+NEW.id::uuid,
+```
+
+### Option 3: Recreate audit_logs Table (If Column Type is Wrong)
+If the migration fails or you have an older database where resource_id was created as TEXT, recreate the table:
 
 ```sql
 -- Backup existing data (if needed)
