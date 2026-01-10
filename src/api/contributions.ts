@@ -38,7 +38,7 @@ export const getGroupContributions = async (
       status: contrib.status,
       dueDate: contrib.due_date,
       paidDate: contrib.paid_date,
-      penalty: contrib.penalty_amount || 0,
+      penalty: 0, // Penalties are tracked separately in penalties table
       serviceFee: contrib.service_fee || 0,
       isOverdue: contrib.is_overdue,
       transactionRef: contrib.transaction_ref,
@@ -95,7 +95,7 @@ export const getUserContributions = async (): Promise<{
       status: contrib.status,
       dueDate: contrib.due_date,
       paidDate: contrib.paid_date,
-      penalty: contrib.penalty_amount || 0,
+      penalty: 0, // Penalties are tracked separately in penalties table
       serviceFee: contrib.service_fee || 0,
       isOverdue: contrib.is_overdue,
       transactionRef: contrib.transaction_ref,
