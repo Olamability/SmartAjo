@@ -11,10 +11,13 @@
  * - SMTP_PASSWORD: SMTP password
  * - SMTP_FROM_EMAIL: Sender email address
  * - SMTP_FROM_NAME: Sender name
+ * 
+ * Note: Using denomailer for SMTP. For production, consider using established
+ * email service providers' REST APIs (SendGrid, AWS SES, Mailgun) for better
+ * reliability and deliverability tracking.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {

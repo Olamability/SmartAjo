@@ -9,6 +9,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 
+// Type extension for jsPDF with autoTable
+interface jsPDFWithAutoTable extends jsPDF {
+  lastAutoTable?: {
+    finalY: number;
+  };
+}
+
 interface Transaction {
   id: string;
   type: string;
@@ -101,7 +108,7 @@ export function exportTransactionsToPDF(
     .filter(tx => tx.status === 'completed')
     .reduce((sum, tx) => sum + tx.amount, 0);
 
-  const finalY = (doc as any).lastAutoTable.finalY || 50;
+  const finalY = (doc as jsPDFWithAutoTable).lastAutoTable?.finalY || 50;
   doc.setFontSize(12);
   doc.text(`Total Transactions: ${transactions.length}`, 14, finalY + 10);
   doc.text(`Total Amount: ₦${totalAmount.toLocaleString()}`, 14, finalY + 17);
@@ -214,7 +221,7 @@ export function exportGroupReportToPDF(
       },
     });
 
-    currentY = (doc as any).lastAutoTable.finalY + 10;
+    currentY = (doc as jsPDFWithAutoTable).lastAutoTable?.finalY || currentY + 10;
   }
 
   // Penalties section
@@ -322,7 +329,7 @@ export function exportGroupTransactionsToPDF(
     .filter(tx => tx.status === 'completed')
     .reduce((sum, tx) => sum + tx.amount, 0);
 
-  const finalY = (doc as any).lastAutoTable.finalY || 45;
+  const finalY = (doc as jsPDFWithAutoTable).lastAutoTable?.finalY || 45;
   doc.setFontSize(12);
   doc.text(`Total Transactions: ${transactions.length}`, 14, finalY + 10);
   doc.text(`Total Amount: ₦${totalAmount.toLocaleString()}`, 14, finalY + 17);

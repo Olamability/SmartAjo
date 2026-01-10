@@ -9,6 +9,9 @@
  * - Validates Paystack signature using HMAC SHA512
  * - Only processes verified webhooks
  * - Uses service role for database updates
+ * 
+ * Note: Using deno.land/x/hmac for crypto operations. In production, ensure
+ * the version is pinned in deployment configuration.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
