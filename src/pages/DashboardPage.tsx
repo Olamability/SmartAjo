@@ -36,27 +36,27 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-gradient-hero flex items-center justify-center">
+            <div className="w-12 h-12 rounded-lg bg-gradient-hero flex items-center justify-center flex-shrink-0">
               <Shield className="w-6 h-6 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold">Dashboard</h1>
-              <p className="text-muted-foreground">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold truncate">Dashboard</h1>
+              <p className="text-sm sm:text-base text-muted-foreground truncate">
                 Welcome back, {user.fullName}
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => navigate('/groups')}>
+          <div className="flex gap-2 flex-wrap">
+            <Button onClick={() => navigate('/groups')} className="flex-1 sm:flex-initial">
               My Groups
             </Button>
-            <Button onClick={handleLogout} variant="outline">
+            <Button onClick={handleLogout} variant="outline" className="flex-1 sm:flex-initial">
               Logout
             </Button>
           </div>
@@ -68,24 +68,26 @@ export default function DashboardPage() {
             <CardTitle>User Profile</CardTitle>
             <CardDescription>Your account information</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <div>
-              <span className="font-medium">Email:</span> {user.email}
+          <CardContent className="space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+              <span className="font-medium text-sm sm:text-base">Email:</span>
+              <span className="text-sm sm:text-base break-all">{user.email}</span>
             </div>
-            <div>
-              <span className="font-medium">Phone:</span> {user.phone}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+              <span className="font-medium text-sm sm:text-base">Phone:</span>
+              <span className="text-sm sm:text-base">{user.phone}</span>
             </div>
-            <div>
-              <span className="font-medium">Status:</span>{' '}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+              <span className="font-medium text-sm sm:text-base">Status:</span>{' '}
               {user.isVerified ? (
-                <span className="text-green-600">Verified</span>
+                <span className="text-sm sm:text-base text-green-600">Verified</span>
               ) : (
-                <span className="text-yellow-600">Not Verified</span>
+                <span className="text-sm sm:text-base text-yellow-600">Not Verified</span>
               )}
             </div>
-            <div>
-              <span className="font-medium">KYC Status:</span>{' '}
-              {user.kycStatus || 'Not started'}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+              <span className="font-medium text-sm sm:text-base">KYC Status:</span>{' '}
+              <span className="text-sm sm:text-base">{user.kycStatus || 'Not started'}</span>
             </div>
           </CardContent>
         </Card>
