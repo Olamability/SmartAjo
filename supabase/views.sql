@@ -177,7 +177,7 @@ SELECT
   EXISTS(
     SELECT 1 FROM penalties pen 
     WHERE pen.contribution_id = c.id 
-    AND pen.penalty_type = 'late_payment'
+    AND pen.type = 'late_payment'
   ) AS penalty_applied,
   -- Group creator info (for notifications)
   g.created_by AS group_creator_id,

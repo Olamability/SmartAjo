@@ -17,13 +17,10 @@ BEGIN
       AND column_name = 'resource_id'
       AND (data_type = 'text' OR data_type = 'character varying')
   ) THEN
-    -- Convert existing TEXT values to UUID if they're valid UUIDs
-    -- Drop the column and recreate it as UUID
+    -- Convert existing TEXT values to UUID (preserving data if valid UUIDs)
+    -- This will fail if any existing values are not valid UUIDs
     ALTER TABLE audit_logs 
-    DROP COLUMN IF EXISTS resource_id;
-    
-    ALTER TABLE audit_logs 
-    ADD COLUMN resource_id UUID;
+    ALTER COLUMN resource_id TYPE UUID USING resource_id::uuid;
     
     -- Recreate the index
     DROP INDEX IF EXISTS idx_audit_logs_resource;
