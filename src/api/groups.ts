@@ -55,6 +55,22 @@ export const createGroup = async (
       return { success: false, error: error.message };
     }
 
+    // Automatically add the creator as the first member
+    const { error: memberError } = await supabase
+      .from('group_members')
+      .insert({
+        group_id: groupData.id,
+        user_id: user.id,
+        position: 1,
+        status: 'active',
+        has_paid_security_deposit: false,
+      });
+
+    if (memberError) {
+      console.error('Error adding creator as member:', memberError);
+      // Don't fail the group creation, but log the error
+    }
+
     return {
       success: true,
       group: {
@@ -106,16 +122,16 @@ export const getUserGroups = async (): Promise<{
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Query groups where user is a member
+    // Query groups where user is a member OR is the creator
     const { data, error } = await supabase
       .from('groups')
       .select(
         `
         *,
-        group_members!inner(user_id)
+        group_members(user_id)
       `
       )
-      .eq('group_members.user_id', user.id)
+      .or(`created_by.eq.${user.id},group_members.user_id.eq.${user.id}`)
       .order('created_at', { ascending: false });
 
     if (error) {

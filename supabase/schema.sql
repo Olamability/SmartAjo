@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS users (
   -- Verification & Status
   is_verified BOOLEAN DEFAULT FALSE,
   is_active BOOLEAN DEFAULT TRUE,
+  is_admin BOOLEAN DEFAULT FALSE,
   
   -- KYC (Know Your Customer)
   kyc_status VARCHAR(50) DEFAULT 'not_started' CHECK (kyc_status IN ('not_started', 'pending', 'approved', 'rejected')),
@@ -62,6 +63,7 @@ CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_phone ON users(phone);
 CREATE INDEX idx_users_kyc_status ON users(kyc_status);
 CREATE INDEX idx_users_is_active ON users(is_active);
+CREATE INDEX idx_users_is_admin ON users(is_admin);
 
 -- ============================================================================
 -- TABLE: email_verification_tokens
@@ -802,11 +804,13 @@ CREATE POLICY email_verification_tokens_service_role_all ON email_verification_t
 -- ============================================================================
 
 -- Anyone authenticated can view active/forming groups (for browsing) + their own groups
+-- Platform admins can view all groups
 CREATE POLICY groups_select_public ON groups
   FOR SELECT
   USING (
     status IN ('forming', 'active') OR
-    is_group_member(auth.uid(), groups.id)
+    is_group_member(auth.uid(), groups.id) OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
   );
 
 -- Authenticated users can create groups
@@ -814,12 +818,13 @@ CREATE POLICY groups_insert_authenticated ON groups
   FOR INSERT
   WITH CHECK (auth.uid() = created_by AND auth.uid() IS NOT NULL);
 
--- Group creators and members can update their groups
+-- Group creators, members, and platform admins can update their groups
 CREATE POLICY groups_update_creator ON groups
   FOR UPDATE
   USING (
     auth.uid() = created_by OR
-    is_group_creator(auth.uid(), groups.id)
+    is_group_creator(auth.uid(), groups.id) OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
   );
 
 -- Service role can do anything
@@ -839,6 +844,7 @@ CREATE POLICY groups_service_role_all ON groups
 -- Users can view members of groups they're in
 -- Fixed infinite recursion: Uses SECURITY DEFINER functions that bypass RLS
 -- to check membership without triggering recursive policy evaluation
+-- Platform admins can view all group members
 CREATE POLICY group_members_select_own_groups ON group_members
   FOR SELECT
   USING (
@@ -848,6 +854,9 @@ CREATE POLICY group_members_select_own_groups ON group_members
     -- User can see members of groups where they are also a member
     -- is_group_member() uses SECURITY DEFINER to bypass RLS and prevent recursion
     is_group_member(auth.uid(), group_members.group_id)
+    OR
+    -- Platform admins can see all members
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
   );
 
 -- Users can join groups (insert their own membership)
@@ -855,11 +864,17 @@ CREATE POLICY group_members_insert_own ON group_members
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
--- Users can update their own membership
+-- Users and platform admins can update their own membership or any membership (for admins)
 CREATE POLICY group_members_update_own ON group_members
   FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (
+    auth.uid() = user_id OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+  )
+  WITH CHECK (
+    auth.uid() = user_id OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+  );
 
 -- Service role can do anything
 CREATE POLICY group_members_service_role_all ON group_members
@@ -876,11 +891,13 @@ CREATE POLICY group_members_service_role_all ON group_members
 -- ============================================================================
 
 -- Users can view contributions for groups they're in
+-- Platform admins can view all contributions
 CREATE POLICY contributions_select_own_groups ON contributions
   FOR SELECT
   USING (
     auth.uid() = user_id OR
-    is_group_member(auth.uid(), contributions.group_id)
+    is_group_member(auth.uid(), contributions.group_id) OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
   );
 
 -- Users can create their own contributions
@@ -888,11 +905,17 @@ CREATE POLICY contributions_insert_own ON contributions
   FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
--- Users can update their own contributions (e.g., mark as paid)
+-- Users and platform admins can update their own contributions or any contributions (for admins)
 CREATE POLICY contributions_update_own ON contributions
   FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (
+    auth.uid() = user_id OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+  )
+  WITH CHECK (
+    auth.uid() = user_id OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+  );
 
 -- Service role can do anything
 CREATE POLICY contributions_service_role_all ON contributions
@@ -909,11 +932,13 @@ CREATE POLICY contributions_service_role_all ON contributions
 -- ============================================================================
 
 -- Users can view payouts for groups they're in
+-- Platform admins can view all payouts
 CREATE POLICY payouts_select_own_groups ON payouts
   FOR SELECT
   USING (
     auth.uid() = recipient_id OR
-    is_group_member(auth.uid(), payouts.related_group_id)
+    is_group_member(auth.uid(), payouts.related_group_id) OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
   );
 
 -- Service role can do anything
@@ -931,11 +956,13 @@ CREATE POLICY payouts_service_role_all ON payouts
 -- ============================================================================
 
 -- Users can view their own penalties or penalties in their groups
+-- Platform admins can view all penalties
 CREATE POLICY penalties_select_own ON penalties
   FOR SELECT
   USING (
     auth.uid() = user_id OR
-    is_group_member(auth.uid(), penalties.group_id)
+    is_group_member(auth.uid(), penalties.group_id) OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
   );
 
 -- Service role can do anything
@@ -953,9 +980,13 @@ CREATE POLICY penalties_service_role_all ON penalties
 -- ============================================================================
 
 -- Users can view their own transactions
+-- Platform admins can view all transactions
 CREATE POLICY transactions_select_own ON transactions
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (
+    auth.uid() = user_id OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+  );
 
 -- Users can create their own transactions
 CREATE POLICY transactions_insert_own ON transactions
@@ -977,9 +1008,13 @@ CREATE POLICY transactions_service_role_all ON transactions
 -- ============================================================================
 
 -- Users can view their own notifications
+-- Platform admins can view all notifications
 CREATE POLICY notifications_select_own ON notifications
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (
+    auth.uid() = user_id OR
+    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+  );
 
 -- Users can update their own notifications (mark as read)
 CREATE POLICY notifications_update_own ON notifications
