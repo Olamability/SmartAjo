@@ -13,6 +13,9 @@ import CreateGroupPage from '@/pages/CreateGroupPage';
 import GroupDetailPage from '@/pages/GroupDetailPage';
 import AuthCallbackPage from '@/pages/AuthCallbackPage';
 import NotFoundPage from '@/pages/NotFoundPage';
+import AdminPanelPage from '@/pages/AdminPanelPage';
+import KYCVerificationPage from '@/pages/KYCVerificationPage';
+import TransactionsPage from '@/pages/TransactionsPage';
 
 function App() {
   return (
@@ -53,6 +56,30 @@ function App() {
               element={
                 <ProtectedRoute>
                   <GroupDetailPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/groups/:groupId/admin" 
+              element={
+                <ProtectedRoute>
+                  <AdminPanelPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/kyc-verification" 
+              element={
+                <ProtectedRoute>
+                  <KYCVerificationPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/transactions" 
+              element={
+                <ProtectedRoute>
+                  <TransactionsPage />
                 </ProtectedRoute>
               } 
             />
