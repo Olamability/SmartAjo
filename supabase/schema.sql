@@ -632,6 +632,15 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION is_group_member(p_user_id UUID, p_group_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+  -- Validate input parameters
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'p_user_id cannot be NULL';
+  END IF;
+  
+  IF p_group_id IS NULL THEN
+    RAISE EXCEPTION 'p_group_id cannot be NULL';
+  END IF;
+  
   RETURN EXISTS (
     SELECT 1 FROM group_members
     WHERE user_id = p_user_id
@@ -653,6 +662,15 @@ COMMENT ON FUNCTION is_group_member IS
 CREATE OR REPLACE FUNCTION is_group_creator(p_user_id UUID, p_group_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+  -- Validate input parameters
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'p_user_id cannot be NULL';
+  END IF;
+  
+  IF p_group_id IS NULL THEN
+    RAISE EXCEPTION 'p_group_id cannot be NULL';
+  END IF;
+  
   RETURN EXISTS (
     SELECT 1 FROM group_members
     WHERE user_id = p_user_id
@@ -862,11 +880,7 @@ CREATE POLICY contributions_select_own_groups ON contributions
   FOR SELECT
   USING (
     auth.uid() = user_id OR
-    EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = contributions.group_id 
-        AND gm.user_id = auth.uid()
-    )
+    is_group_member(auth.uid(), contributions.group_id)
   );
 
 -- Users can create their own contributions
@@ -899,11 +913,7 @@ CREATE POLICY payouts_select_own_groups ON payouts
   FOR SELECT
   USING (
     auth.uid() = recipient_id OR
-    EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = payouts.related_group_id 
-        AND gm.user_id = auth.uid()
-    )
+    is_group_member(auth.uid(), payouts.related_group_id)
   );
 
 -- Service role can do anything
@@ -925,11 +935,7 @@ CREATE POLICY penalties_select_own ON penalties
   FOR SELECT
   USING (
     auth.uid() = user_id OR
-    EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = penalties.group_id 
-        AND gm.user_id = auth.uid()
-    )
+    is_group_member(auth.uid(), penalties.group_id)
   );
 
 -- Service role can do anything

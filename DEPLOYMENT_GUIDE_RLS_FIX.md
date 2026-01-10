@@ -44,6 +44,15 @@ If you prefer to apply only the changes:
 CREATE OR REPLACE FUNCTION is_group_member(p_user_id UUID, p_group_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+  -- Validate input parameters
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'p_user_id cannot be NULL';
+  END IF;
+  
+  IF p_group_id IS NULL THEN
+    RAISE EXCEPTION 'p_group_id cannot be NULL';
+  END IF;
+  
   RETURN EXISTS (
     SELECT 1 FROM group_members
     WHERE user_id = p_user_id
@@ -60,6 +69,15 @@ COMMENT ON FUNCTION is_group_member IS
 CREATE OR REPLACE FUNCTION is_group_creator(p_user_id UUID, p_group_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+  -- Validate input parameters
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'p_user_id cannot be NULL';
+  END IF;
+  
+  IF p_group_id IS NULL THEN
+    RAISE EXCEPTION 'p_group_id cannot be NULL';
+  END IF;
+  
   RETURN EXISTS (
     SELECT 1 FROM group_members
     WHERE user_id = p_user_id
@@ -89,31 +107,55 @@ CREATE POLICY group_members_select_own_groups ON group_members
   );
 ```
 
-3. **Update the groups policy:**
+3. **Update the groups policies:**
 ```sql
--- Drop old policy
+-- Drop old policies
 DROP POLICY IF EXISTS groups_select_public ON groups;
+DROP POLICY IF EXISTS groups_update_creator ON groups;
 
--- Create new policy using the helper function
+-- Create new policies using the helper functions
 CREATE POLICY groups_select_public ON groups
   FOR SELECT
   USING (
     status IN ('forming', 'active') OR
     is_group_member(auth.uid(), groups.id)
   );
-```
 
-4. **Update the groups update policy:**
-```sql
--- Drop old policy
-DROP POLICY IF EXISTS groups_update_creator ON groups;
-
--- Create new policy using both helper functions
 CREATE POLICY groups_update_creator ON groups
   FOR UPDATE
   USING (
     auth.uid() = created_by OR
     is_group_creator(auth.uid(), groups.id)
+  );
+```
+
+4. **Update contributions, payouts, and penalties policies (for consistency):**
+```sql
+-- Update contributions policy
+DROP POLICY IF EXISTS contributions_select_own_groups ON contributions;
+CREATE POLICY contributions_select_own_groups ON contributions
+  FOR SELECT
+  USING (
+    auth.uid() = user_id OR
+    is_group_member(auth.uid(), contributions.group_id)
+  );
+
+-- Update payouts policy
+DROP POLICY IF EXISTS payouts_select_own_groups ON payouts;
+CREATE POLICY payouts_select_own_groups ON payouts
+  FOR SELECT
+  USING (
+    auth.uid() = recipient_id OR
+    is_group_member(auth.uid(), payouts.related_group_id)
+  );
+
+-- Update penalties policy
+DROP POLICY IF EXISTS penalties_select_own ON penalties;
+CREATE POLICY penalties_select_own ON penalties
+  FOR SELECT
+  USING (
+    auth.uid() = user_id OR
+    is_group_member(auth.uid(), penalties.group_id)
   );
 ```
 
@@ -155,12 +197,16 @@ After deployment, monitor for:
    - `is_group_creator()`: Checks if user is the creator of a group
    - Both use `SECURITY DEFINER` to bypass RLS
    - Both marked as `STABLE` for query optimization
+   - Both include NULL parameter validation for security
    - Simple EXISTS queries that don't trigger RLS policies
 
 2. **Updated Policies:**
    - `group_members_select_own_groups`: Uses `is_group_member()` instead of recursive subquery
-   - `groups_select_public`: Uses `is_group_member()` for consistency
-   - `groups_update_creator`: Uses `is_group_creator()` to fully eliminate direct table access in policies
+   - `groups_select_public`: Uses `is_group_member()` for membership check
+   - `groups_update_creator`: Uses `is_group_creator()` to fully eliminate direct table access
+   - `contributions_select_own_groups`: Uses `is_group_member()` for consistency
+   - `payouts_select_own_groups`: Uses `is_group_member()` for consistency
+   - `penalties_select_own`: Uses `is_group_member()` for consistency
 
 ### Why This Works
 
