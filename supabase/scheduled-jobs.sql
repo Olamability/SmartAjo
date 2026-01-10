@@ -167,7 +167,7 @@ SELECT cron.schedule(
       NULL,
       'system_stats',
       'platform',
-      gen_random_uuid()::text,
+      gen_random_uuid(),
       jsonb_build_object(
         'date', CURRENT_DATE,
         'total_users', (SELECT COUNT(*) FROM users),
