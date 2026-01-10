@@ -32,7 +32,7 @@ NEW.id::uuid,
 ```
 
 ### Option 3: Recreate audit_logs Table (If Column Type is Wrong)
-If the migration fails or you have an older database where resource_id was created as TEXT, recreate the table:
+If you have an older database where resource_id was created as TEXT, recreate the table:
 
 ```sql
 -- Backup existing data (if needed)
@@ -45,13 +45,13 @@ DROP TABLE audit_logs CASCADE;
 -- (Lines 406-424 in schema.sql)
 ```
 
-### Option 3: Fresh Database Setup
+### Option 4: Fresh Database Setup
 If you're okay losing data, the cleanest solution is:
 
 1. Delete all tables in your Supabase project
 2. Run `supabase/schema.sql` in SQL Editor
 3. Run `supabase/functions.sql`
-4. Run `supabase/triggers.sql`
+4. Run `supabase/triggers.sql` (with the updated UUID casting)
 5. Run `supabase/views.sql`
 6. Run `supabase/storage.sql`
 7. Run `supabase/realtime.sql`
