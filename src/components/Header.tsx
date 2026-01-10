@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Shield, LogOut, User, Menu, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,6 +18,28 @@ const Header = () => {
   const location = useLocation();
   const isLandingPage = location.pathname === '/';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Close mobile menu on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    if (isMobileMenuOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Prevent body scroll when menu is open using CSS class
+      document.body.classList.add('overflow-hidden');
+    } else {
+      document.body.classList.remove('overflow-hidden');
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, [isMobileMenuOpen]);
 
   const handleLogout = async () => {
     await authLogout();

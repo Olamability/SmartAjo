@@ -5,6 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Shield, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
+// Constants for better maintainability
+const SUPABASE_SESSION_DELAY = 1000; // Wait time for Supabase to process confirmation
+const REDIRECT_DELAY = 2000; // Delay before redirecting after success
+
 export default function AuthCallbackPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -20,14 +24,18 @@ export default function AuthCallbackPage() {
         const accessToken = hashParams.get('access_token');
         const type = hashParams.get('type');
         
-        console.log('Auth callback - type:', type, 'has access token:', !!accessToken);
+        if (import.meta.env.DEV) {
+          console.log('Auth callback - type:', type, 'has access token:', !!accessToken);
+        }
 
         if (type === 'signup' && accessToken) {
           // Email confirmation successful
-          console.log('Email confirmation detected, verifying session...');
+          if (import.meta.env.DEV) {
+            console.log('Email confirmation detected, verifying session...');
+          }
           
           // Wait a moment for Supabase to process the confirmation
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          await new Promise(resolve => setTimeout(resolve, SUPABASE_SESSION_DELAY));
           
           // Check if we have a valid session
           const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -38,27 +46,35 @@ export default function AuthCallbackPage() {
           }
 
           if (session) {
-            console.log('Session confirmed, email verified successfully');
+            if (import.meta.env.DEV) {
+              console.log('Session confirmed, email verified successfully');
+            }
             setStatus('success');
             
             // Redirect to dashboard after a short delay
             setTimeout(() => {
               navigate('/dashboard', { replace: true });
-            }, 2000);
+            }, REDIRECT_DELAY);
           } else {
-            console.log('No session found, redirecting to login');
+            if (import.meta.env.DEV) {
+              console.log('No session found, redirecting to login');
+            }
             setStatus('success');
             setTimeout(() => {
               navigate('/login', { replace: true });
-            }, 2000);
+            }, REDIRECT_DELAY);
           }
         } else if (type === 'recovery') {
           // Password recovery flow
-          console.log('Password recovery detected');
+          if (import.meta.env.DEV) {
+            console.log('Password recovery detected');
+          }
           navigate('/reset-password', { replace: true });
         } else {
           // No valid confirmation token
-          console.log('No valid confirmation parameters found');
+          if (import.meta.env.DEV) {
+            console.log('No valid confirmation parameters found');
+          }
           throw new Error('Invalid confirmation link. Please try signing up again.');
         }
       } catch (error) {
