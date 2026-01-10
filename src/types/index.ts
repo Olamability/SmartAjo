@@ -8,7 +8,7 @@ export interface User {
   createdAt: string;
   isVerified: boolean;
   isActive?: boolean;
-  kycStatus: 'not_started' | 'pending' | 'verified' | 'rejected';
+  kycStatus: 'not_started' | 'pending' | 'verified' | 'rejected'; // 'verified' in app, 'approved' in DB
   kycData?: Record<string, string | number | boolean | null>;
   bvn?: string;
   profileImage?: string;
@@ -48,7 +48,7 @@ export interface GroupMember {
   rotationPosition: number;
   securityDepositPaid: boolean;
   securityDepositAmount: number;
-  status: 'active' | 'defaulted' | 'removed';
+  status: 'pending' | 'active' | 'suspended' | 'removed'; // Match database schema
   totalContributions: number;
   totalPenalties: number;
   hasReceivedPayout: boolean;
@@ -62,7 +62,7 @@ export interface Contribution {
   userId: string;
   amount: number;
   cycleNumber: number;
-  status: 'pending' | 'paid' | 'late' | 'missed';
+  status: 'pending' | 'paid' | 'overdue' | 'waived'; // Match database schema
   dueDate: string;
   paidDate?: string;
   penalty: number;
@@ -94,7 +94,7 @@ export interface Transaction {
   groupId: string;
   type: 'contribution' | 'payout' | 'security_deposit' | 'penalty' | 'refund';
   amount: number;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'; // Match database schema
   date: string;
   description: string;
   reference: string;
@@ -107,7 +107,7 @@ export interface Penalty {
   contributionId: string;
   amount: number;
   type: 'late_payment' | 'missed_payment' | 'early_exit'; // SQL: type field
-  status: 'unpaid' | 'paid' | 'waived';
+  status: 'applied' | 'paid' | 'waived'; // Match database schema
   appliedAt: string;
 }
 
