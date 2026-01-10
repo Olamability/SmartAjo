@@ -3,6 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getUserStats, getUserGroups, getUserTransactions } from '@/api';
 import type { UserStats } from '@/api/stats';
 import type { Group, Transaction } from '@/types';
+import NotificationCenter from '@/components/NotificationCenter';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -295,6 +296,11 @@ export default function DashboardPage() {
                   )}
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Notifications Section */}
+            <div className="mt-6">
+              <NotificationCenter />
             </div>
 
             {/* Action Cards */}
