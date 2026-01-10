@@ -785,13 +785,24 @@ CREATE POLICY groups_service_role_all ON groups
 -- ============================================================================
 
 -- Users can view members of groups they're in
+-- Fixed: Avoid infinite recursion by checking through user_id or groups table
 CREATE POLICY group_members_select_own_groups ON group_members
   FOR SELECT
   USING (
+    -- User can see their own membership
+    auth.uid() = user_id
+    OR
+    -- User can see members of groups they can access (leverages groups RLS policy)
     EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = group_members.group_id 
-        AND gm.user_id = auth.uid()
+      SELECT 1 FROM groups g
+      WHERE g.id = group_members.group_id
+        AND (
+          -- Groups the user created
+          g.created_by = auth.uid()
+          OR
+          -- Public groups (forming/active)
+          g.status IN ('forming', 'active')
+        )
     )
   );
 
@@ -821,14 +832,22 @@ CREATE POLICY group_members_service_role_all ON group_members
 -- ============================================================================
 
 -- Users can view contributions for groups they're in
+-- Fixed: Use groups table to avoid potential recursion issues
 CREATE POLICY contributions_select_own_groups ON contributions
   FOR SELECT
   USING (
     auth.uid() = user_id OR
     EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = contributions.group_id 
-        AND gm.user_id = auth.uid()
+      SELECT 1 FROM groups g
+      WHERE g.id = contributions.group_id
+        AND (
+          g.created_by = auth.uid()
+          OR EXISTS (
+            SELECT 1 FROM group_members gm
+            WHERE gm.group_id = g.id
+              AND gm.user_id = auth.uid()
+          )
+        )
     )
   );
 
@@ -858,14 +877,22 @@ CREATE POLICY contributions_service_role_all ON contributions
 -- ============================================================================
 
 -- Users can view payouts for groups they're in
+-- Fixed: Use groups table to avoid potential recursion issues
 CREATE POLICY payouts_select_own_groups ON payouts
   FOR SELECT
   USING (
     auth.uid() = recipient_id OR
     EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = payouts.related_group_id 
-        AND gm.user_id = auth.uid()
+      SELECT 1 FROM groups g
+      WHERE g.id = payouts.related_group_id
+        AND (
+          g.created_by = auth.uid()
+          OR EXISTS (
+            SELECT 1 FROM group_members gm
+            WHERE gm.group_id = g.id
+              AND gm.user_id = auth.uid()
+          )
+        )
     )
   );
 
@@ -884,14 +911,22 @@ CREATE POLICY payouts_service_role_all ON payouts
 -- ============================================================================
 
 -- Users can view their own penalties or penalties in their groups
+-- Fixed: Use groups table to avoid potential recursion issues
 CREATE POLICY penalties_select_own ON penalties
   FOR SELECT
   USING (
     auth.uid() = user_id OR
     EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = penalties.group_id 
-        AND gm.user_id = auth.uid()
+      SELECT 1 FROM groups g
+      WHERE g.id = penalties.group_id
+        AND (
+          g.created_by = auth.uid()
+          OR EXISTS (
+            SELECT 1 FROM group_members gm
+            WHERE gm.group_id = g.id
+              AND gm.user_id = auth.uid()
+          )
+        )
     )
   );
 
