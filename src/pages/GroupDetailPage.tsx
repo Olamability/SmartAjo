@@ -4,6 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { getGroupById, getGroupMembers, updateSecurityDepositPayment } from '@/api';
 import type { Group, GroupMember } from '@/types';
 import { paystackService, PaystackResponse } from '@/lib/paystack';
+import ContributionsList from '@/components/ContributionsList';
+import PayoutSchedule from '@/components/PayoutSchedule';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -550,56 +552,47 @@ export default function GroupDetailPage() {
 
           {/* Contributions Tab */}
           <TabsContent value="contributions" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contribution History</CardTitle>
-                <CardDescription>
-                  Track all contributions for this group
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {group.status === 'forming' ? (
-                  <div className="text-center py-8">
+            {group.status === 'forming' ? (
+              <Card>
+                <CardContent className="py-12">
+                  <div className="text-center">
                     <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                     <p className="text-muted-foreground">
                       Contributions will start once the group is activated
                     </p>
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <DollarSign className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground">No contributions yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : (
+              <ContributionsList
+                groupId={group.id}
+                groupName={group.name}
+                contributionAmount={group.contributionAmount}
+              />
+            )}
           </TabsContent>
 
           {/* Payouts Tab */}
           <TabsContent value="payouts" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Payout Schedule</CardTitle>
-                <CardDescription>
-                  View rotation order and payout history
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {group.status === 'forming' ? (
-                  <div className="text-center py-8">
+            {group.status === 'forming' ? (
+              <Card>
+                <CardContent className="py-12">
+                  <div className="text-center">
                     <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                     <p className="text-muted-foreground">
                       Payout schedule will be available once the group is activated
                     </p>
                   </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground">No payouts yet</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : (
+              <PayoutSchedule
+                groupId={group.id}
+                currentCycle={group.currentCycle}
+                totalCycles={group.totalCycles}
+                netPayoutAmount={calculateNetPayout()}
+              />
+            )}
           </TabsContent>
         </Tabs>
       </div>
