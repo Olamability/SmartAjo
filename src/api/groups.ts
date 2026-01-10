@@ -234,7 +234,7 @@ export const joinGroup = async (
     // Check if group is still accepting members
     const { data: group, error: groupError } = await supabase
       .from('groups')
-      .select('status, total_members, current_members')
+      .select('status, total_members, current_members, security_deposit_amount')
       .eq('id', groupId)
       .single();
 
@@ -250,12 +250,25 @@ export const joinGroup = async (
       return { success: false, error: 'Group is full' };
     }
 
+    // Get the next position (max position + 1)
+    const { data: maxPositionData } = await supabase
+      .from('group_members')
+      .select('position')
+      .eq('group_id', groupId)
+      .order('position', { ascending: false })
+      .limit(1)
+      .single();
+
+    const nextPosition = maxPositionData ? maxPositionData.position + 1 : 1;
+
     // Add user to group
     const { error } = await supabase.from('group_members').insert({
       group_id: groupId,
       user_id: user.id,
+      position: nextPosition,
       status: 'active',
-      security_deposit_paid: false,
+      has_paid_security_deposit: false,
+      security_deposit_amount: group.security_deposit_amount,
     });
 
     if (error) {
