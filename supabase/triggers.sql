@@ -73,7 +73,7 @@ BEGIN
       NEW.user_id,
       'contribution_paid',
       'contribution',
-      NEW.id,
+      NEW.id::uuid,
       jsonb_build_object(
         'group_id', NEW.group_id,
         'cycle_number', NEW.cycle_number,
@@ -175,7 +175,7 @@ BEGIN
       NEW.recipient_id,
       'payout_completed',
       'payout',
-      NEW.id,
+      NEW.id::uuid,
       jsonb_build_object(
         'group_id', NEW.related_group_id,
         'cycle_number', NEW.cycle_number,
@@ -255,7 +255,7 @@ BEGIN
     NEW.user_id,
     'penalty_applied',
     'penalty',
-    NEW.id,
+    NEW.id::uuid,
     jsonb_build_object(
       'group_id', NEW.group_id,
       'amount', NEW.amount,
@@ -339,7 +339,7 @@ BEGIN
     NEW.user_id,
     'group_joined',
     'group_member',
-    NEW.id,
+    NEW.id::uuid,
     jsonb_build_object(
       'group_id', NEW.group_id,
       'position', NEW.position
@@ -408,7 +408,7 @@ BEGIN
       NEW.created_by,
       'group_status_changed',
       'group',
-      NEW.id,
+      NEW.id::uuid,
       jsonb_build_object(
         'old_status', OLD.status,
         'new_status', NEW.status
