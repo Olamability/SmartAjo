@@ -71,7 +71,7 @@ SELECT
   -- Financial summary
   COALESCE(SUM(CASE WHEN c.status = 'paid' THEN c.amount ELSE 0 END), 0) AS total_contributed,
   COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0) AS total_received,
-  COALESCE(SUM(CASE WHEN pen.status = 'unpaid' THEN pen.amount ELSE 0 END), 0) AS pending_penalties,
+  COALESCE(SUM(CASE WHEN pen.status = 'applied' THEN pen.amount ELSE 0 END), 0) AS pending_penalties,
   -- Pending contributions
   COUNT(CASE 
     WHEN c.status = 'pending' AND c.due_date >= NOW() 
@@ -346,7 +346,7 @@ SELECT
   COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0) AS total_payouts_disbursed,
   COUNT(CASE WHEN p.status = 'completed' THEN 1 END) AS total_payouts_completed,
   -- Penalties
-  COALESCE(SUM(CASE WHEN pen.status = 'unpaid' THEN pen.amount ELSE 0 END), 0) AS total_penalties_applied,
+  COALESCE(SUM(CASE WHEN pen.status = 'applied' THEN pen.amount ELSE 0 END), 0) AS total_penalties_applied,
   COALESCE(SUM(CASE WHEN pen.status = 'paid' THEN pen.amount ELSE 0 END), 0) AS total_penalties_collected,
   -- Expected totals
   (g.contribution_amount * g.total_members * g.current_cycle) AS expected_total_contributions,
