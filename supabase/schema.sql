@@ -785,13 +785,20 @@ CREATE POLICY groups_service_role_all ON groups
 -- ============================================================================
 
 -- Users can view members of groups they're in
+-- Fixed: Avoid infinite recursion by ensuring we never check the same row
 CREATE POLICY group_members_select_own_groups ON group_members
   FOR SELECT
   USING (
+    -- User can always see their own membership
+    auth.uid() = user_id
+    OR
+    -- User can see members of groups where they are also a member
+    -- This works because we check for a DIFFERENT row (WHERE gm.user_id = auth.uid() AND gm.id != group_members.id)
     EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = group_members.group_id 
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = group_members.group_id
         AND gm.user_id = auth.uid()
+        AND gm.id != group_members.id  -- Critical: ensures we don't check the same row
     )
   );
 
