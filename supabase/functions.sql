@@ -8,6 +8,24 @@
 -- ============================================================================
 
 -- ============================================================================
+-- FUNCTION: update_updated_at_column
+-- ============================================================================
+-- Trigger function to automatically update updated_at timestamp
+-- Used across multiple tables to track when records are modified
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION update_updated_at_column IS 
+  'Trigger function that automatically updates the updated_at column to current timestamp';
+
+-- ============================================================================
 -- FUNCTION: create_user_profile_atomic
 -- ============================================================================
 -- Atomically creates a user profile in the users table
@@ -47,6 +65,73 @@ COMMENT ON FUNCTION create_user_profile_atomic IS
 
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION create_user_profile_atomic TO authenticated;
+
+-- ============================================================================
+-- FUNCTION: create_user_profile
+-- ============================================================================
+-- Creates a user profile in the users table with input validation
+-- Alternative to create_user_profile_atomic for simpler use cases
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION create_user_profile(
+  p_user_id UUID,
+  p_email VARCHAR(255),
+  p_phone VARCHAR(20),
+  p_full_name VARCHAR(255)
+)
+RETURNS UUID AS $$
+BEGIN
+  -- Input validation
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'user_id cannot be NULL';
+  END IF;
+  
+  IF p_email IS NULL OR p_email = '' THEN
+    RAISE EXCEPTION 'email cannot be NULL or empty';
+  END IF;
+  
+  IF p_email !~ '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$' THEN
+    RAISE EXCEPTION 'Invalid email format: %', p_email;
+  END IF;
+  
+  IF p_phone IS NULL OR p_phone = '' THEN
+    RAISE EXCEPTION 'phone cannot be NULL or empty';
+  END IF;
+  
+  IF p_full_name IS NULL OR p_full_name = '' THEN
+    RAISE EXCEPTION 'full_name cannot be NULL or empty';
+  END IF;
+
+  INSERT INTO public.users (
+    id,
+    email,
+    phone,
+    full_name,
+    is_verified,
+    is_active,
+    kyc_status
+  ) VALUES (
+    p_user_id,
+    p_email,
+    p_phone,
+    p_full_name,
+    FALSE,
+    TRUE,
+    'not_started'
+  )
+  ON CONFLICT (id) DO NOTHING;
+  
+  RETURN p_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMENT ON FUNCTION create_user_profile IS 
+  'Creates a user profile in public.users with input validation. 
+   Called from client-side during signup.
+   Note: Cannot use trigger on auth.users in Supabase due to permission restrictions.';
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION create_user_profile TO authenticated;
 
 -- ============================================================================
 -- FUNCTION: calculate_next_payout_recipient
@@ -789,6 +874,87 @@ $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION send_payment_reminders IS
 'Sends payment reminder notifications for upcoming and overdue payments';
+
+-- ============================================================================
+-- FUNCTION: get_user_stats
+-- ============================================================================
+-- Returns comprehensive statistics for a user
+-- Includes group memberships, contributions, payouts, and pending items
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION get_user_stats(p_user_id UUID)
+RETURNS TABLE (
+  total_groups INTEGER,
+  active_groups INTEGER,
+  completed_groups INTEGER,
+  total_contributions DECIMAL,
+  total_payouts DECIMAL,
+  pending_contributions INTEGER,
+  overdue_contributions INTEGER
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    COUNT(DISTINCT gm.group_id)::INTEGER AS total_groups,
+    COUNT(DISTINCT CASE WHEN g.status = 'active' THEN g.id END)::INTEGER AS active_groups,
+    COUNT(DISTINCT CASE WHEN g.status = 'completed' THEN g.id END)::INTEGER AS completed_groups,
+    COALESCE(SUM(CASE WHEN c.status = 'paid' THEN c.amount ELSE 0 END), 0) AS total_contributions,
+    COALESCE(SUM(p.amount), 0) AS total_payouts,
+    COUNT(CASE WHEN c.status = 'pending' AND c.due_date >= NOW() THEN 1 END)::INTEGER AS pending_contributions,
+    COUNT(CASE WHEN c.status = 'pending' AND c.due_date < NOW() THEN 1 END)::INTEGER AS overdue_contributions
+  FROM users u
+  LEFT JOIN group_members gm ON u.id = gm.user_id
+  LEFT JOIN groups g ON gm.group_id = g.id
+  LEFT JOIN contributions c ON u.id = c.user_id
+  LEFT JOIN payouts p ON u.id = p.recipient_id AND p.status = 'completed'
+  WHERE u.id = p_user_id
+  GROUP BY u.id;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION get_user_stats IS 
+  'Returns comprehensive statistics for a user including groups, contributions, and payouts';
+
+-- ============================================================================
+-- FUNCTION: get_group_progress
+-- ============================================================================
+-- Returns detailed progress information for a group's current cycle
+-- Shows contribution status, amounts collected, and completion percentage
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION get_group_progress(p_group_id UUID)
+RETURNS TABLE (
+  cycle_number INTEGER,
+  total_members INTEGER,
+  paid_count INTEGER,
+  pending_count INTEGER,
+  total_amount DECIMAL,
+  collected_amount DECIMAL,
+  progress_percentage DECIMAL
+) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    g.current_cycle,
+    g.total_members,
+    COUNT(CASE WHEN c.status = 'paid' THEN 1 END)::INTEGER AS paid_count,
+    COUNT(CASE WHEN c.status = 'pending' THEN 1 END)::INTEGER AS pending_count,
+    (g.contribution_amount * g.total_members) AS total_amount,
+    COALESCE(SUM(CASE WHEN c.status = 'paid' THEN c.amount ELSE 0 END), 0) AS collected_amount,
+    ROUND(
+      (COALESCE(SUM(CASE WHEN c.status = 'paid' THEN c.amount ELSE 0 END), 0) / 
+       NULLIF(g.contribution_amount * g.total_members, 0) * 100),
+      2
+    ) AS progress_percentage
+  FROM groups g
+  LEFT JOIN contributions c ON g.id = c.group_id AND c.cycle_number = g.current_cycle
+  WHERE g.id = p_group_id
+  GROUP BY g.id, g.current_cycle, g.total_members, g.contribution_amount;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION get_group_progress IS 
+  'Returns detailed progress information for a groups current cycle';
 
 -- ============================================================================
 -- END OF FUNCTIONS
