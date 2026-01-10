@@ -432,9 +432,13 @@ export default function GroupDetailPage() {
                 <CardContent className="space-y-3">
                   <div className="flex items-start gap-3">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                      group.currentMembers === group.totalMembers ? 'bg-green-500' : 'bg-yellow-500'
+                      group.currentMembers === group.totalMembers ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'
                     }`}>
-                      {group.currentMembers === group.totalMembers ? '✓' : '•'}
+                      {group.currentMembers === group.totalMembers ? (
+                        <CheckCircle className="w-4 h-4" />
+                      ) : (
+                        <Clock className="w-4 h-4" />
+                      )}
                     </div>
                     <div className="flex-1">
                       <p className="font-medium">Fill all member positions</p>
@@ -444,8 +448,8 @@ export default function GroupDetailPage() {
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-gray-300">
-                      •
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-gray-300 text-gray-600">
+                      <Clock className="w-4 h-4" />
                     </div>
                     <div className="flex-1">
                       <p className="font-medium">All members pay security deposit</p>
@@ -455,8 +459,8 @@ export default function GroupDetailPage() {
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-gray-300">
-                      •
+                    <div className="w-6 h-6 rounded-full flex items-center justify-center bg-gray-300 text-gray-600">
+                      <Calendar className="w-4 h-4" />
                     </div>
                     <div className="flex-1">
                       <p className="font-medium">Activate the group</p>

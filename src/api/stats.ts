@@ -47,15 +47,26 @@ export const getUserStats = async (): Promise<{
     const activeGroups = groupsData?.filter((gm: any) => gm.groups?.status === 'active').length || 0;
     const completedGroups = groupsData?.filter((gm: any) => gm.groups?.status === 'completed').length || 0;
 
-    // Get contributions stats
+    // Get contributions stats - use single pass for efficiency
     const { data: contributionsData } = await supabase
       .from('contributions')
       .select('status, amount, due_date')
       .eq('user_id', user.id);
 
-    const totalContributions = contributionsData?.filter(c => c.status === 'paid').length || 0;
-    const pendingContributions = contributionsData?.filter(c => c.status === 'pending' && new Date(c.due_date) >= new Date()).length || 0;
-    const overdueContributions = contributionsData?.filter(c => c.status === 'pending' && new Date(c.due_date) < new Date()).length || 0;
+    // Calculate all stats in a single pass
+    const now = new Date();
+    const contribStats = (contributionsData || []).reduce((acc, c) => {
+      if (c.status === 'paid') {
+        acc.totalContributions++;
+      } else if (c.status === 'pending') {
+        if (new Date(c.due_date) >= now) {
+          acc.pendingContributions++;
+        } else {
+          acc.overdueContributions++;
+        }
+      }
+      return acc;
+    }, { totalContributions: 0, pendingContributions: 0, overdueContributions: 0 });
 
     // Get payouts stats
     const { data: payoutsData } = await supabase
@@ -70,10 +81,10 @@ export const getUserStats = async (): Promise<{
       totalGroups,
       activeGroups,
       completedGroups,
-      totalContributions,
+      totalContributions: contribStats.totalContributions,
       totalPayouts,
-      pendingContributions,
-      overdueContributions,
+      pendingContributions: contribStats.pendingContributions,
+      overdueContributions: contribStats.overdueContributions,
       upcomingPayouts,
     };
 

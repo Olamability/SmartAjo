@@ -21,7 +21,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Check, Loader2, Trash2, CheckCheck } from 'lucide-react';
+import { Bell, CheckCircle, Loader2, CheckCheck, Clock, TrendingUp, AlertCircle, Users, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -110,7 +110,25 @@ export default function NotificationCenter() {
   };
 
   const getNotificationIcon = (type: string) => {
-    return <Bell className="w-4 h-4" />;
+    switch (type) {
+      case 'contribution_due':
+      case 'contribution_reminder':
+        return <Clock className="w-4 h-4" />;
+      case 'contribution_paid':
+        return <CheckCircle className="w-4 h-4" />;
+      case 'payout_received':
+        return <TrendingUp className="w-4 h-4" />;
+      case 'penalty_applied':
+        return <AlertCircle className="w-4 h-4" />;
+      case 'group_activated':
+      case 'group_completed':
+      case 'member_joined':
+        return <Users className="w-4 h-4" />;
+      case 'security_deposit_required':
+        return <Shield className="w-4 h-4" />;
+      default:
+        return <Bell className="w-4 h-4" />;
+    }
   };
 
   const formatTime = (dateString: string) => {

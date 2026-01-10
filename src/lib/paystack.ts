@@ -73,12 +73,15 @@ class PaystackService {
   }
 
   /**
-   * Generate a unique payment reference
+   * Generate a unique payment reference using crypto API
    */
   generateReference(prefix: string = 'PAY'): string {
     const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000000);
-    return `${prefix}_${timestamp}_${random}`;
+    // Use crypto.getRandomValues for better randomness
+    const randomBytes = new Uint32Array(2);
+    crypto.getRandomValues(randomBytes);
+    const random = Array.from(randomBytes, num => num.toString(36)).join('');
+    return `${prefix}_${timestamp}_${random}`.toUpperCase();
   }
 
   /**
