@@ -44,7 +44,7 @@ export const createGroup = async (
         security_deposit_percentage: data.securityDepositPercentage,
         status: 'forming',
         start_date: data.startDate,
-        current_cycle: 0,
+        current_cycle: 1,
         total_cycles: data.totalMembers,
       })
       .select()
