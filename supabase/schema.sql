@@ -624,6 +624,27 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
+-- FUNCTION: Check if user is member of a group (bypasses RLS)
+-- ============================================================================
+-- This function is used by RLS policies to avoid infinite recursion
+-- when checking group membership
+
+CREATE OR REPLACE FUNCTION is_group_member(p_user_id UUID, p_group_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM group_members
+    WHERE user_id = p_user_id
+      AND group_id = p_group_id
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+COMMENT ON FUNCTION is_group_member IS 
+  'Checks if a user is a member of a group. 
+   Uses SECURITY DEFINER to bypass RLS and avoid infinite recursion in policies.';
+
+-- ============================================================================
 -- FUNCTION: Get group progress
 -- ============================================================================
 
@@ -745,11 +766,7 @@ CREATE POLICY groups_select_public ON groups
   FOR SELECT
   USING (
     status IN ('forming', 'active') OR
-    EXISTS (
-      SELECT 1 FROM group_members
-      WHERE group_members.group_id = groups.id
-        AND group_members.user_id = auth.uid()
-    )
+    is_group_member(auth.uid(), groups.id)
   );
 
 -- Authenticated users can create groups
@@ -762,12 +779,13 @@ CREATE POLICY groups_update_creator ON groups
   FOR UPDATE
   USING (
     auth.uid() = created_by OR
-    EXISTS (
-      SELECT 1 FROM group_members
-      WHERE group_members.group_id = groups.id
-        AND group_members.user_id = auth.uid()
-        AND group_members.is_creator = true
-    )
+    (is_group_member(auth.uid(), groups.id) AND
+     EXISTS (
+       SELECT 1 FROM group_members
+       WHERE group_members.group_id = groups.id
+         AND group_members.user_id = auth.uid()
+         AND group_members.is_creator = true
+     ))
   );
 
 -- Service role can do anything
@@ -785,7 +803,7 @@ CREATE POLICY groups_service_role_all ON groups
 -- ============================================================================
 
 -- Users can view members of groups they're in
--- Fixed: Avoid infinite recursion by ensuring we never check the same row
+-- Fixed: Avoid infinite recursion by using a SECURITY DEFINER function
 CREATE POLICY group_members_select_own_groups ON group_members
   FOR SELECT
   USING (
@@ -793,13 +811,8 @@ CREATE POLICY group_members_select_own_groups ON group_members
     auth.uid() = user_id
     OR
     -- User can see members of groups where they are also a member
-    -- This works because we check for a DIFFERENT row (WHERE gm.user_id = auth.uid() AND gm.id != group_members.id)
-    EXISTS (
-      SELECT 1 FROM group_members gm
-      WHERE gm.group_id = group_members.group_id
-        AND gm.user_id = auth.uid()
-        AND gm.id != group_members.id  -- Critical: ensures we don't check the same row
-    )
+    -- Using is_group_member() function which bypasses RLS to avoid recursion
+    is_group_member(auth.uid(), group_members.group_id)
   );
 
 -- Users can join groups (insert their own membership)
