@@ -819,7 +819,8 @@ CREATE POLICY groups_service_role_all ON groups
 -- ============================================================================
 
 -- Users can view members of groups they're in
--- Fixed: Avoid infinite recursion by using a SECURITY DEFINER function
+-- Fixed infinite recursion: Uses SECURITY DEFINER functions that bypass RLS
+-- to check membership without triggering recursive policy evaluation
 CREATE POLICY group_members_select_own_groups ON group_members
   FOR SELECT
   USING (
@@ -827,7 +828,7 @@ CREATE POLICY group_members_select_own_groups ON group_members
     auth.uid() = user_id
     OR
     -- User can see members of groups where they are also a member
-    -- Using is_group_member() function which bypasses RLS to avoid recursion
+    -- is_group_member() uses SECURITY DEFINER to bypass RLS and prevent recursion
     is_group_member(auth.uid(), group_members.group_id)
   );
 

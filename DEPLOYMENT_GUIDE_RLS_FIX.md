@@ -176,13 +176,36 @@ After deployment, monitor for:
 
 ## Rollback Plan
 
-If issues occur after deployment, you can temporarily rollback (note: this restores the policy with the recursion bug, so it should only be used as a temporary measure while investigating):
+If issues occur after deployment:
 
-1. **Quick Rollback (WARNING: Restores the recursion bug):**
+### Important Note
+The original code had an infinite recursion bug. Rolling back will restore that bug, so rollback should only be a temporary emergency measure while you investigate and find a proper solution.
+
+### Option 1: Emergency RLS Disable (DANGEROUS - Use only as last resort)
+If the system is completely broken and you need immediate access:
 ```sql
--- TEMPORARY: This restores the old policy which has the infinite recursion issue
--- Only use this if the new fix causes unexpected problems
--- You will need to find an alternative solution as this policy has the original bug
+-- EMERGENCY ONLY: Temporarily disable RLS on group_members
+-- WARNING: This removes all access control - anyone can see all group members!
+-- Only use this for a few minutes while you restore from backup or fix the issue
+ALTER TABLE group_members DISABLE ROW LEVEL SECURITY;
+
+-- Remember to re-enable after fixing:
+ALTER TABLE group_members ENABLE ROW LEVEL SECURITY;
+```
+
+### Option 2: Restore from Backup (Recommended)
+- Go to Supabase Dashboard → Database → Backups
+- Look for the backup created before applying this fix (check the timestamp from Step 1)
+- Select the backup that matches the date/time just before you ran the SQL changes
+- Click "Restore" and confirm
+- Follow Supabase's restore process
+- **Important**: After restoring, you'll have the original recursion bug back. Users won't be able to access "My Groups" page. You'll need to find an alternative solution or re-apply a corrected version of this fix.
+
+### Option 3: Partial Rollback (Restores recursion bug)
+Only use this if you understand you're restoring broken functionality:
+```sql
+-- WARNING: This restores the policy that has the infinite recursion bug
+-- Users will get "infinite recursion detected" errors when viewing groups
 
 DROP POLICY IF EXISTS group_members_select_own_groups ON group_members;
 
@@ -200,10 +223,13 @@ CREATE POLICY group_members_select_own_groups ON group_members
   );
 ```
 
-2. **Restore from Backup:**
+2. **Restore from Backup (if needed):**
 - Go to Supabase Dashboard → Database → Backups
-- Select the backup created in Step 1
+- Look for the backup created before applying this fix (check the timestamp from Step 1)
+- Select the backup that matches the date/time just before you ran the SQL changes
+- Click "Restore" and confirm
 - Follow Supabase's restore process
+- Note: You'll need to find an alternative fix as restoring brings back the recursion bug
 
 ## Support
 
