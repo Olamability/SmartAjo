@@ -3,6 +3,7 @@ import {
   useContext,
   useEffect,
   useState,
+  useRef,
   ReactNode,
 } from 'react';
 import { createClient } from '@/lib/client/supabase';
@@ -70,14 +71,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const isLoadingProfileRef = useRef(false); // Prevent concurrent profile loads
+  const userRef = useRef<User | null>(null); // Track current user for login promise
+
+  // Keep userRef in sync with user state
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   /**
    * Load user profile from DB
    * Uses exponential backoff for transient errors (network, RLS propagation)
    * Immediately fails for non-transient errors
+   * Prevents concurrent loads using a ref flag
    */
   const loadUserProfile = async (userId: string): Promise<boolean> => {
+    // Prevent concurrent profile loads
+    if (isLoadingProfileRef.current) {
+      console.log(`loadUserProfile: Already loading profile, skipping duplicate request`);
+      return false;
+    }
+    
     try {
+      isLoadingProfileRef.current = true;
       console.log(`loadUserProfile: Loading profile for user: ${userId}`);
       
       // Verify we have an active session (no retry, should be ready)
@@ -153,6 +169,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.error('loadUserProfile: Error loading profile:', error);
       setUser(null);
       throw error;
+    } finally {
+      isLoadingProfileRef.current = false;
     }
   };
 
@@ -197,12 +215,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * LOGIN  
-   * Uses event-driven session handling via onAuthStateChange
-   * Immediately loads profile after authentication
+   * Authenticates user and waits for profile to be loaded
+   * Uses a promise-based approach to wait for onAuthStateChange to complete
    */
   const login = async (email: string, password: string) => {
     try {
       console.log('login: Starting login for:', email);
+      
+      // Create a promise that resolves when profile is loaded
+      const profileLoadedPromise = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Profile loading timed out after 10 seconds'));
+        }, 10000); // 10 second timeout
+        
+        // Set up a one-time listener for profile loading
+        const checkInterval = setInterval(() => {
+          if (userRef.current !== null) {
+            clearTimeout(timeout);
+            clearInterval(checkInterval);
+            resolve();
+          }
+        }, 100); // Check every 100ms
+      });
       
       const { error, data } = await supabase.auth.signInWithPassword({
         email,
@@ -218,41 +252,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Login failed: No user data returned');
       }
 
-      console.log('login: Auth successful, session established');
+      console.log('login: Auth successful, waiting for profile to load via auth state change...');
       
-      // Load profile immediately after successful auth
-      // The retry logic with exponential backoff will handle any session propagation delays
-      try {
-        await loadUserProfile(data.user.id);
-        console.log('login: Profile loaded successfully');
-      } catch (profileError) {
-        console.error('login: Profile loading failed:', profileError);
-        reportError(profileError, {
-          operation: 'load_profile_after_login',
-          userId: data.user.id,
-        });
-        
-        // If profile doesn't exist, try to create it atomically
-        try {
-          console.log('login: Attempting to create missing profile');
-          await createUserProfileViaRPC(data.user);
-          
-          // Try loading again
-          await loadUserProfile(data.user.id);
-          console.log('login: Profile loaded successfully after creation');
-        } catch (createError) {
-          console.error('login: Failed to create/load profile:', createError);
-          reportError(createError, {
-            operation: 'create_missing_profile',
-            userId: data.user.id,
-          });
-          
-          // Sign out to prevent broken state
-          await supabase.auth.signOut();
-          
-          throw new Error('Unable to access your account. Please contact support or try signing up again.');
-        }
-      }
+      // Wait for the profile to be loaded by onAuthStateChange
+      await profileLoadedPromise;
+      
+      console.log('login: Profile loaded, login complete');
+      
     } catch (error) {
       console.error('login: Login failed:', error);
       reportError(error, {
@@ -265,7 +271,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * SIGN UP
-   * Uses atomic profile creation - no delays or retries needed
+   * Creates auth user and profile, lets onAuthStateChange handle session
    */
   const signUp = async ({
     email,
@@ -314,7 +320,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log('signUp: User profile created successfully');
       } catch (profileCreationError) {
         console.error('signUp: Failed to create user profile:', profileCreationError);
-        // Log only user ID for privacy, not email
         console.error('signUp: Profile creation error for user:', data.user.id);
         
         // If profile creation fails, clean up the auth user
@@ -336,19 +341,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('CONFIRMATION_REQUIRED:Please check your email to confirm your account before signing in.');
       }
 
-      // Load the user profile only if we have an active session
-      if (data.session) {
-        try {
-          console.log('signUp: Loading user profile after signup');
-          await loadUserProfile(data.user.id);
-          console.log('User profile loaded successfully after signup');
-        } catch (profileError) {
-          console.error('Failed to load profile after signup:', profileError);
-          // If profile loading fails after successful signup, sign out and report error
-          await supabase.auth.signOut();
-          throw new Error('Account created but failed to load profile. Please try logging in.');
-        }
-      }
+      // If we have an active session, profile loading will be handled by onAuthStateChange
+      // Don't load it here to avoid race conditions
+      console.log('signUp: Signup complete. Session established, profile loading will be handled by auth state change event.');
+      
     } catch (error) {
       console.error('Signup error:', error);
       throw error;
@@ -357,10 +353,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * LOGOUT
+   * Clears all session data and user state
    */
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    console.log('logout: Starting logout process');
+    try {
+      // Clear user state first to prevent any ongoing operations
+      setUser(null);
+      
+      // Reset loading flag to allow fresh login
+      isLoadingProfileRef.current = false;
+      
+      // Sign out from Supabase (clears cookies, local storage, etc.)
+      await supabase.auth.signOut();
+      
+      console.log('logout: Successfully signed out');
+    } catch (error) {
+      console.error('logout: Error during logout:', error);
+      // Even if signOut fails, ensure user state is cleared
+      setUser(null);
+      isLoadingProfileRef.current = false;
+    }
   };
 
   /**
@@ -392,7 +405,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log('Auth state change event:', event, 'User ID:', session?.user?.id);
       
       if (event === 'SIGNED_OUT') {
-        console.log('User signed out, clearing user state');
+        console.log('User signed out, clearing user state and loading flag');
+        isLoadingProfileRef.current = false; // Reset loading flag on logout
         setUser(null);
       }
 
@@ -408,6 +422,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           try {
             console.log('Attempting to create missing profile...');
             await createUserProfileViaRPC(session.user);
+            // Wait a bit for profile to be created and RLS to propagate
+            await new Promise(resolve => setTimeout(resolve, 500));
             await loadUserProfile(session.user.id);
             console.log('Profile created and loaded successfully');
           } catch (createError) {
