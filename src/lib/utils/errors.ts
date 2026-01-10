@@ -5,6 +5,11 @@
 
 import { POSTGRES_ERROR_CODES } from '@/lib/constants/database';
 
+interface ErrorWithCode {
+  code?: string;
+  message?: string;
+}
+
 /**
  * Check if an error is a duplicate key error
  * Works with both Supabase PostgreSQL errors and general error messages
@@ -12,11 +17,17 @@ import { POSTGRES_ERROR_CODES } from '@/lib/constants/database';
  * @param error - Error object from Supabase or any error with a message
  * @returns true if the error indicates a duplicate key violation
  */
-export function isDuplicateError(error: any): boolean {
+export function isDuplicateError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  
+  const err = error as ErrorWithCode;
+  
   return (
-    error?.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION ||
-    error?.message?.includes('duplicate') ||
-    error?.message?.includes('already exists')
+    err.code === POSTGRES_ERROR_CODES.UNIQUE_VIOLATION ||
+    err.message?.includes('duplicate') === true ||
+    err.message?.includes('already exists') === true
   );
 }
 
