@@ -10,6 +10,8 @@ import SignupPage from '@/pages/SignupPage';
 import DashboardPage from '@/pages/DashboardPage';
 import GroupsPage from '@/pages/GroupsPage';
 import CreateGroupPage from '@/pages/CreateGroupPage';
+import AuthCallbackPage from '@/pages/AuthCallbackPage';
+import NotFoundPage from '@/pages/NotFoundPage';
 
 function App() {
   return (
@@ -20,6 +22,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
             <Route 
               path="/dashboard" 
               element={
@@ -44,6 +47,8 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+            {/* Catch-all route for 404 */}
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Router>
       </Providers>

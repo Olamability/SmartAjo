@@ -47,7 +47,7 @@ export async function ensureUserProfile(
   const phone = authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`;
   
   // Try multiple methods to create the profile
-  let lastError: any = null;
+  let lastError: Error | null = null;
   
   // Method 1: Try using the RPC function (preferred)
   try {
@@ -69,15 +69,15 @@ export async function ensureUserProfile(
         throw rpcError; // Fall through to Method 2
       }
       
-      lastError = rpcError;
-      throw rpcError;
+      lastError = rpcError instanceof Error ? rpcError : new Error(String(rpcError));
+      throw lastError;
     }
     
     console.log('ensureUserProfile: Profile created successfully via RPC');
     return true;
   } catch (rpcError) {
     console.warn('ensureUserProfile: RPC method failed, trying direct insert:', rpcError);
-    lastError = rpcError;
+    lastError = rpcError instanceof Error ? rpcError : new Error(String(rpcError));
   }
   
   // Method 2: Try direct insert as fallback

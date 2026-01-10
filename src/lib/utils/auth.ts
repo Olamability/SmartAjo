@@ -2,6 +2,19 @@
  * Shared utilities for authentication operations
  */
 
+interface RPCResponse<T = unknown> {
+  data?: T;
+  error?: {
+    message: string;
+    code?: string;
+  };
+}
+
+interface AtomicRPCResult {
+  success?: boolean | null;
+  error_message?: string;
+}
+
 /**
  * Parses atomic RPC response from create_user_profile_atomic function
  * Throws error if the operation failed
@@ -10,7 +23,7 @@
  * @param operationName - Name of the operation (for error messages)
  */
 export function parseAtomicRPCResponse(
-  rpcResponse: { data?: any; error?: any },
+  rpcResponse: RPCResponse<AtomicRPCResult | AtomicRPCResult[]>,
   operationName: string
 ): void {
   // Check for RPC-level errors first
@@ -41,6 +54,11 @@ export function parseAtomicRPCResponse(
   // If we get here, the operation was successful
 }
 
+interface ErrorWithCode {
+  message?: string;
+  code?: string;
+}
+
 /**
  * Checks if an error is transient (network/timeout related or RLS propagation delay)
  * Transient errors are worth retrying with exponential backoff
@@ -48,12 +66,14 @@ export function parseAtomicRPCResponse(
  * @param error - Error object or message
  * @returns true if error is transient, false otherwise
  */
-export function isTransientError(error: any): boolean {
+export function isTransientError(error: string | Error | ErrorWithCode): boolean {
   const errorMessage = typeof error === 'string' 
     ? error 
-    : error?.message || '';
+    : (error as Error).message || '';
   
-  const errorCode = error?.code || '';
+  const errorCode = typeof error === 'object' && error !== null && 'code' in error
+    ? (error as ErrorWithCode).code || ''
+    : '';
   
   // Network and timeout errors are always transient
   if (errorMessage.includes('timeout') ||

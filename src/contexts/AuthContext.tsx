@@ -36,7 +36,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
  * Includes input validation and sanitization
  */
 async function createUserProfileViaRPC(
-  authUser: { id: string; email?: string; user_metadata?: any }
+  authUser: { id: string; email?: string; user_metadata?: Record<string, unknown> }
 ): Promise<void> {
   const supabase = createClient();
   
@@ -46,11 +46,22 @@ async function createUserProfileViaRPC(
   }
   
   // Sanitize and validate inputs
-  const fullName = (authUser.user_metadata?.full_name || userEmail.split('@')[0] || 'User')
+  const fullName = (
+    (typeof authUser.user_metadata?.full_name === 'string' 
+      ? authUser.user_metadata.full_name 
+      : null) || 
+    userEmail.split('@')[0] || 
+    'User'
+  )
     .trim()
     .substring(0, 255); // Limit to 255 chars
   
-  const phone = (authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`)
+  const phone = (
+    (typeof authUser.user_metadata?.phone === 'string'
+      ? authUser.user_metadata.phone
+      : null) ||
+    `temp_${authUser.id.substring(0, 12)}`
+  )
     .trim()
     .substring(0, 20); // Limit to 20 chars
   
@@ -145,8 +156,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             } else {
               // Non-transient error - throw with marker to stop retries
               console.error('loadUserProfile: Non-transient error:', queryResult.error);
-              const error = new Error(`Failed to load user profile: ${queryResult.error.message}`);
-              (error as any).stopRetry = true;
+              const error: Error & { stopRetry?: boolean } = new Error(`Failed to load user profile: ${queryResult.error.message}`);
+              error.stopRetry = true;
               throw error;
             }
           }
@@ -155,7 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // No data found - could be RLS issue or missing profile
             // Treat as transient for now (might be RLS propagation delay)
             console.log('loadUserProfile: No data returned, treating as transient');
-            const error: any = new Error('User profile not found');
+            const error: Error & { code?: string } = new Error('User profile not found');
             error.code = 'PGRST301'; // Will be treated as transient
             throw error;
           }
