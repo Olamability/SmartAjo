@@ -161,13 +161,22 @@ CREATE POLICY penalties_select_own ON penalties
 
 ### Step 3: Verify the Fix
 
-1. **Test the helper functions:**
+1. **Test the helper functions in Supabase SQL Editor:**
 ```sql
--- Test the is_group_member function
-SELECT is_group_member(auth.uid(), 'any-group-id-here');
+-- First, get a group ID to test with
+SELECT id, name FROM groups LIMIT 1;
+
+-- Test the is_group_member function (replace 'group-id-from-above' with actual ID)
+SELECT is_group_member(auth.uid(), 'group-id-from-above');
+-- Should return true if you're a member, false if not
 
 -- Test the is_group_creator function
-SELECT is_group_creator(auth.uid(), 'any-group-id-here');
+SELECT is_group_creator(auth.uid(), 'group-id-from-above');
+-- Should return true if you created the group, false if not
+
+-- Test NULL validation (should raise exception)
+SELECT is_group_member(NULL, 'group-id-from-above');
+-- Expected: ERROR: p_user_id cannot be NULL
 ```
 
 2. **Test in the Application:**
@@ -268,14 +277,6 @@ CREATE POLICY group_members_select_own_groups ON group_members
     )
   );
 ```
-
-2. **Restore from Backup (if needed):**
-- Go to Supabase Dashboard → Database → Backups
-- Look for the backup created before applying this fix (check the timestamp from Step 1)
-- Select the backup that matches the date/time just before you ran the SQL changes
-- Click "Restore" and confirm
-- Follow Supabase's restore process
-- Note: You'll need to find an alternative fix as restoring brings back the recursion bug
 
 ## Support
 
