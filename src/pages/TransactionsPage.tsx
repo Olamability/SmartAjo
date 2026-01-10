@@ -4,18 +4,19 @@ import { getUserTransactions } from '../api/transactions';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { Download, Loader2, DollarSign, TrendingUp, AlertCircle, Filter } from 'lucide-react';
+import { Download, Loader2, DollarSign, TrendingUp, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { exportTransactionsToPDF } from '../lib/pdfExport';
 
-interface Transaction {
+// Extended transaction type for PDF export
+interface ExtendedTransaction {
   id: string;
   type: string;
   amount: number;
   status: string;
   reference: string;
-  payment_method?: string;
+  payment_method: string;
   created_at: string;
   group_id?: string;
   metadata?: any;
@@ -23,7 +24,7 @@ interface Transaction {
 
 export default function TransactionsPage() {
   const { user } = useAuth();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<ExtendedTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'contribution' | 'payout' | 'security_deposit'>('all');
 
@@ -36,8 +37,8 @@ export default function TransactionsPage() {
     try {
       const result = await getUserTransactions();
       if (result.success && result.transactions) {
-        // Map to the full transaction format
-        const mappedTransactions = result.transactions.map(tx => ({
+        // Map to the extended transaction format
+        const mappedTransactions: ExtendedTransaction[] = result.transactions.map(tx => ({
           id: tx.id,
           type: tx.type,
           amount: tx.amount,

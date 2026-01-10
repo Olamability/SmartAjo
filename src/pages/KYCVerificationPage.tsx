@@ -14,7 +14,7 @@ export default function KYCVerificationPage() {
   const navigate = useNavigate();
   const supabase = createClient();
 
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [formData, setFormData] = useState({
     bvn: '',

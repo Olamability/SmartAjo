@@ -107,7 +107,6 @@ export function exportTransactionsToPDF(
   doc.text(`Total Amount: ₦${totalAmount.toLocaleString()}`, 14, finalY + 17);
 
   // Add footer
-  const pageCount = doc.getNumberOfPages();
   doc.setFontSize(8);
   doc.text(
     `Smart Ajo - Secure Savings Made Easy`,

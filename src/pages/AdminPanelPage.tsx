@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate, useParams } from 'react-router-dom';
 import { createClient } from '../lib/client/supabase';
 import { 
   Users, 
   DollarSign, 
   AlertTriangle, 
   Download, 
-  Edit, 
-  Trash2, 
   UserMinus,
   CheckCircle,
   XCircle,
