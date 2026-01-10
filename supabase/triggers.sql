@@ -259,7 +259,7 @@ BEGIN
     jsonb_build_object(
       'group_id', NEW.group_id,
       'amount', NEW.amount,
-      'penalty_type', NEW.penalty_type,
+      'penalty_type', NEW.type,
       'reason', NEW.reason
     )
   );
@@ -498,6 +498,9 @@ COMMENT ON TRIGGER trigger_validate_group_capacity ON group_members IS
 -- TRIGGER: Auto-create transaction record on contribution payment
 -- ============================================================================
 -- Creates a transaction record when a contribution is paid
+-- Note: Payment method defaults to 'paystack' as it's the only supported
+-- payment gateway currently. Future enhancement: Add payment_method column
+-- to contributions table to support multiple payment providers.
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION create_contribution_transaction()
@@ -520,8 +523,8 @@ BEGIN
       'contribution',
       NEW.amount,
       'completed',
-      COALESCE(NEW.payment_reference, generate_payment_reference('CONTRIB')),
-      NEW.payment_method,
+      COALESCE(NEW.transaction_ref, generate_payment_reference('CONTRIB')),
+      'paystack', -- Default payment provider
       jsonb_build_object(
         'contribution_id', NEW.id,
         'cycle_number', NEW.cycle_number,

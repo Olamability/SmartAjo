@@ -365,15 +365,13 @@ BEGIN
     cycle_number,
     recipient_id,
     amount,
-    status,
-    scheduled_date
+    status
   ) VALUES (
     p_group_id,
     v_current_cycle,
     v_recipient_id,
     v_payout_amount,
-    'pending',
-    NOW()
+    'pending'
   )
   ON CONFLICT (related_group_id, cycle_number)
   DO UPDATE SET
