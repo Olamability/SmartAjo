@@ -127,25 +127,31 @@ CREATE POLICY group_members_select_own_groups ON group_members
   );
 ```
 
-This was fixed to avoid recursion by checking through the groups table:
+This was fixed to avoid recursion by ensuring we never check the same row:
 
 ```sql
 -- NEW (FIXED - no recursion)
 CREATE POLICY group_members_select_own_groups ON group_members
   FOR SELECT
   USING (
+    -- User can always see their own membership
     auth.uid() = user_id
     OR
+    -- User can see members of groups where they are also a member
+    -- This works because we check for a DIFFERENT row
     EXISTS (
-      SELECT 1 FROM groups g
-      WHERE g.id = group_members.group_id
-        AND (
-          g.created_by = auth.uid()
-          OR g.status IN ('forming', 'active')
-        )
+      SELECT 1 FROM group_members gm
+      WHERE gm.group_id = group_members.group_id
+        AND gm.user_id = auth.uid()
+        AND gm.id != group_members.id  -- Critical: prevents checking the same row
     )
   );
 ```
+
+The key insight is that we can safely query `group_members` as long as we explicitly exclude the current row being evaluated (`gm.id != group_members.id`). This breaks the infinite recursion because:
+1. When checking if a user can see row X, we look for a DIFFERENT row Y where the user is a member
+2. Row Y will match the first condition (`auth.uid() = user_id`) without needing the subquery
+3. No infinite loop occurs
 
 ### 2. Registration Flow
 
