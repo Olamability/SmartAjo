@@ -33,19 +33,32 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 /**
  * Helper function to create user profile via atomic RPC function
  * Single source of truth for profile creation
+ * Includes input validation and sanitization
  */
 async function createUserProfileViaRPC(
   authUser: { id: string; email?: string; user_metadata?: any }
 ): Promise<void> {
   const supabase = createClient();
   
-  const userEmail = authUser.email;
-  if (!userEmail) {
-    throw new Error('User email is required for profile creation');
+  const userEmail = authUser.email?.trim();
+  if (!userEmail || !userEmail.includes('@')) {
+    throw new Error('Valid user email is required for profile creation');
   }
   
-  const fullName = authUser.user_metadata?.full_name || userEmail.split('@')[0] || 'User';
-  const phone = authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`;
+  // Sanitize and validate inputs
+  const fullName = (authUser.user_metadata?.full_name || userEmail.split('@')[0] || 'User')
+    .trim()
+    .substring(0, 255); // Limit to 255 chars
+  
+  const phone = (authUser.user_metadata?.phone || `temp_${authUser.id.substring(0, 12)}`)
+    .trim()
+    .substring(0, 20); // Limit to 20 chars
+  
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(authUser.id)) {
+    throw new Error('Invalid user ID format');
+  }
   
   console.log('createUserProfileViaRPC: Calling RPC with params:', {
     userId: authUser.id,
@@ -85,16 +98,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * Immediately fails for non-transient errors
    * Prevents concurrent loads using a ref flag
    */
-  const loadUserProfile = async (userId: string): Promise<boolean> => {
-    // Prevent concurrent profile loads
-    if (isLoadingProfileRef.current) {
+  const loadUserProfile = async (userId: string, force: boolean = false): Promise<boolean> => {
+    // Prevent concurrent profile loads (unless force is true)
+    if (!force && isLoadingProfileRef.current) {
       console.log(`loadUserProfile: Already loading profile, skipping duplicate request`);
       return false;
     }
     
+    // If user is already loaded with the same ID, skip reload (unless force is true)
+    if (!force && userRef.current?.id === userId) {
+      console.log(`loadUserProfile: Profile already loaded for user ${userId}, skipping`);
+      return true;
+    }
+    
     try {
       isLoadingProfileRef.current = true;
-      console.log(`loadUserProfile: Loading profile for user: ${userId}`);
+      console.log(`loadUserProfile: Loading profile for user: ${userId}${force ? ' (forced)' : ''}`);
       
       // Verify we have an active session (no retry, should be ready)
       const { data: sessionData } = await supabase.auth.getSession();
@@ -177,37 +196,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   /**
    * Refresh session + user
    * Returns true if successful, false otherwise
+   * Used for manual refresh operations
    */
   const refreshUser = async (): Promise<boolean> => {
     try {
-      const { data } = await supabase.auth.getSession();
+      console.log('refreshUser: Starting user refresh');
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('refreshUser: Session error:', error);
+        setUser(null);
+        return false;
+      }
+      
       const session = data.session;
 
       if (!session?.user) {
+        console.log('refreshUser: No active session found');
         setUser(null);
         return false;
       }
 
+      console.log('refreshUser: Active session found, loading profile');
       try {
-        await loadUserProfile(session.user.id);
+        await loadUserProfile(session.user.id, true); // Force reload
+        console.log('refreshUser: Profile loaded successfully');
         return true;
       } catch (profileError) {
-        console.error('Failed to load profile during refresh:', profileError);
+        console.error('refreshUser: Failed to load profile:', profileError);
         
         // Try to create profile if it doesn't exist
         // This handles edge cases where profile wasn't created during signup
         try {
+          console.log('refreshUser: Attempting to create missing profile');
           await createUserProfileViaRPC(session.user);
-          await loadUserProfile(session.user.id);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          await loadUserProfile(session.user.id, true);
+          console.log('refreshUser: Profile created and loaded successfully');
           return true;
         } catch (createError) {
-          console.error('Failed to create profile during refresh:', createError);
+          console.error('refreshUser: Failed to create profile:', createError);
           setUser(null);
           return false;
         }
       }
     } catch (error) {
-      console.error('Error refreshing user:', error);
+      console.error('refreshUser: Unexpected error:', error);
       setUser(null);
       return false;
     }
@@ -272,6 +306,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   /**
    * SIGN UP
    * Creates auth user and profile, lets onAuthStateChange handle session
+   * Includes proper error handling and cleanup on failure
    */
   const signUp = async ({
     email,
@@ -287,14 +322,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log('signUp: Starting signup for:', email);
       
+      // Validate inputs
+      const trimmedEmail = email.trim().toLowerCase();
+      const trimmedFullName = fullName.trim();
+      const trimmedPhone = phone.trim();
+      
+      if (!trimmedEmail || !trimmedEmail.includes('@')) {
+        throw new Error('Please provide a valid email address');
+      }
+      
+      if (trimmedFullName.length < 2) {
+        throw new Error('Full name must be at least 2 characters');
+      }
+      
+      if (trimmedPhone.length < 10) {
+        throw new Error('Phone number must be at least 10 characters');
+      }
+      
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters');
+      }
+      
       // Sign up with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: trimmedEmail,
         password,
         options: {
           data: {
-            full_name: fullName,
-            phone: phone,
+            full_name: trimmedFullName,
+            phone: trimmedPhone,
           },
         },
       });
@@ -329,6 +385,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch (signOutError) {
           console.error('signUp: Error signing out after profile creation failure:', signOutError);
         }
+        
+        // Clean up state
+        setUser(null);
+        isLoadingProfileRef.current = false;
         
         throw new Error(
           `Failed to create user profile: ${profileCreationError instanceof Error ? profileCreationError.message : 'Unknown error'}. Please contact support.`
@@ -378,15 +438,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   /**
    * INIT
+   * Initialize authentication state on mount
+   * Checks for existing session and loads user profile if found
    */
   useEffect(() => {
     let mounted = true;
+    let initCompleted = false;
 
     const initAuth = async () => {
       try {
         console.log('Initializing auth context...');
-        const refreshed = await refreshUser();
-        console.log('Auth initialization complete, user authenticated:', refreshed);
+        
+        // Check if there's an active session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session?.user && mounted) {
+          console.log('Found existing session, loading user profile...');
+          try {
+            await loadUserProfile(session.user.id);
+            console.log('Auth initialization complete, user authenticated');
+          } catch (error) {
+            console.error('Error loading profile during init:', error);
+            // Try to create the profile if it doesn't exist
+            try {
+              console.log('Attempting to create missing profile during init...');
+              await createUserProfileViaRPC(session.user);
+              await new Promise(resolve => setTimeout(resolve, 500));
+              await loadUserProfile(session.user.id, true);
+              console.log('Profile created and loaded successfully during init');
+            } catch (createError) {
+              console.error('Failed to create profile during init:', createError);
+              // Clear the broken session
+              await supabase.auth.signOut();
+            }
+          }
+        } else {
+          console.log('No existing session found');
+        }
+        
+        initCompleted = true;
       } catch (error) {
         console.error('Error during auth initialization:', error);
       } finally {
@@ -402,6 +492,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Skip handling SIGNED_IN during initialization to avoid race conditions
+      if (!initCompleted && event === 'SIGNED_IN') {
+        console.log('Auth state change (SIGNED_IN) during init, skipping to avoid race condition');
+        return;
+      }
+      
       console.log('Auth state change event:', event, 'User ID:', session?.user?.id);
       
       if (event === 'SIGNED_OUT') {
@@ -424,7 +520,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             await createUserProfileViaRPC(session.user);
             // Wait a bit for profile to be created and RLS to propagate
             await new Promise(resolve => setTimeout(resolve, 500));
-            await loadUserProfile(session.user.id);
+            await loadUserProfile(session.user.id, true); // Force reload after creation
             console.log('Profile created and loaded successfully');
           } catch (createError) {
             console.error('Failed to create profile on auth state change:', createError);
@@ -434,14 +530,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       
-      // Handle token refresh - just reload the profile
-      if (event === 'TOKEN_REFRESHED' && session?.user) {
-        console.log('Token refreshed, reloading profile');
-        try {
-          await loadUserProfile(session.user.id);
-        } catch (error) {
-          console.error('Error loading profile on token refresh:', error);
-        }
+      // TOKEN_REFRESHED: Don't reload profile, it hasn't changed
+      // The session is automatically updated by Supabase
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('Token refreshed, session updated (no profile reload needed)');
       }
     });
 

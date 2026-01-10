@@ -8,6 +8,47 @@
 -- ============================================================================
 
 -- ============================================================================
+-- FUNCTION: create_user_profile_atomic
+-- ============================================================================
+-- Atomically creates a user profile in the users table
+-- This ensures the profile is created exactly once, handling race conditions
+-- Returns success status and error message if any
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION create_user_profile_atomic(
+  p_user_id UUID,
+  p_email VARCHAR(255),
+  p_phone VARCHAR(20),
+  p_full_name VARCHAR(255)
+)
+RETURNS TABLE(success BOOLEAN, user_id UUID, error_message TEXT) AS $$
+BEGIN
+  -- Attempt to insert user profile
+  -- ON CONFLICT ensures we don't create duplicates
+  INSERT INTO users (id, email, phone, full_name, is_verified, is_active, kyc_status)
+  VALUES (p_user_id, p_email, p_phone, p_full_name, FALSE, TRUE, 'not_started')
+  ON CONFLICT (id) DO NOTHING;
+  
+  -- Check if the user now exists (either just created or already existed)
+  IF EXISTS (SELECT 1 FROM users WHERE id = p_user_id) THEN
+    RETURN QUERY SELECT TRUE, p_user_id, NULL::TEXT;
+  ELSE
+    RETURN QUERY SELECT FALSE, NULL::UUID, 'Failed to create user profile'::TEXT;
+  END IF;
+  
+EXCEPTION WHEN OTHERS THEN
+  -- Catch any errors and return them
+  RETURN QUERY SELECT FALSE, NULL::UUID, SQLERRM::TEXT;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMENT ON FUNCTION create_user_profile_atomic IS 
+  'Atomically creates a user profile, handling race conditions and returning status';
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON FUNCTION create_user_profile_atomic TO authenticated;
+
+-- ============================================================================
 -- FUNCTION: calculate_next_payout_recipient
 -- ============================================================================
 -- Determines the next user to receive payout in a group based on position
