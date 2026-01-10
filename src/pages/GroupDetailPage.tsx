@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getGroupById } from '@/api';
+import { getGroupById, getGroupMembers, updateSecurityDepositPayment } from '@/api';
 import type { Group, GroupMember } from '@/types';
+import { paystackService, PaystackResponse } from '@/lib/paystack';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -28,6 +29,7 @@ import {
   Clock,
   TrendingUp,
   AlertCircle,
+  CheckCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -39,12 +41,16 @@ export default function GroupDetailPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [group, setGroup] = useState<Group | null>(null);
+  const [members, setMembers] = useState<GroupMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCreator, setIsCreator] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [currentUserMember, setCurrentUserMember] = useState<GroupMember | null>(null);
 
   useEffect(() => {
     if (id) {
       loadGroupDetails();
+      loadMembers();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -68,6 +74,63 @@ export default function GroupDetailPage() {
       navigate('/groups');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMembers = async () => {
+    if (!id) return;
+
+    try {
+      const result = await getGroupMembers(id);
+      if (result.success && result.members) {
+        setMembers(result.members);
+        // Find current user's membership
+        const userMembership = result.members.find(m => m.userId === user?.id);
+        setCurrentUserMember(userMembership || null);
+      }
+    } catch (error) {
+      console.error('Error loading members:', error);
+    }
+  };
+
+  const handlePaySecurityDeposit = async () => {
+    if (!group || !user || !id) return;
+
+    setIsProcessingPayment(true);
+    try {
+      await paystackService.paySecurityDeposit(
+        user.email,
+        group.securityDepositAmount,
+        id,
+        user.id,
+        async (response: PaystackResponse) => {
+          // Payment successful
+          if (response.status === 'success') {
+            // Update database
+            const result = await updateSecurityDepositPayment(
+              id,
+              user.id,
+              response.reference
+            );
+            
+            if (result.success) {
+              toast.success('Security deposit paid successfully!');
+              // Reload group and members data
+              loadGroupDetails();
+              loadMembers();
+            } else {
+              toast.error('Payment successful but failed to update record. Please contact support.');
+            }
+          } else {
+            toast.error('Payment was not successful');
+          }
+          setIsProcessingPayment(false);
+        }
+      );
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Failed to initialize payment');
+      setIsProcessingPayment(false);
     }
   };
 
@@ -301,7 +364,7 @@ export default function GroupDetailPage() {
                   Required upfront payment for participation
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-sm text-muted-foreground">
@@ -315,6 +378,44 @@ export default function GroupDetailPage() {
                     {formatCurrency(group.securityDepositAmount)}
                   </span>
                 </div>
+                
+                {/* Security Deposit Payment Status */}
+                {currentUserMember && (
+                  <div className="pt-4 border-t">
+                    {currentUserMember.securityDepositPaid ? (
+                      <div className="flex items-center gap-2 text-green-600">
+                        <CheckCircle className="w-5 h-5" />
+                        <span className="font-medium">You have paid your security deposit</span>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>
+                            You need to pay your security deposit to participate in this group.
+                          </AlertDescription>
+                        </Alert>
+                        <Button
+                          onClick={handlePaySecurityDeposit}
+                          disabled={isProcessingPayment}
+                          className="w-full"
+                        >
+                          {isProcessingPayment ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <Shield className="mr-2 h-4 w-4" />
+                              Pay Security Deposit ({formatCurrency(group.securityDepositAmount)})
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -387,27 +488,60 @@ export default function GroupDetailPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                {group.currentMembers === 0 ? (
+                {members.length === 0 ? (
                   <div className="text-center py-8">
                     <Users className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
                     <p className="text-muted-foreground">No members yet</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3 p-3 border rounded-lg">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Users className="w-5 h-5 text-primary" />
+                    {members.map((member) => (
+                      <div key={member.userId} className="flex items-center gap-3 p-3 border rounded-lg">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="font-semibold text-primary">
+                            {member.rotationPosition}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{member.userName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Position {member.rotationPosition}
+                            {member.userId === group.createdBy && ' • Creator'}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge variant={member.status === 'active' ? 'default' : 'outline'}>
+                            {member.status}
+                          </Badge>
+                          {member.securityDepositPaid ? (
+                            <div className="flex items-center gap-1 text-xs text-green-600">
+                              <CheckCircle className="w-3 h-3" />
+                              <span>Deposit Paid</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-orange-600">Deposit Pending</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <p className="font-medium">Position 1</p>
-                        <p className="text-sm text-muted-foreground">Group Creator</p>
+                    ))}
+                    
+                    {/* Empty slots */}
+                    {Array.from({ length: group.totalMembers - members.length }).map((_, i) => (
+                      <div key={`empty-${i}`} className="flex items-center gap-3 p-3 border border-dashed rounded-lg opacity-50">
+                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                          <span className="font-semibold text-gray-400">
+                            {members.length + i + 1}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-muted-foreground">Empty Slot</p>
+                          <p className="text-sm text-muted-foreground">
+                            Position {members.length + i + 1}
+                          </p>
+                        </div>
+                        <Badge variant="outline">Available</Badge>
                       </div>
-                      <Badge variant="outline">Active</Badge>
-                    </div>
-                    {/* More members will be loaded from API */}
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      Member details will be displayed here
-                    </p>
+                    ))}
                   </div>
                 )}
               </CardContent>

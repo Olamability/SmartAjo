@@ -341,3 +341,49 @@ export const joinGroup = async (
     };
   }
 };
+
+/**
+ * Update security deposit payment status
+ */
+export const updateSecurityDepositPayment = async (
+  groupId: string,
+  userId: string,
+  transactionRef: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from('group_members')
+      .update({
+        has_paid_security_deposit: true,
+        security_deposit_paid_at: new Date().toISOString(),
+      })
+      .eq('group_id', groupId)
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error updating security deposit:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Create a transaction record
+    await supabase.from('transactions').insert({
+      user_id: userId,
+      group_id: groupId,
+      type: 'security_deposit',
+      amount: 0, // Amount will be fetched from group_members
+      status: 'completed',
+      reference: transactionRef,
+      description: 'Security deposit payment',
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Update security deposit error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to update security deposit'),
+    };
+  }
+};
