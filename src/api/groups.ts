@@ -141,7 +141,7 @@ export const getUserGroups = async (): Promise<{
       endDate: group.end_date,
       currentCycle: group.current_cycle,
       totalCycles: group.total_cycles,
-      rotationOrder: group.rotation_order || [],
+      rotationOrder: [],
       members: [],
       serviceFeePercentage: 10,
     }));
@@ -200,7 +200,7 @@ export const getGroupById = async (
         endDate: data.end_date,
         currentCycle: data.current_cycle,
         totalCycles: data.total_cycles,
-        rotationOrder: data.rotation_order || [],
+        rotationOrder: [],
         members: [],
         serviceFeePercentage: 10,
       },
