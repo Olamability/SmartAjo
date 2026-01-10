@@ -72,6 +72,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const isLoadingProfileRef = useRef(false); // Prevent concurrent profile loads
+  const userRef = useRef<User | null>(null); // Track current user for login promise
+
+  // Keep userRef in sync with user state
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   /**
    * Load user profile from DB
@@ -224,7 +230,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Set up a one-time listener for profile loading
         const checkInterval = setInterval(() => {
-          if (user !== null) {
+          if (userRef.current !== null) {
             clearTimeout(timeout);
             clearInterval(checkInterval);
             resolve();
