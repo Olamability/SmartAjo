@@ -624,6 +624,67 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ============================================================================
+-- FUNCTION: Check if user is member of a group (bypasses RLS)
+-- ============================================================================
+-- This function is used by RLS policies to avoid infinite recursion
+-- when checking group membership
+
+CREATE OR REPLACE FUNCTION is_group_member(p_user_id UUID, p_group_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  -- Validate input parameters
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'p_user_id cannot be NULL';
+  END IF;
+  
+  IF p_group_id IS NULL THEN
+    RAISE EXCEPTION 'p_group_id cannot be NULL';
+  END IF;
+  
+  RETURN EXISTS (
+    SELECT 1 FROM group_members
+    WHERE user_id = p_user_id
+      AND group_id = p_group_id
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+COMMENT ON FUNCTION is_group_member IS 
+  'Checks if a user is a member of a group. 
+   Uses SECURITY DEFINER to bypass RLS and avoid infinite recursion in policies.';
+
+-- ============================================================================
+-- FUNCTION: Check if user is creator of a group (bypasses RLS)
+-- ============================================================================
+-- This function is used by RLS policies to avoid infinite recursion
+-- when checking if a user is the creator of a group
+
+CREATE OR REPLACE FUNCTION is_group_creator(p_user_id UUID, p_group_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  -- Validate input parameters
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'p_user_id cannot be NULL';
+  END IF;
+  
+  IF p_group_id IS NULL THEN
+    RAISE EXCEPTION 'p_group_id cannot be NULL';
+  END IF;
+  
+  RETURN EXISTS (
+    SELECT 1 FROM group_members
+    WHERE user_id = p_user_id
+      AND group_id = p_group_id
+      AND is_creator = true
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+COMMENT ON FUNCTION is_group_creator IS 
+  'Checks if a user is the creator of a group (has is_creator = true). 
+   Uses SECURITY DEFINER to bypass RLS and avoid infinite recursion in policies.';
+
+-- ============================================================================
 -- FUNCTION: Get group progress
 -- ============================================================================
 
@@ -745,11 +806,7 @@ CREATE POLICY groups_select_public ON groups
   FOR SELECT
   USING (
     status IN ('forming', 'active') OR
-    EXISTS (
-      SELECT 1 FROM group_members
-      WHERE group_members.group_id = groups.id
-        AND group_members.user_id = auth.uid()
-    )
+    is_group_member(auth.uid(), groups.id)
   );
 
 -- Authenticated users can create groups
@@ -762,12 +819,7 @@ CREATE POLICY groups_update_creator ON groups
   FOR UPDATE
   USING (
     auth.uid() = created_by OR
-    EXISTS (
-      SELECT 1 FROM group_members
-      WHERE group_members.group_id = groups.id
-        AND group_members.user_id = auth.uid()
-        AND group_members.is_creator = true
-    )
+    is_group_creator(auth.uid(), groups.id)
   );
 
 -- Service role can do anything
@@ -785,7 +837,8 @@ CREATE POLICY groups_service_role_all ON groups
 -- ============================================================================
 
 -- Users can view members of groups they're in
--- Fixed: Avoid infinite recursion by ensuring we never check the same row
+-- Fixed infinite recursion: Uses SECURITY DEFINER functions that bypass RLS
+-- to check membership without triggering recursive policy evaluation
 CREATE POLICY group_members_select_own_groups ON group_members
   FOR SELECT
   USING (
@@ -793,13 +846,8 @@ CREATE POLICY group_members_select_own_groups ON group_members
     auth.uid() = user_id
     OR
     -- User can see members of groups where they are also a member
-    -- This works because we check for a DIFFERENT row (WHERE gm.user_id = auth.uid() AND gm.id != group_members.id)
-    EXISTS (
-      SELECT 1 FROM group_members gm
-      WHERE gm.group_id = group_members.group_id
-        AND gm.user_id = auth.uid()
-        AND gm.id != group_members.id  -- Critical: ensures we don't check the same row
-    )
+    -- is_group_member() uses SECURITY DEFINER to bypass RLS and prevent recursion
+    is_group_member(auth.uid(), group_members.group_id)
   );
 
 -- Users can join groups (insert their own membership)
@@ -832,11 +880,7 @@ CREATE POLICY contributions_select_own_groups ON contributions
   FOR SELECT
   USING (
     auth.uid() = user_id OR
-    EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = contributions.group_id 
-        AND gm.user_id = auth.uid()
-    )
+    is_group_member(auth.uid(), contributions.group_id)
   );
 
 -- Users can create their own contributions
@@ -869,11 +913,7 @@ CREATE POLICY payouts_select_own_groups ON payouts
   FOR SELECT
   USING (
     auth.uid() = recipient_id OR
-    EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = payouts.related_group_id 
-        AND gm.user_id = auth.uid()
-    )
+    is_group_member(auth.uid(), payouts.related_group_id)
   );
 
 -- Service role can do anything
@@ -895,11 +935,7 @@ CREATE POLICY penalties_select_own ON penalties
   FOR SELECT
   USING (
     auth.uid() = user_id OR
-    EXISTS (
-      SELECT 1 FROM group_members gm 
-      WHERE gm.group_id = penalties.group_id 
-        AND gm.user_id = auth.uid()
-    )
+    is_group_member(auth.uid(), penalties.group_id)
   );
 
 -- Service role can do anything
