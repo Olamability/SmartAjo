@@ -23,6 +23,11 @@ import {
   CheckCircle,
   Clock,
   Plus,
+  User as UserIcon,
+  Building2,
+  Mail,
+  Phone,
+  Edit,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
@@ -203,6 +208,77 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Profile Summary Card */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-hero flex items-center justify-center">
+                      <UserIcon className="w-5 h-5 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <CardTitle>Your Profile</CardTitle>
+                      <CardDescription>Account details and bank information</CardDescription>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate('/profile/settings')}
+                    className="gap-2"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit Profile
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-start gap-3">
+                    <Mail className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-muted-foreground">Email</p>
+                      <p className="font-medium truncate">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Phone className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-muted-foreground">Phone</p>
+                      <p className="font-medium">{user.phone || 'Not set'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Building2 className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-muted-foreground">Bank Account</p>
+                      <p className="font-medium">
+                        {user.bankName && user.accountNumber 
+                          ? `${user.bankName} - ${'*'.repeat(Math.max(0, user.accountNumber.length - 4))}${user.accountNumber.slice(-4)}`
+                          : 'Not set'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-muted-foreground mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-muted-foreground">Account Status</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant={user.isVerified ? 'default' : 'secondary'}>
+                          {user.isVerified ? 'Verified' : 'Not Verified'}
+                        </Badge>
+                        {user.kycStatus === 'verified' && (
+                          <Badge variant="outline" className="text-green-600 border-green-600">
+                            KYC Approved
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Recent Groups and Transactions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

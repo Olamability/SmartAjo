@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS groups (
   -- Security & Fees
   security_deposit_amount DECIMAL(15, 2) NOT NULL CHECK (security_deposit_amount >= 0),
   security_deposit_percentage INTEGER NOT NULL DEFAULT 20 CHECK (security_deposit_percentage >= 0 AND security_deposit_percentage <= 100),
-  service_fee_percentage INTEGER NOT NULL DEFAULT 10 CHECK (service_fee_percentage >= 0 AND service_fee_percentage <= 50),
+  service_fee_percentage INTEGER NOT NULL DEFAULT 2 CHECK (service_fee_percentage >= 0 AND service_fee_percentage <= 50),
   
   -- Lifecycle
   status VARCHAR(20) DEFAULT 'forming' CHECK (status IN ('forming', 'active', 'paused', 'completed', 'cancelled')),

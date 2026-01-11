@@ -8,7 +8,7 @@ export const POSTGRES_ERROR_CODES = {
 } as const;
 
 // Default service fee percentage for groups
-export const DEFAULT_SERVICE_FEE_PERCENTAGE = 10;
+export const DEFAULT_SERVICE_FEE_PERCENTAGE = 2;
 
 // KYC Status conversion
 export type DbKycStatus = 'not_started' | 'pending' | 'approved' | 'rejected';
