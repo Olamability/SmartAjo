@@ -288,7 +288,8 @@ COMMENT ON FUNCTION is_cycle_complete IS
 -- FUNCTION: calculate_payout_amount
 -- ============================================================================
 -- Calculates the payout amount after deducting service fees
--- Takes into account the contribution amount and service fee percentage
+-- Service fee is deducted MONTHLY at payout time, not from contributions
+-- This ensures the service fee is taken once per cycle when the member receives payout
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION calculate_payout_amount(
@@ -535,29 +536,22 @@ CREATE OR REPLACE FUNCTION create_cycle_contributions(
 RETURNS INTEGER AS $$
 DECLARE
   v_contribution_amount DECIMAL(15, 2);
-  v_service_fee_percentage DECIMAL(5, 2);
   v_frequency VARCHAR(20);
   v_start_date TIMESTAMPTZ;
   v_due_date TIMESTAMPTZ;
-  v_service_fee DECIMAL(15, 2);
   v_count INTEGER := 0;
 BEGIN
   -- Get group details
   SELECT 
     contribution_amount,
-    service_fee_percentage,
     frequency,
     start_date
   INTO 
     v_contribution_amount,
-    v_service_fee_percentage,
     v_frequency,
     v_start_date
   FROM groups
   WHERE id = p_group_id;
-  
-  -- Calculate service fee
-  v_service_fee := v_contribution_amount * (v_service_fee_percentage / 100);
   
   -- Calculate due date based on frequency and cycle
   v_due_date := CASE v_frequency
@@ -568,6 +562,8 @@ BEGIN
   END;
   
   -- Create contribution record for each active member
+  -- Service fee is NOT included in contributions anymore
+  -- It will be deducted from the payout at the end of each cycle
   INSERT INTO contributions (
     group_id,
     user_id,
@@ -582,7 +578,7 @@ BEGIN
     user_id,
     p_cycle_number,
     v_contribution_amount,
-    v_service_fee,
+    0, -- Service fee set to 0, will be deducted from payout
     v_due_date,
     'pending'
   FROM group_members
@@ -615,7 +611,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION create_cycle_contributions IS 
-  'Creates contribution records for all active members in a cycle';
+  'Creates contribution records for all active members in a cycle. Service fee is deducted from payout, not from contributions.';
 
 -- ============================================================================
 -- FUNCTION: apply_late_penalties
