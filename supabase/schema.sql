@@ -98,6 +98,10 @@ CREATE TABLE IF NOT EXISTS groups (
   description TEXT,
   created_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   
+  -- Creator Profile Information (for display purposes)
+  creator_profile_image TEXT,
+  creator_phone VARCHAR(20),
+  
   -- Group Configuration
   contribution_amount DECIMAL(15, 2) NOT NULL CHECK (contribution_amount > 0),
   frequency VARCHAR(20) NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly')),
@@ -129,6 +133,7 @@ CREATE INDEX idx_groups_status ON groups(status);
 CREATE INDEX idx_groups_start_date ON groups(start_date);
 CREATE INDEX idx_groups_current_cycle ON groups(current_cycle);
 CREATE INDEX idx_groups_forming ON groups(status) WHERE status = 'forming';
+CREATE INDEX idx_groups_creator_phone ON groups(creator_phone);
 
 -- ============================================================================
 -- TABLE: group_members

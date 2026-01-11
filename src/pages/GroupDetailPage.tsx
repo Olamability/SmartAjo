@@ -51,11 +51,14 @@ import {
   CheckCircle,
   UserCheck,
   UserX,
+  Phone,
+  User,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface JoinRequest {
   id: string;
@@ -626,6 +629,44 @@ export default function GroupDetailPage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Creator Information Card */}
+            {(group.creatorProfileImage || group.creatorPhone) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Group Creator</CardTitle>
+                  <CardDescription>
+                    Information about the person who created this group
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    <Avatar className="w-16 h-16">
+                      <AvatarImage src={group.creatorProfileImage || undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary text-xl">
+                        <User className="w-8 h-8" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className="bg-primary/5">
+                          Group Admin
+                        </Badge>
+                      </div>
+                      {group.creatorPhone && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Phone className="w-4 h-4 text-muted-foreground" />
+                          <span className="font-medium">{group.creatorPhone}</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Contact the admin for questions about this group
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {group.status === 'forming' && (
               <Card>
