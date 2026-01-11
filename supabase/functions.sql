@@ -40,7 +40,32 @@ CREATE OR REPLACE FUNCTION create_user_profile_atomic(
   p_full_name VARCHAR(255)
 )
 RETURNS TABLE(success BOOLEAN, user_id UUID, error_message TEXT) AS $$
+DECLARE
+  v_existing_email_user UUID;
+  v_existing_phone_user UUID;
 BEGIN
+  -- Check for existing email
+  SELECT id INTO v_existing_email_user
+  FROM users
+  WHERE email = p_email AND id != p_user_id
+  LIMIT 1;
+  
+  IF v_existing_email_user IS NOT NULL THEN
+    RETURN QUERY SELECT FALSE, NULL::UUID, 'Email is already registered'::TEXT;
+    RETURN;
+  END IF;
+  
+  -- Check for existing phone
+  SELECT id INTO v_existing_phone_user
+  FROM users
+  WHERE phone = p_phone AND id != p_user_id
+  LIMIT 1;
+  
+  IF v_existing_phone_user IS NOT NULL THEN
+    RETURN QUERY SELECT FALSE, NULL::UUID, 'Phone number is already registered'::TEXT;
+    RETURN;
+  END IF;
+  
   -- Attempt to insert user profile
   -- ON CONFLICT ensures we don't create duplicates
   INSERT INTO users (id, email, phone, full_name, is_verified, is_active, kyc_status)
@@ -55,8 +80,19 @@ BEGIN
   END IF;
   
 EXCEPTION WHEN OTHERS THEN
-  -- Catch any errors and return them
-  RETURN QUERY SELECT FALSE, NULL::UUID, SQLERRM::TEXT;
+  -- Catch any errors and return them with better messages
+  DECLARE
+    v_error_message TEXT := SQLERRM;
+  BEGIN
+    -- Provide user-friendly error messages for common constraint violations
+    IF v_error_message LIKE '%users_email_key%' THEN
+      v_error_message := 'Email is already registered';
+    ELSIF v_error_message LIKE '%users_phone_key%' THEN
+      v_error_message := 'Phone number is already registered';
+    END IF;
+    
+    RETURN QUERY SELECT FALSE, NULL::UUID, v_error_message::TEXT;
+  END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -65,6 +101,57 @@ COMMENT ON FUNCTION create_user_profile_atomic IS
 
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION create_user_profile_atomic TO authenticated;
+
+-- ============================================================================
+-- FUNCTION: check_user_exists
+-- ============================================================================
+-- Checks if a user with the given email or phone already exists
+-- Returns information about conflicts to help with validation
+-- This is a public function (no authentication required) for pre-signup validation
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION check_user_exists(
+  p_email VARCHAR(255) DEFAULT NULL,
+  p_phone VARCHAR(20) DEFAULT NULL
+)
+RETURNS TABLE(
+  email_exists BOOLEAN,
+  phone_exists BOOLEAN,
+  user_id UUID
+) AS $$
+DECLARE
+  v_email_user_id UUID;
+  v_phone_user_id UUID;
+BEGIN
+  -- Check if email exists
+  IF p_email IS NOT NULL THEN
+    SELECT id INTO v_email_user_id
+    FROM users
+    WHERE email = p_email
+    LIMIT 1;
+  END IF;
+  
+  -- Check if phone exists
+  IF p_phone IS NOT NULL THEN
+    SELECT id INTO v_phone_user_id
+    FROM users
+    WHERE phone = p_phone
+    LIMIT 1;
+  END IF;
+  
+  -- Return results
+  RETURN QUERY SELECT 
+    v_email_user_id IS NOT NULL,
+    v_phone_user_id IS NOT NULL,
+    COALESCE(v_email_user_id, v_phone_user_id);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+COMMENT ON FUNCTION check_user_exists IS 
+  'Checks if a user exists with given email or phone. Public function for pre-signup validation.';
+
+-- Grant execute permission to anon users (for signup validation)
+GRANT EXECUTE ON FUNCTION check_user_exists TO anon, authenticated;
 
 -- ============================================================================
 -- FUNCTION: create_user_profile

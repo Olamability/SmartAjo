@@ -91,6 +91,42 @@ async function createUserProfileViaRPC(
   console.log('createUserProfileViaRPC: Profile created successfully');
 }
 
+/**
+ * Helper function to check if a user with given email or phone already exists
+ * Returns conflict information to help with validation
+ */
+async function checkUserExists(email: string, phone: string): Promise<{
+  emailExists: boolean;
+  phoneExists: boolean;
+  userId: string | null;
+}> {
+  const supabase = createClient();
+  
+  console.log('checkUserExists: Checking for existing user with email/phone');
+  
+  const { data, error } = await supabase.rpc('check_user_exists', {
+    p_email: email,
+    p_phone: phone,
+  });
+  
+  if (error) {
+    console.error('checkUserExists: Error checking user existence:', error);
+    // Don't throw - allow signup to proceed and handle conflicts later
+    return { emailExists: false, phoneExists: false, userId: null };
+  }
+  
+  // The RPC returns a single row
+  const result = Array.isArray(data) ? data[0] : data;
+  
+  console.log('checkUserExists: Result:', result);
+  
+  return {
+    emailExists: result?.email_exists || false,
+    phoneExists: result?.phone_exists || false,
+    userId: result?.user_id || null,
+  };
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const supabase = createClient();
   const [user, setUser] = useState<User | null>(null);
@@ -354,6 +390,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('Password must be at least 6 characters');
       }
       
+      // Check if user already exists before creating auth user
+      console.log('signUp: Checking if user already exists...');
+      const existingUser = await checkUserExists(trimmedEmail, trimmedPhone);
+      
+      if (existingUser.emailExists && existingUser.phoneExists) {
+        throw new Error('An account with this email and phone number already exists. Please sign in instead.');
+      } else if (existingUser.emailExists) {
+        throw new Error('An account with this email already exists. Please sign in or use a different email.');
+      } else if (existingUser.phoneExists) {
+        throw new Error('An account with this phone number already exists. Please sign in or use a different phone number.');
+      }
+      
+      console.log('signUp: No existing user found, proceeding with signup');
+      
       // Sign up with Supabase Auth
       const { data, error } = await supabase.auth.signUp({
         email: trimmedEmail,
@@ -368,6 +418,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error || !data.user) {
         console.error('Signup auth error:', error?.message);
+        
+        // Provide more helpful error messages for common auth errors
+        if (error?.message?.includes('User already registered')) {
+          throw new Error('This email is already registered. Please sign in instead.');
+        }
+        
         throw error || new Error('Signup failed: No user data returned');
       }
 
@@ -389,6 +445,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.error('signUp: Failed to create user profile:', profileCreationError);
         console.error('signUp: Profile creation error for user:', data.user.id);
         
+        // Extract the actual error message
+        const errorMessage = profileCreationError instanceof Error 
+          ? profileCreationError.message 
+          : 'Unknown error';
+        
         // If profile creation fails, clean up the auth user
         console.log('signUp: Signing out auth user due to profile creation failure');
         try {
@@ -401,9 +462,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(null);
         isLoadingProfileRef.current = false;
         
-        throw new Error(
-          `Failed to create user profile: ${profileCreationError instanceof Error ? profileCreationError.message : 'Unknown error'}. Please contact support.`
-        );
+        // Provide user-friendly error messages
+        if (errorMessage.includes('Email is already registered')) {
+          throw new Error('This email is already registered. Please sign in instead.');
+        } else if (errorMessage.includes('Phone number is already registered')) {
+          throw new Error('This phone number is already registered. Please use a different phone number.');
+        } else {
+          throw new Error(
+            `Failed to create user profile: ${errorMessage}. Please try again or contact support if the problem persists.`
+          );
+        }
       }
 
       // If email confirmation is required, don't try to load profile yet
