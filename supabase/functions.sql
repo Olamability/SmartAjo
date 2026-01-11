@@ -52,7 +52,7 @@ BEGIN
   
   IF v_existing_email_user IS NOT NULL THEN
     RETURN QUERY SELECT FALSE, NULL::UUID, 'Email is already registered'::TEXT;
-    RETURN;
+    RETURN; -- Exit function early after returning error
   END IF;
   
   -- Check for existing phone
@@ -63,7 +63,7 @@ BEGIN
   
   IF v_existing_phone_user IS NOT NULL THEN
     RETURN QUERY SELECT FALSE, NULL::UUID, 'Phone number is already registered'::TEXT;
-    RETURN;
+    RETURN; -- Exit function early after returning error
   END IF;
   
   -- Attempt to insert user profile
