@@ -35,8 +35,8 @@ export const createGroup = async (
       .single();
 
     if (userError) {
-      console.error('Error fetching user profile:', userError);
-      // Continue even if profile fetch fails - profile info is optional
+      console.error('Error fetching user profile for group creation:', userError.message, userError);
+      // Continue even if profile fetch fails - profile info is optional for group creation
     }
 
     // Calculate security deposit amount
