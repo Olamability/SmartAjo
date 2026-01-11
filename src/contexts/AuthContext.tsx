@@ -247,6 +247,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         fullName: result.full_name,
         createdAt: result.created_at,
         isVerified: result.is_verified,
+        isAdmin: result.is_admin || false,
         kycStatus: convertKycStatus(result.kyc_status),
         bvn: result.kyc_data?.bvn,
         profileImage: result.avatar_url,

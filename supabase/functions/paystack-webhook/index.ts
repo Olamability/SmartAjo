@@ -1,17 +1,25 @@
 /**
  * Paystack Webhook Handler
  * 
- * This Edge Function handles Paystack payment webhooks and verifies payments.
- * It validates the webhook signature, processes payment events, and updates
- * the database accordingly.
+ * This Edge Function handles Paystack payment webhooks according to
+ * "Paystack steup.md" specification.
+ * 
+ * Handles events:
+ * - charge.success: Successful payments
+ * - charge.failed: Failed payments
+ * - transfer.success: Successful transfers (payouts)
+ * - refund.processed: Processed refunds
  * 
  * Security:
  * - Validates Paystack signature using HMAC SHA512
  * - Only processes verified webhooks
  * - Uses service role for database updates
+ * - Implements idempotency to handle duplicate events
  * 
- * Note: Using deno.land/x/hmac for crypto operations. In production, ensure
- * the version is pinned in deployment configuration.
+ * Storage:
+ * - Stores complete payment data in 'payments' table
+ * - Updates business logic tables (contributions, group_members)
+ * - Creates transaction records for audit trail
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -27,14 +35,33 @@ interface PaystackEvent {
   event: string;
   data: {
     id: number;
+    domain: string;
     reference: string;
     amount: number;
     currency: string;
     status: string;
     paid_at: string;
+    created_at: string;
+    channel: string;
+    gateway_response: string;
+    fees?: number;
     customer: {
       email: string;
       customer_code: string;
+      id: number;
+    };
+    authorization?: {
+      authorization_code: string;
+      bin: string;
+      last4: string;
+      exp_month: string;
+      exp_year: string;
+      channel: string;
+      card_type: string;
+      bank: string;
+      country_code: string;
+      brand: string;
+      reusable: boolean;
     };
     metadata?: {
       type?: string;
@@ -42,6 +69,9 @@ interface PaystackEvent {
       group_id?: string;
       cycle_number?: number;
       contribution_id?: string;
+      app?: string;
+      purpose?: string;
+      entity_id?: string;
     };
   };
 }
@@ -58,6 +88,84 @@ function verifySignature(payload: string, signature: string, secret: string): bo
     console.error('Signature verification error:', error);
     return false;
   }
+}
+
+/**
+ * Store payment data in payments table (MANDATORY per spec)
+ * Implements idempotency - safe to call multiple times
+ */
+async function storePaymentRecord(
+  supabase: any,
+  data: PaystackEvent['data']
+): Promise<{ success: boolean; message: string }> {
+  const paymentData = {
+    reference: data.reference,
+    user_id: data.metadata?.user_id || null,
+    amount: data.amount, // Already in kobo from Paystack
+    currency: data.currency,
+    status: data.status,
+    email: data.customer.email,
+    channel: data.channel,
+    authorization_code: data.authorization?.authorization_code || null,
+    customer_code: data.customer.customer_code,
+    gateway_response: data.gateway_response,
+    fees: data.fees || 0,
+    paid_at: data.paid_at || null,
+    verified: data.status === 'success',
+    metadata: data.metadata || {},
+    paystack_id: data.id,
+    domain: data.domain,
+    updated_at: new Date().toISOString(),
+  };
+
+  // Check if payment already exists (idempotency for duplicate webhooks)
+  const { data: existing } = await supabase
+    .from('payments')
+    .select('id, verified, status')
+    .eq('reference', data.reference)
+    .single();
+
+  if (existing) {
+    // Payment exists - update it only if status changed
+    if (existing.verified && existing.status === 'success') {
+      console.log('Payment already processed:', data.reference);
+      return {
+        success: true,
+        message: 'Payment already verified (duplicate webhook)',
+      };
+    }
+
+    const { error } = await supabase
+      .from('payments')
+      .update(paymentData)
+      .eq('reference', data.reference);
+
+    if (error) {
+      console.error('Failed to update payment:', error);
+      return {
+        success: false,
+        message: 'Failed to update payment record',
+      };
+    }
+  } else {
+    // New payment - insert it
+    const { error } = await supabase
+      .from('payments')
+      .insert(paymentData);
+
+    if (error) {
+      console.error('Failed to insert payment:', error);
+      return {
+        success: false,
+        message: 'Failed to create payment record',
+      };
+    }
+  }
+
+  return {
+    success: true,
+    message: 'Payment record stored successfully',
+  };
 }
 
 /**
@@ -250,30 +358,84 @@ serve(async (req) => {
     // Parse the webhook payload
     const event: PaystackEvent = JSON.parse(rawBody);
 
-    console.log('Received Paystack event:', event.event);
+    console.log('Received Paystack event:', event.event, 'reference:', event.data.reference);
 
     // Initialize Supabase client with service role
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Process payment based on event type
+    // Step 1: ALWAYS store payment record first (MANDATORY per spec)
+    const storeResult = await storePaymentRecord(supabase, event.data);
+    if (!storeResult.success) {
+      console.error('Failed to store payment:', storeResult.message);
+      // Continue processing but log the error
+    }
+
+    // Step 2: Process payment based on event type
     let result = { success: false, message: 'Event not processed' };
 
-    if (event.event === 'charge.success') {
-      const paymentType = event.data.metadata?.type;
+    switch (event.event) {
+      case 'charge.success': {
+        const paymentType = event.data.metadata?.type;
 
-      if (paymentType === 'contribution') {
-        result = await processContributionPayment(supabase, event.data);
-      } else if (paymentType === 'security_deposit') {
-        result = await processSecurityDeposit(supabase, event.data);
-      } else {
-        result = { success: false, message: 'Unknown payment type' };
+        if (paymentType === 'contribution') {
+          result = await processContributionPayment(supabase, event.data);
+        } else if (paymentType === 'security_deposit') {
+          result = await processSecurityDeposit(supabase, event.data);
+        } else {
+          result = { 
+            success: false, 
+            message: `Unknown payment type: ${paymentType}` 
+          };
+        }
+        break;
+      }
+
+      case 'charge.failed': {
+        // Payment failed - update payment status
+        console.log('Payment failed:', event.data.reference);
+        result = { 
+          success: true, 
+          message: 'Payment failure recorded' 
+        };
+        break;
+      }
+
+      case 'transfer.success': {
+        // Transfer successful (payout)
+        console.log('Transfer successful:', event.data.reference);
+        result = { 
+          success: true, 
+          message: 'Transfer success recorded' 
+        };
+        break;
+      }
+
+      case 'refund.processed': {
+        // Refund processed
+        console.log('Refund processed:', event.data.reference);
+        result = { 
+          success: true, 
+          message: 'Refund recorded' 
+        };
+        break;
+      }
+
+      default: {
+        console.log('Unhandled event type:', event.event);
+        result = { 
+          success: true, 
+          message: 'Event received but not processed' 
+        };
       }
     }
 
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({
+        ...result,
+        payment_stored: storeResult.success,
+      }),
       {
         status: result.success ? 200 : 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
