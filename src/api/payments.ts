@@ -169,6 +169,99 @@ export const verifyPayment = async (
 };
 
 /**
+ * Process group creation payment after verification
+ * Activates the creator as a member after payment is verified
+ */
+export const processGroupCreationPayment = async (
+  reference: string,
+  groupId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Call database function to process payment
+    const { data, error } = await supabase.rpc('process_group_creation_payment', {
+      p_payment_reference: reference,
+      p_group_id: groupId,
+      p_user_id: user.id,
+    });
+
+    if (error) {
+      console.error('Error processing group creation payment:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Check result from function
+    if (data && data.length > 0) {
+      const result = data[0];
+      if (!result.success) {
+        return { success: false, error: result.error_message };
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Process group creation payment error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to process payment'),
+    };
+  }
+};
+
+/**
+ * Process group join payment after verification
+ * Adds the member to the group after payment is verified
+ */
+export const processGroupJoinPayment = async (
+  reference: string,
+  groupId: string
+): Promise<{ success: boolean; position?: number; error?: string }> => {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Call database function to process payment
+    const { data, error } = await supabase.rpc('process_group_join_payment', {
+      p_payment_reference: reference,
+      p_group_id: groupId,
+      p_user_id: user.id,
+    });
+
+    if (error) {
+      console.error('Error processing group join payment:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Check result from function
+    if (data && data.length > 0) {
+      const result = data[0];
+      if (!result.success) {
+        return { success: false, error: result.error_message };
+      }
+      return { success: true, position: result.position };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Process group join payment error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to process payment'),
+    };
+  }
+};
+
+/**
  * Get payment status from database
  * Used to check if a payment has been verified and processed
  */
