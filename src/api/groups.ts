@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/client/supabase';
 import { Group, GroupMember, CreateGroupFormData } from '@/types';
 import { getErrorMessage } from '@/lib/utils';
+import { DEFAULT_SERVICE_FEE_PERCENTAGE } from '@/lib/constants';
 
 /**
  * Create a new Ajo group
@@ -107,7 +108,7 @@ export const createGroup = async (
         totalCycles: groupData.total_cycles,
         rotationOrder: [],
         members: [],
-        serviceFeePercentage: 10, // Default service fee
+        serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
       },
     };
   } catch (error) {
@@ -209,7 +210,7 @@ export const getUserGroups = async (): Promise<{
       totalCycles: group.total_cycles,
       rotationOrder: [],
       members: [],
-      serviceFeePercentage: 10,
+      serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
     }));
 
     return { success: true, groups };
@@ -274,7 +275,7 @@ export const getGroupById = async (
         totalCycles: data.total_cycles,
         rotationOrder: [],
         members: [],
-        serviceFeePercentage: 10,
+        serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
       },
     };
   } catch (error) {
@@ -479,7 +480,7 @@ export const getAvailableGroups = async (): Promise<{
       totalCycles: group.total_cycles,
       rotationOrder: [],
       members: [],
-      serviceFeePercentage: 10,
+      serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
     }));
 
     return { success: true, groups };

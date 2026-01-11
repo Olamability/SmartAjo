@@ -274,7 +274,7 @@ export default function GroupDetailPage() {
               </span>
               <Button
                 onClick={handleJoinGroup}
-                disabled={isJoining || group.currentMembers >= group.totalMembers}
+                disabled={isJoining}
                 size="sm"
                 className="ml-4"
               >

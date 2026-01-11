@@ -56,9 +56,7 @@ export default function AvailableGroupsSection({ onJoinSuccess }: AvailableGroup
           onJoinSuccess();
         }
         // Navigate to the group detail page
-        setTimeout(() => {
-          navigate(`/groups/${groupId}`);
-        }, 1000);
+        navigate(`/groups/${groupId}`);
       } else {
         toast.error(result.error || 'Failed to join group');
       }
