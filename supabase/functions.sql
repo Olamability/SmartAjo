@@ -86,12 +86,12 @@ EXCEPTION WHEN OTHERS THEN
   BEGIN
     -- Provide user-friendly error messages for common constraint violations
     IF v_error_message LIKE '%users_email_key%' THEN
-      v_error_message := 'Email is already registered';
+      RETURN QUERY SELECT FALSE, NULL::UUID, 'Email is already registered'::TEXT;
     ELSIF v_error_message LIKE '%users_phone_key%' THEN
-      v_error_message := 'Phone number is already registered';
+      RETURN QUERY SELECT FALSE, NULL::UUID, 'Phone number is already registered'::TEXT;
+    ELSE
+      RETURN QUERY SELECT FALSE, NULL::UUID, v_error_message::TEXT;
     END IF;
-    
-    RETURN QUERY SELECT FALSE, NULL::UUID, v_error_message::TEXT;
   END;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -140,10 +140,12 @@ BEGIN
   END IF;
   
   -- Return results
+  -- Note: If email and phone belong to different users, both flags can be true
+  -- The user_id returns the first found conflict (email takes precedence)
   RETURN QUERY SELECT 
     v_email_user_id IS NOT NULL,
     v_phone_user_id IS NOT NULL,
-    COALESCE(v_email_user_id, v_phone_user_id);
+    v_email_user_id; -- Return email user ID if exists, otherwise NULL
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

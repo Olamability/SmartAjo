@@ -111,11 +111,25 @@ async function checkUserExists(email: string, phone: string): Promise<{
   
   if (error) {
     console.error('checkUserExists: Error checking user existence:', error);
-    // Don't throw - allow signup to proceed and handle conflicts later
+    
+    // For critical errors (network, timeout), we should throw to prevent bad UX
+    // For other errors, allow signup to proceed and handle at profile creation
+    const isCriticalError = error.message?.includes('network') || 
+                           error.message?.includes('timeout') ||
+                           error.message?.includes('connection');
+    
+    if (isCriticalError) {
+      console.error('checkUserExists: Critical error detected, rethrowing');
+      throw new Error('Network error. Please check your connection and try again.');
+    }
+    
+    // Non-critical error: allow signup to proceed
+    console.log('checkUserExists: Non-critical error, allowing signup to proceed');
     return { emailExists: false, phoneExists: false, userId: null };
   }
   
-  // The RPC returns a single row
+  // The RPC function returns a single-row result, but Supabase client may wrap it in an array
+  // We handle both cases to be defensive
   const result = Array.isArray(data) ? data[0] : data;
   
   console.log('checkUserExists: Result:', result);
