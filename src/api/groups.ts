@@ -41,6 +41,7 @@ export const createGroup = async (
         contribution_amount: data.contributionAmount,
         frequency: data.frequency,
         total_members: data.totalMembers,
+        current_members: 0, // Start at 0, will be incremented when creator is added as member
         security_deposit_amount: securityDepositAmount,
         security_deposit_percentage: data.securityDepositPercentage,
         status: 'forming',
@@ -56,37 +57,9 @@ export const createGroup = async (
       return { success: false, error: error.message };
     }
 
-    // Automatically add the creator as the first member
-    // This is critical for group visibility
-    const { error: memberError } = await supabase
-      .from('group_members')
-      .insert({
-        group_id: groupData.id,
-        user_id: user.id,
-        position: 1,
-        status: 'active',
-        has_paid_security_deposit: false,
-      });
-
-    if (memberError) {
-      console.error('Error adding creator as member:', memberError);
-      // This is a critical error - if we can't add the creator as member,
-      // the group won't be visible to them. Rollback by deleting the group.
-      const { error: deleteError } = await supabase
-        .from('groups')
-        .delete()
-        .eq('id', groupData.id);
-      
-      if (deleteError) {
-        console.error('CRITICAL: Failed to rollback group creation. Orphaned group:', groupData.id, deleteError);
-        // Log this for manual cleanup
-      }
-      
-      return { 
-        success: false, 
-        error: 'Failed to initialize group membership. Please try again.' 
-      };
-    }
+    // NOTE: Creator is NOT automatically added as member
+    // They will be added after payment is completed via processGroupCreationPayment()
+    // This ensures payment-first membership model
 
     return {
       success: true,
@@ -98,7 +71,7 @@ export const createGroup = async (
         contributionAmount: groupData.contribution_amount,
         frequency: groupData.frequency,
         totalMembers: groupData.total_members,
-        currentMembers: 1, // Creator is the first member
+        currentMembers: 0, // Will be 1 after payment
         securityDepositAmount: groupData.security_deposit_amount,
         securityDepositPercentage: groupData.security_deposit_percentage,
         status: groupData.status,
