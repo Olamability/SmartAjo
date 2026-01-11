@@ -44,6 +44,9 @@ CREATE INDEX IF NOT EXISTS idx_users_is_admin ON users(is_admin);
 -- Notifications policies updated:
 --   - notifications_select_own: Added admin check
 
+-- Note: The is_current_user_admin() function is defined in the main schema.sql file.
+-- If you're running this migration on an existing database, ensure the function exists.
+
 -- Function to promote a user to admin (use with caution)
 CREATE OR REPLACE FUNCTION promote_user_to_admin(user_email TEXT)
 RETURNS BOOLEAN
@@ -98,11 +101,14 @@ BEGIN
 END;
 $$;
 
--- Function to check if current user is admin
+-- Function to check if current user is admin (for backwards compatibility with migration)
+-- Note: This function is also defined in the main schema.sql file
+-- We include it here to ensure migrations work standalone
 CREATE OR REPLACE FUNCTION is_current_user_admin()
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 SECURITY DEFINER
+STABLE
 AS $$
 DECLARE
   v_is_admin BOOLEAN;

@@ -70,9 +70,17 @@ export const createGroup = async (
     if (memberError) {
       console.error('Error adding creator as member:', memberError);
       // This is a critical error - if we can't add the creator as member,
-      // the group won't be visible to them. Fail the creation.
-      // Rollback by deleting the group
-      await supabase.from('groups').delete().eq('id', groupData.id);
+      // the group won't be visible to them. Rollback by deleting the group.
+      const { error: deleteError } = await supabase
+        .from('groups')
+        .delete()
+        .eq('id', groupData.id);
+      
+      if (deleteError) {
+        console.error('CRITICAL: Failed to rollback group creation. Orphaned group:', groupData.id, deleteError);
+        // Log this for manual cleanup
+      }
+      
       return { 
         success: false, 
         error: 'Failed to initialize group membership. Please try again.' 
@@ -131,21 +139,55 @@ export const getUserGroups = async (): Promise<{
     }
 
     // Query groups where user is a member OR is the creator
-    const { data, error } = await supabase
+    // Using two separate queries for clarity and combining results
+    // This approach is clearer and handles both cases explicitly
+    
+    // Get groups where user is creator
+    const { data: createdGroups, error: createdError } = await supabase
       .from('groups')
-      .select(
-        `
-        *,
-        group_members(user_id)
-      `
-      )
-      .or(`created_by.eq.${user.id},group_members.user_id.eq.${user.id}`)
+      .select('*')
+      .eq('created_by', user.id)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error fetching groups:', error);
-      return { success: false, error: error.message };
+    if (createdError) {
+      console.error('Error fetching created groups:', createdError);
+      return { success: false, error: createdError.message };
     }
+
+    // Get groups where user is a member
+    const { data: memberGroups, error: memberError } = await supabase
+      .from('groups')
+      .select(`
+        *,
+        group_members!inner(user_id)
+      `)
+      .eq('group_members.user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (memberError) {
+      console.error('Error fetching member groups:', memberError);
+      return { success: false, error: memberError.message };
+    }
+
+    // Combine and deduplicate groups
+    const allGroupsMap = new Map<string, any>();
+    
+    // Add created groups
+    (createdGroups || []).forEach(group => {
+      allGroupsMap.set(group.id, group);
+    });
+    
+    // Add member groups (won't overwrite if already exists)
+    (memberGroups || []).forEach(group => {
+      if (!allGroupsMap.has(group.id)) {
+        allGroupsMap.set(group.id, group);
+      }
+    });
+    
+    // Convert map to array and sort by created_at
+    const data = Array.from(allGroupsMap.values()).sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
 
     const groups: Group[] = (data || []).map((group) => ({
       id: group.id,
