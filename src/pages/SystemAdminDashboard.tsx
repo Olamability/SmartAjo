@@ -14,8 +14,6 @@ import {
   Play,
   Loader2,
   AlertCircle,
-  TrendingUp,
-  TrendingDown,
   DollarSign,
   Shield
 } from 'lucide-react';
@@ -29,8 +27,7 @@ import type {
   AdminUser,
   AdminGroup,
   AdminAnalytics,
-  AuditLog,
-  UserDetails
+  AuditLog
 } from '../types';
 
 type TabType = 'overview' | 'users' | 'groups' | 'audit';
@@ -52,6 +49,7 @@ export default function SystemAdminDashboard() {
 
   useEffect(() => {
     checkAdminAccess();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
@@ -64,6 +62,7 @@ export default function SystemAdminDashboard() {
     } else if (activeTab === 'audit') {
       loadAuditLogs();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, searchTerm, statusFilter]);
 
   const checkAdminAccess = async () => {
@@ -177,9 +176,10 @@ export default function SystemAdminDashboard() {
       } else {
         toast.error(data?.[0]?.message || 'Action failed');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error suspending user:', error);
-      toast.error(error.message || 'Failed to update user status');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update user status';
+      toast.error(errorMessage);
     } finally {
       setActionLoading(null);
     }
@@ -202,9 +202,10 @@ export default function SystemAdminDashboard() {
       } else {
         toast.error(data?.[0]?.message || 'Action failed');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error changing group status:', error);
-      toast.error(error.message || 'Failed to update group status');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update group status';
+      toast.error(errorMessage);
     } finally {
       setActionLoading(null);
     }
