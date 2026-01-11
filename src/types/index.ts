@@ -8,6 +8,7 @@ export interface User {
   createdAt: string;
   isVerified: boolean;
   isActive?: boolean;
+  isAdmin?: boolean;
   kycStatus: 'not_started' | 'pending' | 'verified' | 'rejected'; // 'verified' in app, 'approved' in DB
   kycData?: Record<string, string | number | boolean | null>;
   bvn?: string;
@@ -163,4 +164,88 @@ export interface KYCFormData {
   bvn: string;
   dateOfBirth: string;
   address: string;
+}
+
+// ============================================================================
+// SYSTEM ADMIN TYPES
+// ============================================================================
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  phone: string;
+  full_name: string;
+  is_verified: boolean;
+  is_active: boolean;
+  is_admin: boolean;
+  kyc_status: string;
+  created_at: string;
+  last_login_at: string | null;
+  total_groups: number;
+  total_contributions: number;
+}
+
+export interface AdminGroup {
+  id: string;
+  name: string;
+  description: string;
+  created_by: string;
+  creator_name: string;
+  creator_email: string;
+  contribution_amount: number;
+  frequency: string;
+  total_members: number;
+  current_members: number;
+  status: string;
+  current_cycle: number;
+  total_cycles: number;
+  created_at: string;
+  start_date: string | null;
+  total_contributions_paid: number;
+  total_amount_collected: number;
+}
+
+export interface AdminAnalytics {
+  total_users: number;
+  active_users: number;
+  verified_users: number;
+  total_groups: number;
+  active_groups: number;
+  forming_groups: number;
+  completed_groups: number;
+  total_contributions: number;
+  paid_contributions: number;
+  overdue_contributions: number;
+  total_amount_collected: number;
+  total_payouts: number;
+  completed_payouts: number;
+  total_penalties: number;
+  total_penalty_amount: number;
+  users_with_kyc: number;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string | null;
+  user_email: string | null;
+  user_name: string | null;
+  action: string;
+  resource_type: string;
+  resource_id: string | null;
+  details: Record<string, any>;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface UserDetails extends AdminUser {
+  kyc_data: Record<string, any>;
+  avatar_url: string | null;
+  date_of_birth: string | null;
+  address: string | null;
+  updated_at: string;
+  active_groups: number;
+  paid_contributions: number;
+  total_contributed_amount: number;
+  total_penalties: number;
+  total_penalty_amount: number;
 }

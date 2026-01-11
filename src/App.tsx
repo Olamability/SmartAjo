@@ -14,6 +14,7 @@ import GroupDetailPage from '@/pages/GroupDetailPage';
 import AuthCallbackPage from '@/pages/AuthCallbackPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 import AdminPanelPage from '@/pages/AdminPanelPage';
+import SystemAdminDashboard from '@/pages/SystemAdminDashboard';
 import KYCVerificationPage from '@/pages/KYCVerificationPage';
 import TransactionsPage from '@/pages/TransactionsPage';
 
@@ -64,6 +65,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AdminPanelPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin" 
+              element={
+                <ProtectedRoute>
+                  <SystemAdminDashboard />
                 </ProtectedRoute>
               } 
             />

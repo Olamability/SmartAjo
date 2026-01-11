@@ -18,6 +18,28 @@ const Header = () => {
   const location = useLocation();
   const isLandingPage = location.pathname === '/';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user?.id) {
+        const { createClient } = await import('@/lib/client/supabase');
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from('users')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single();
+        
+        if (!error && data) {
+          setIsAdmin(data.is_admin || false);
+        }
+      }
+    };
+    
+    checkAdmin();
+  }, [user]);
 
   // Close mobile menu on Escape key
   useEffect(() => {
@@ -116,6 +138,15 @@ const Header = () => {
                       <DropdownMenuItem onClick={() => navigate('/groups')}>
                         My Groups
                       </DropdownMenuItem>
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => navigate('/admin')}>
+                            <Shield className="w-4 h-4 mr-2" />
+                            Admin Dashboard
+                          </DropdownMenuItem>
+                        </>
+                      )}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleLogout}>
                         <LogOut className="w-4 h-4 mr-2" />
