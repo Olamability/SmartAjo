@@ -721,6 +721,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Function to check if current user is a platform admin
+CREATE OR REPLACE FUNCTION is_current_user_admin()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  v_is_admin BOOLEAN;
+BEGIN
+  SELECT is_admin INTO v_is_admin
+  FROM users
+  WHERE id = auth.uid();
+
+  RETURN COALESCE(v_is_admin, FALSE);
+END;
+$$;
+
+COMMENT ON FUNCTION is_current_user_admin IS 'Returns TRUE if the current authenticated user is a platform admin';
+
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
@@ -810,7 +830,7 @@ CREATE POLICY groups_select_public ON groups
   USING (
     status IN ('forming', 'active') OR
     is_group_member(auth.uid(), groups.id) OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Authenticated users can create groups
@@ -824,7 +844,7 @@ CREATE POLICY groups_update_creator ON groups
   USING (
     auth.uid() = created_by OR
     is_group_creator(auth.uid(), groups.id) OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Service role can do anything
@@ -856,7 +876,7 @@ CREATE POLICY group_members_select_own_groups ON group_members
     is_group_member(auth.uid(), group_members.group_id)
     OR
     -- Platform admins can see all members
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Users can join groups (insert their own membership)
@@ -869,11 +889,11 @@ CREATE POLICY group_members_update_own ON group_members
   FOR UPDATE
   USING (
     auth.uid() = user_id OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   )
   WITH CHECK (
     auth.uid() = user_id OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Service role can do anything
@@ -897,7 +917,7 @@ CREATE POLICY contributions_select_own_groups ON contributions
   USING (
     auth.uid() = user_id OR
     is_group_member(auth.uid(), contributions.group_id) OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Users can create their own contributions
@@ -910,11 +930,11 @@ CREATE POLICY contributions_update_own ON contributions
   FOR UPDATE
   USING (
     auth.uid() = user_id OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   )
   WITH CHECK (
     auth.uid() = user_id OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Service role can do anything
@@ -938,7 +958,7 @@ CREATE POLICY payouts_select_own_groups ON payouts
   USING (
     auth.uid() = recipient_id OR
     is_group_member(auth.uid(), payouts.related_group_id) OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Service role can do anything
@@ -962,7 +982,7 @@ CREATE POLICY penalties_select_own ON penalties
   USING (
     auth.uid() = user_id OR
     is_group_member(auth.uid(), penalties.group_id) OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Service role can do anything
@@ -985,7 +1005,7 @@ CREATE POLICY transactions_select_own ON transactions
   FOR SELECT
   USING (
     auth.uid() = user_id OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Users can create their own transactions
@@ -1013,7 +1033,7 @@ CREATE POLICY notifications_select_own ON notifications
   FOR SELECT
   USING (
     auth.uid() = user_id OR
-    EXISTS (SELECT 1 FROM users WHERE users.id = auth.uid() AND users.is_admin = true)
+    is_current_user_admin()
   );
 
 -- Users can update their own notifications (mark as read)

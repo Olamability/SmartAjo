@@ -56,6 +56,7 @@ export const createGroup = async (
     }
 
     // Automatically add the creator as the first member
+    // This is critical for group visibility
     const { error: memberError } = await supabase
       .from('group_members')
       .insert({
@@ -68,7 +69,14 @@ export const createGroup = async (
 
     if (memberError) {
       console.error('Error adding creator as member:', memberError);
-      // Don't fail the group creation, but log the error
+      // This is a critical error - if we can't add the creator as member,
+      // the group won't be visible to them. Fail the creation.
+      // Rollback by deleting the group
+      await supabase.from('groups').delete().eq('id', groupData.id);
+      return { 
+        success: false, 
+        error: 'Failed to initialize group membership. Please try again.' 
+      };
     }
 
     return {
