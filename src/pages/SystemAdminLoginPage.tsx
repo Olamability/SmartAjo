@@ -62,11 +62,11 @@ export default function SystemAdminLoginPage() {
       // We need to check if the logged-in user is actually an admin
       // This will be handled by the useEffect above
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (!isMountedRef.current) return;
       
       console.error('SystemAdminLogin: Login error:', error);
-      const errorMessage = getErrorMessage(error);
+      const errorMessage = getErrorMessage(error, 'Failed to log in');
       
       if (errorMessage.includes('Invalid login credentials')) {
         toast.error('Invalid email or password');

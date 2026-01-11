@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAuth } from '@/contexts/AuthContext';
 import { getUserProfile, updateUserProfile, NIGERIAN_BANKS } from '@/api';
 import type { User } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -57,7 +56,6 @@ type BankAccountFormData = z.infer<typeof bankAccountSchema>;
 
 export default function ProfileSettingsPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState<User | null>(null);
@@ -87,6 +85,7 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     loadProfile();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadProfile = async () => {

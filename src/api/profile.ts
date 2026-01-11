@@ -75,43 +75,43 @@ export async function getUserProfile(): Promise<{ success: boolean; user?: User;
   }
 }
 
-/**
- * Update user profile
- */
-export async function updateUserProfile(
-  updates: UpdateProfileData
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const supabase = createClient();
-    
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-    if (authError || !authUser) {
-      return { success: false, error: 'Not authenticated' };
-    }
-
-    // Prepare update data (convert from camelCase to snake_case)
-    const updateData: any = {
-      updated_at: new Date().toISOString(),
-    };
-
-    if (updates.fullName !== undefined) {
-      updateData.full_name = updates.fullName;
-    }
-    if (updates.phone !== undefined) {
-      updateData.phone = updates.phone;
-    }
-    if (updates.address !== undefined) {
-      updateData.address = updates.address;
-    }
-    if (updates.dateOfBirth !== undefined) {
-      updateData.date_of_birth = updates.dateOfBirth;
-    }
-    if (updates.bankAccount) {
-      updateData.bank_name = updates.bankAccount.bankName;
-      updateData.account_number = updates.bankAccount.accountNumber;
-      updateData.account_name = updates.bankAccount.accountName;
-      updateData.bank_code = updates.bankAccount.bankCode;
-    }
+  /**
+   * Update user profile
+   */
+  export async function updateUserProfile(
+    updates: UpdateProfileData
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const supabase = createClient();
+      
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        return { success: false, error: 'Not authenticated' };
+      }
+  
+      // Prepare update data (convert from camelCase to snake_case)
+      const updateData: Record<string, string | undefined> = {
+        updated_at: new Date().toISOString(),
+      };
+  
+      if (updates.fullName !== undefined) {
+        updateData.full_name = updates.fullName;
+      }
+      if (updates.phone !== undefined) {
+        updateData.phone = updates.phone;
+      }
+      if (updates.address !== undefined) {
+        updateData.address = updates.address;
+      }
+      if (updates.dateOfBirth !== undefined) {
+        updateData.date_of_birth = updates.dateOfBirth;
+      }
+      if (updates.bankAccount) {
+        updateData.bank_name = updates.bankAccount.bankName;
+        updateData.account_number = updates.bankAccount.accountNumber;
+        updateData.account_name = updates.bankAccount.accountName;
+        updateData.bank_code = updates.bankAccount.bankCode;
+      }
 
     const { error } = await supabase
       .from('users')
