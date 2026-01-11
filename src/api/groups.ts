@@ -8,6 +8,7 @@
 import { createClient } from '@/lib/client/supabase';
 import { Group, GroupMember, CreateGroupFormData } from '@/types';
 import { getErrorMessage } from '@/lib/utils';
+import { DEFAULT_SERVICE_FEE_PERCENTAGE } from '@/lib/constants';
 
 /**
  * Create a new Ajo group
@@ -107,7 +108,7 @@ export const createGroup = async (
         totalCycles: groupData.total_cycles,
         rotationOrder: [],
         members: [],
-        serviceFeePercentage: 10, // Default service fee
+        serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
       },
     };
   } catch (error) {
@@ -209,7 +210,7 @@ export const getUserGroups = async (): Promise<{
       totalCycles: group.total_cycles,
       rotationOrder: [],
       members: [],
-      serviceFeePercentage: 10,
+      serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
     }));
 
     return { success: true, groups };
@@ -274,7 +275,7 @@ export const getGroupById = async (
         totalCycles: data.total_cycles,
         rotationOrder: [],
         members: [],
-        serviceFeePercentage: 10,
+        serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
       },
     };
   } catch (error) {
@@ -404,6 +405,90 @@ export const joinGroup = async (
     return {
       success: false,
       error: getErrorMessage(error, 'Failed to join group'),
+    };
+  }
+};
+
+/**
+ * Get available groups that the user can join
+ * Returns forming groups where the user is not yet a member
+ */
+export const getAvailableGroups = async (): Promise<{
+  success: boolean;
+  groups?: Group[];
+  error?: string;
+}> => {
+  try {
+    const supabase = createClient();
+
+    // Get current user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Get all forming groups
+    const { data: formingGroups, error: formingError } = await supabase
+      .from('groups')
+      .select('*')
+      .eq('status', 'forming')
+      .order('created_at', { ascending: false });
+
+    if (formingError) {
+      console.error('Error fetching forming groups:', formingError);
+      return { success: false, error: formingError.message };
+    }
+
+    // Get groups where user is already a member
+    const { data: userMemberships, error: memberError } = await supabase
+      .from('group_members')
+      .select('group_id')
+      .eq('user_id', user.id);
+
+    if (memberError) {
+      console.error('Error fetching user memberships:', memberError);
+      return { success: false, error: memberError.message };
+    }
+
+    // Filter out groups where user is already a member
+    const memberGroupIds = new Set(
+      (userMemberships || []).map((m) => m.group_id)
+    );
+    const availableGroupsData = (formingGroups || []).filter(
+      (group) => !memberGroupIds.has(group.id) && group.current_members < group.total_members
+    );
+
+    const groups: Group[] = availableGroupsData.map((group) => ({
+      id: group.id,
+      name: group.name,
+      description: group.description,
+      createdBy: group.created_by,
+      contributionAmount: group.contribution_amount,
+      frequency: group.frequency,
+      totalMembers: group.total_members,
+      currentMembers: group.current_members || 0,
+      securityDepositAmount: group.security_deposit_amount,
+      securityDepositPercentage: group.security_deposit_percentage,
+      status: group.status,
+      createdAt: group.created_at,
+      updatedAt: group.updated_at,
+      startDate: group.start_date,
+      endDate: group.end_date,
+      currentCycle: group.current_cycle,
+      totalCycles: group.total_cycles,
+      rotationOrder: [],
+      members: [],
+      serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
+    }));
+
+    return { success: true, groups };
+  } catch (error) {
+    console.error('Get available groups error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to fetch available groups'),
     };
   }
 };

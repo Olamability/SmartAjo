@@ -4,6 +4,7 @@ import { getUserStats, getUserGroups, getUserTransactions } from '@/api';
 import type { UserStats } from '@/api/stats';
 import type { Group, Transaction } from '@/types';
 import NotificationCenter from '@/components/NotificationCenter';
+import AvailableGroupsSection from '@/components/AvailableGroupsSection';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -295,6 +296,11 @@ export default function DashboardPage() {
                   )}
                 </CardContent>
               </Card>
+            </div>
+
+            {/* Available Groups Section */}
+            <div className="mt-6">
+              <AvailableGroupsSection onJoinSuccess={loadDashboardData} />
             </div>
 
             {/* Notifications Section */}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getGroupById, getGroupMembers, updateSecurityDepositPayment } from '@/api';
+import { getGroupById, getGroupMembers, updateSecurityDepositPayment, joinGroup } from '@/api';
 import type { Group, GroupMember } from '@/types';
 import { paystackService, PaystackResponse } from '@/lib/paystack';
 import ContributionsList from '@/components/ContributionsList';
@@ -48,6 +48,7 @@ export default function GroupDetailPage() {
   const [isCreator, setIsCreator] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [currentUserMember, setCurrentUserMember] = useState<GroupMember | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -190,6 +191,28 @@ export default function GroupDetailPage() {
     return totalPool - serviceFee;
   };
 
+  const handleJoinGroup = async () => {
+    if (!id) return;
+
+    setIsJoining(true);
+    try {
+      const result = await joinGroup(id);
+      if (result.success) {
+        toast.success('Successfully joined the group!');
+        // Reload group details and members
+        await loadGroupDetails();
+        await loadMembers();
+      } else {
+        toast.error(result.error || 'Failed to join group');
+      }
+    } catch (error) {
+      console.error('Error joining group:', error);
+      toast.error('Failed to join group');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -241,8 +264,38 @@ export default function GroupDetailPage() {
           </div>
         </div>
 
-        {/* Status Alert */}
-        {group.status === 'forming' && (
+        {/* Status Alert - Show join button for non-members in forming groups */}
+        {group.status === 'forming' && !currentUserMember && (
+          <Alert className="bg-blue-50 border-blue-200">
+            <UserPlus className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="flex items-center justify-between">
+              <span className="text-blue-900">
+                This group is accepting new members. Join now to start saving together!
+              </span>
+              <Button
+                onClick={handleJoinGroup}
+                disabled={isJoining}
+                size="sm"
+                className="ml-4"
+              >
+                {isJoining ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Joining...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Join Group
+                  </>
+                )}
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Status Alert for members */}
+        {group.status === 'forming' && currentUserMember && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
