@@ -14,6 +14,7 @@ import type { Group, GroupMember } from '@/types';
 import { paystackService, PaystackResponse } from '@/lib/paystack';
 import ContributionsList from '@/components/ContributionsList';
 import PayoutSchedule from '@/components/PayoutSchedule';
+import SlotSelector from '@/components/SlotSelector';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -22,6 +23,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   Tabs,
   TabsContent,
@@ -70,6 +79,8 @@ export default function GroupDetailPage() {
   const [isJoining, setIsJoining] = useState(false);
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [showJoinDialog, setShowJoinDialog] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -257,8 +268,11 @@ export default function GroupDetailPage() {
   };
 
   const calculateServiceFee = () => {
+    if (!group) return 0;
     const totalPool = calculateTotalPool();
-    return totalPool * 0.1; // 10% service fee
+    // Use the service fee percentage from the group
+    const feePercentage = group.serviceFeePercentage || 10;
+    return totalPool * (feePercentage / 100);
   };
 
   const calculateNetPayout = () => {
@@ -270,11 +284,18 @@ export default function GroupDetailPage() {
   const handleJoinGroup = async () => {
     if (!id) return;
 
+    if (!selectedSlot) {
+      toast.error('Please select a payout slot');
+      return;
+    }
+
     setIsJoining(true);
     try {
-      const result = await joinGroup(id);
+      const result = await joinGroup(id, selectedSlot);
       if (result.success) {
         toast.success('Join request sent! Please wait for group admin approval.');
+        setShowJoinDialog(false);
+        setSelectedSlot(null);
         // Reload join requests to show the new request status
         await loadJoinRequests();
       } else {
@@ -286,6 +307,11 @@ export default function GroupDetailPage() {
     } finally {
       setIsJoining(false);
     }
+  };
+
+  const openJoinDialog = () => {
+    setShowJoinDialog(true);
+    setSelectedSlot(null);
   };
 
   if (loading) {
@@ -348,26 +374,67 @@ export default function GroupDetailPage() {
                 This group is accepting new members. Join now to start saving together!
               </span>
               <Button
-                onClick={handleJoinGroup}
+                onClick={openJoinDialog}
                 disabled={isJoining}
                 size="sm"
                 className="ml-4"
               >
-                {isJoining ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Joining...
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Join Group
-                  </>
-                )}
+                <UserPlus className="w-4 h-4 mr-2" />
+                Join Group
               </Button>
             </AlertDescription>
           </Alert>
         )}
+
+        {/* Join Group Dialog with Slot Selection */}
+        <Dialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Join {group.name}</DialogTitle>
+              <DialogDescription>
+                Select your preferred payout position. Your position determines when you'll
+                receive your payout during the rotation cycle.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {id && (
+                <SlotSelector
+                  groupId={id}
+                  selectedSlot={selectedSlot}
+                  onSlotSelect={setSelectedSlot}
+                  disabled={isJoining}
+                />
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setShowJoinDialog(false)}
+                disabled={isJoining}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleJoinGroup}
+                disabled={isJoining || !selectedSlot}
+              >
+                {isJoining ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Sending Request...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Request to Join
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Status Alert for members */}
         {group.status === 'forming' && currentUserMember && (
@@ -473,7 +540,9 @@ export default function GroupDetailPage() {
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-3 border-b">
-                  <span className="text-muted-foreground">Service Fee (10%)</span>
+                  <span className="text-muted-foreground">
+                    Service Fee ({group.serviceFeePercentage || 10}%)
+                  </span>
                   <span className="text-xl font-semibold text-orange-600">
                     -{formatCurrency(calculateServiceFee())}
                   </span>
@@ -484,6 +553,15 @@ export default function GroupDetailPage() {
                     {formatCurrency(calculateNetPayout())}
                   </span>
                 </div>
+                
+                <Alert className="mt-4">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    <strong>Service Fee Model:</strong> The platform fee of {group.serviceFeePercentage || 10}% is
+                    calculated as a percentage of the total pool and is deducted once per cycle
+                    when the payout is disbursed. This ensures fair scaling regardless of group size.
+                  </AlertDescription>
+                </Alert>
               </CardContent>
             </Card>
 

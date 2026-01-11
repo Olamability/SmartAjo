@@ -315,6 +315,7 @@ export const getGroupMembers = async (
  */
 export const joinGroup = async (
   groupId: string,
+  preferredSlot?: number,
   message?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
@@ -328,10 +329,11 @@ export const joinGroup = async (
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Call the database function to create join request
+    // Call the database function to create join request with slot preference
     const { data, error } = await supabase.rpc('request_to_join_group', {
       p_group_id: groupId,
       p_user_id: user.id,
+      p_preferred_slot: preferredSlot || null,
       p_message: message || null,
     });
 
@@ -614,6 +616,38 @@ export const rejectJoinRequest = async (
     return {
       success: false,
       error: getErrorMessage(error, 'Failed to reject join request'),
+    };
+  }
+};
+
+/**
+ * Get available payout slots for a group
+ */
+export const getAvailableSlots = async (
+  groupId: string
+): Promise<{
+  success: boolean;
+  slots?: { slot_number: number; payout_cycle: number; status: string }[];
+  error?: string;
+}> => {
+  try {
+    const supabase = createClient();
+
+    const { data, error } = await supabase.rpc('get_available_slots', {
+      p_group_id: groupId,
+    });
+
+    if (error) {
+      console.error('Error fetching available slots:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, slots: data || [] };
+  } catch (error) {
+    console.error('Get available slots error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to fetch available slots'),
     };
   }
 };
