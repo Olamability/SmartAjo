@@ -195,7 +195,9 @@ BEGIN
   RETURN QUERY SELECT TRUE, NULL::TEXT;
   
 EXCEPTION WHEN OTHERS THEN
-  RETURN QUERY SELECT FALSE, SQLERRM::TEXT;
+  -- Log the actual error for debugging but return a generic message to users
+  RAISE WARNING 'Error in request_to_join_group: %', SQLERRM;
+  RETURN QUERY SELECT FALSE, 'An error occurred while processing your join request. Please try again.'::TEXT;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -307,7 +309,9 @@ BEGIN
   RETURN QUERY SELECT TRUE, NULL::TEXT;
   
 EXCEPTION WHEN OTHERS THEN
-  RETURN QUERY SELECT FALSE, SQLERRM::TEXT;
+  -- Log the actual error for debugging but return a generic message to users
+  RAISE WARNING 'Error in approve_join_request: %', SQLERRM;
+  RETURN QUERY SELECT FALSE, 'An error occurred while approving the request. Please try again.'::TEXT;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -398,7 +402,9 @@ BEGIN
   RETURN QUERY SELECT TRUE, NULL::TEXT;
   
 EXCEPTION WHEN OTHERS THEN
-  RETURN QUERY SELECT FALSE, SQLERRM::TEXT;
+  -- Log the actual error for debugging but return a generic message to users
+  RAISE WARNING 'Error in reject_join_request: %', SQLERRM;
+  RETURN QUERY SELECT FALSE, 'An error occurred while rejecting the request. Please try again.'::TEXT;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
