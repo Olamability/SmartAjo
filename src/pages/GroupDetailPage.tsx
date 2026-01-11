@@ -59,6 +59,8 @@ import {
   UserX,
   Phone,
   User,
+  CreditCard,
+  Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -100,6 +102,7 @@ export default function GroupDetailPage() {
       loadGroupDetails();
       loadMembers();
       loadJoinRequests();
+      loadUserJoinRequestStatus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -155,6 +158,23 @@ export default function GroupDetailPage() {
     }
   };
 
+  const loadUserJoinRequestStatus = async () => {
+    if (!id) return;
+
+    try {
+      const result = await getUserJoinRequestStatus(id);
+      if (result.success && result.request) {
+        setUserJoinRequest(result.request);
+        // If user has an approved request and is not a member, show payment option
+        if (result.request.status === 'approved' && !currentUserMember) {
+          // User can now pay to join
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user join request status:', error);
+    }
+  };
+
   const handleApproveRequest = async (requestId: string) => {
     setProcessingRequestId(requestId);
     try {
@@ -192,6 +212,79 @@ export default function GroupDetailPage() {
       toast.error('Failed to reject request');
     } finally {
       setProcessingRequestId(null);
+    }
+  };
+
+  const handleApprovedMemberPayment = async () => {
+    if (!group || !user || !id || !userJoinRequest) return;
+
+    setIsProcessingPayment(true);
+    try {
+      // Calculate total amount (security deposit + first contribution)
+      const totalAmount = group.securityDepositAmount + group.contributionAmount;
+
+      // Initialize payment record
+      const initResult = await initializeGroupJoinPayment(id, totalAmount);
+      
+      if (!initResult.success || !initResult.reference) {
+        toast.error(initResult.error || 'Failed to initialize payment');
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      // Open Paystack payment popup
+      await paystackService.initializePayment({
+        email: user.email!,
+        amount: totalAmount * 100, // Convert to kobo
+        reference: initResult.reference,
+        metadata: {
+          type: 'group_join',
+          group_id: id,
+          user_id: user.id,
+          preferred_slot: userJoinRequest.preferred_slot,
+        },
+        callback: async (response: PaystackResponse) => {
+          // Payment successful, verify on backend
+          if (response.status === 'success') {
+            toast.info('Payment received! Verifying...');
+            
+            // Verify payment with backend
+            const verifyResult = await verifyPayment(response.reference);
+            
+            if (verifyResult.verified) {
+              // Process approved join payment
+              const processResult = await processApprovedJoinPayment(
+                response.reference,
+                id
+              );
+              
+              if (processResult.success) {
+                toast.success(`Payment verified! You are now a member at position ${processResult.position}.`);
+                setShowApprovedPaymentDialog(false);
+                // Reload data
+                await loadGroupDetails();
+                await loadMembers();
+                await loadUserJoinRequestStatus();
+              } else {
+                toast.error(processResult.error || 'Failed to process payment');
+              }
+            } else {
+              toast.error('Payment verification failed. Please contact support.');
+            }
+          } else {
+            toast.error('Payment was not successful');
+          }
+          setIsProcessingPayment(false);
+        },
+        onClose: () => {
+          toast.info('Payment cancelled');
+          setIsProcessingPayment(false);
+        },
+      });
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Failed to initialize payment');
+      setIsProcessingPayment(false);
     }
   };
 
@@ -378,8 +471,35 @@ export default function GroupDetailPage() {
           </div>
         </div>
 
+        {/* Status Alert - Show approved payment prompt for users with approved join requests */}
+        {userJoinRequest && userJoinRequest.status === 'approved' && !currentUserMember && (
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="flex items-center justify-between">
+              <div>
+                <span className="text-green-900 font-semibold">
+                  Your request has been approved!
+                </span>
+                <p className="text-sm text-green-700 mt-1">
+                  Complete your payment to become a member of this group.
+                  {userJoinRequest.preferred_slot && ` Your selected slot: Position ${userJoinRequest.preferred_slot}`}
+                </p>
+              </div>
+              <Button
+                onClick={() => setShowApprovedPaymentDialog(true)}
+                disabled={isProcessingPayment}
+                size="sm"
+                className="ml-4"
+              >
+                <CreditCard className="w-4 h-4 mr-2" />
+                Pay to Join
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
         {/* Status Alert - Show join button for non-members in forming groups */}
-        {group.status === 'forming' && !currentUserMember && (
+        {group.status === 'forming' && !currentUserMember && !userJoinRequest && (
           <Alert className="bg-blue-50 border-blue-200">
             <UserPlus className="h-4 w-4 text-blue-600" />
             <AlertDescription className="flex items-center justify-between">
@@ -398,6 +518,116 @@ export default function GroupDetailPage() {
             </AlertDescription>
           </Alert>
         )}
+
+        {/* Status Alert - Show pending request notice */}
+        {userJoinRequest && userJoinRequest.status === 'pending' && !currentUserMember && (
+          <Alert className="bg-yellow-50 border-yellow-200">
+            <Clock className="h-4 w-4 text-yellow-600" />
+            <AlertDescription>
+              <span className="text-yellow-900 font-semibold">
+                Your join request is pending approval
+              </span>
+              <p className="text-sm text-yellow-700 mt-1">
+                The group admin will review your request soon. You'll be notified once it's approved.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Approved Payment Dialog */}
+        <Dialog open={showApprovedPaymentDialog} onOpenChange={(open) => {
+          if (!open && !isProcessingPayment) {
+            setShowApprovedPaymentDialog(false);
+          }
+        }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Complete Your Payment</DialogTitle>
+              <DialogDescription>
+                Pay the security deposit and first contribution to join this group.
+              </DialogDescription>
+            </DialogHeader>
+
+            {group && userJoinRequest && (
+              <div className="space-y-4">
+                {/* Payment Summary */}
+                <Card className="bg-primary/5">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Payment Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Security Deposit:</span>
+                      <span className="font-semibold">
+                        {formatCurrency(group.securityDepositAmount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">First Contribution:</span>
+                      <span className="font-semibold">
+                        {formatCurrency(group.contributionAmount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-lg border-t pt-2 mt-2">
+                      <span className="font-semibold">Total Amount:</span>
+                      <span className="font-bold text-green-600">
+                        {formatCurrency(
+                          group.securityDepositAmount + group.contributionAmount
+                        )}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Slot Information */}
+                {userJoinRequest.preferred_slot && (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>Your Selected Position:</strong> Slot {userJoinRequest.preferred_slot}
+                      <br />
+                      <span className="text-sm">
+                        You'll receive your payout in cycle {userJoinRequest.preferred_slot}.
+                      </span>
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!isProcessingPayment) {
+                    setShowApprovedPaymentDialog(false);
+                  }
+                }}
+                disabled={isProcessingPayment}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleApprovedMemberPayment}
+                disabled={isProcessingPayment}
+              >
+                {isProcessingPayment ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Pay {group && formatCurrency(
+                      group.securityDepositAmount + group.contributionAmount
+                    )}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Join Group Dialog with Slot Selection */}
         <Dialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
