@@ -9,14 +9,16 @@ This directory contains SQL files for setting up the Secured-Ajo database on Sup
 **IMPORTANT:** Files must be run in this specific order!
 
 ```
-1. schema.sql          (REQUIRED - creates tables, triggers, RLS policies)
-2. functions.sql       (REQUIRED - creates utility functions)
-3. verify-setup.sql    (RECOMMENDED - verifies setup is correct)
-4. views.sql           (Optional - creates database views)
-5. triggers.sql        (Optional - additional triggers)
-6. storage.sql         (Optional - storage buckets)
-7. realtime.sql        (Optional - realtime subscriptions)
-8. scheduled-jobs.sql  (Optional - scheduled jobs)
+1. schema.sql                    (REQUIRED - creates tables, triggers, RLS policies)
+2. functions.sql                 (REQUIRED - creates utility functions)
+3. admin_functions.sql           (REQUIRED - creates system admin functions) ⭐ NEW
+4. verify-setup.sql              (RECOMMENDED - verifies setup is correct)
+5. verify_admin_installation.sql (RECOMMENDED - verifies admin setup) ⭐ NEW
+6. views.sql                     (Optional - creates database views)
+7. triggers.sql                  (Optional - additional triggers)
+8. storage.sql                   (Optional - storage buckets)
+9. realtime.sql                  (Optional - realtime subscriptions)
+10. scheduled-jobs.sql           (Optional - scheduled jobs)
 ```
 
 ### 2. How to Run
@@ -27,7 +29,9 @@ This directory contains SQL files for setting up the Secured-Ajo database on Sup
 4. Paste and click **Run**
 5. Wait for completion (should take a few seconds)
 6. Repeat for `functions.sql`
-7. Run `verify-setup.sql` to confirm everything is set up correctly
+7. **NEW:** Repeat for `admin_functions.sql` (System Admin features)
+8. Run `verify-setup.sql` to confirm everything is set up correctly
+9. **NEW:** Run `verify_admin_installation.sql` to verify admin features
 
 ### 3. Verify Setup
 
@@ -39,6 +43,17 @@ After running `schema.sql` and `functions.sql`, run `verify-setup.sql`:
 -- If you see FAIL ✗, review the error and check setup
 ```
 
+**NEW: Verify Admin Setup**
+
+After running `admin_functions.sql`, run `verify_admin_installation.sql`:
+
+```sql
+-- Copy and run the entire verify_admin_installation.sql file
+-- Check that all admin functions are installed
+-- Verify triggers are created
+-- Confirm permissions are granted
+```
+
 ## File Descriptions
 
 ### Required Files
@@ -48,6 +63,38 @@ After running `schema.sql` and `functions.sql`, run `verify-setup.sql`:
   - Sets up Row Level Security (RLS) policies
   - Creates indexes for performance
   - Defines triggers for automation
+  - Includes `is_admin` field in users table
+
+- **functions.sql** - Utility and business logic functions
+  - User profile creation
+  - Contribution calculations
+  - Payout calculations
+  - Group progress tracking
+  - Admin check functions
+
+- **admin_functions.sql** ⭐ NEW - System Admin functions
+  - Platform-wide user management
+  - Platform-wide group management
+  - User suspension/activation
+  - Group status management
+  - Analytics and reporting
+  - Audit logging
+  - Admin restrictions (cannot join groups/receive payouts)
+
+### Verification Files
+
+- **verify-setup.sql** - Verifies core database setup
+  - Checks all tables exist
+  - Verifies RLS policies
+  - Tests functions work
+  - Validates indexes
+
+- **verify_admin_installation.sql** ⭐ NEW - Verifies admin setup
+  - Checks admin functions exist
+  - Verifies triggers are created
+  - Tests admin permissions
+  - Validates admin restrictions
+  - Provides summary report
   - **MUST BE RUN FIRST**
 
 - **functions.sql** - Business logic functions
