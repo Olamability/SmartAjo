@@ -1,9 +1,16 @@
 /**
  * Paystack Payment Integration
  * 
- * This module handles payment initialization and verification using Paystack.
+ * This module handles payment initialization using Paystack.
  * Only the public key is used on the frontend. Payment verification happens
- * on the backend via Supabase Edge Functions or database triggers.
+ * on the backend via Supabase Edge Functions.
+ * 
+ * CRITICAL SECURITY RULES (per Paystack steup.md):
+ * - Frontend MUST NOT mark payment as successful
+ * - Frontend MUST NOT update wallet, subscription, or access rights
+ * - Frontend only initializes payment and collects email
+ * - All payment verification MUST happen via backend Edge Functions
+ * - Backend authority rule: Frontend success ≠ payment success
  */
 
 interface PaystackConfig {
@@ -143,9 +150,14 @@ class PaystackService {
       amount: this.toKobo(amount),
       reference,
       metadata: {
+        // MANDATORY metadata per Paystack steup.md specification
+        app: 'smartajo',
+        user_id: userId,
+        purpose: 'security_deposit',
+        entity_id: groupId,
+        // Backward compatibility fields
         type: 'security_deposit',
         group_id: groupId,
-        user_id: userId,
         custom_fields: [
           {
             display_name: 'Payment Type',
@@ -181,9 +193,14 @@ class PaystackService {
       amount: this.toKobo(amount),
       reference,
       metadata: {
+        // MANDATORY metadata per Paystack steup.md specification
+        app: 'smartajo',
+        user_id: userId,
+        purpose: 'contribution',
+        entity_id: groupId,
+        // Backward compatibility fields
         type: 'contribution',
         group_id: groupId,
-        user_id: userId,
         cycle_number: cycleNumber,
         custom_fields: [
           {
