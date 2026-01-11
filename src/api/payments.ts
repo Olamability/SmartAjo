@@ -30,6 +30,102 @@ interface VerifyPaymentResponse {
 }
 
 /**
+ * Initialize payment for group creation (security deposit + first contribution)
+ * Returns payment reference to be used with Paystack
+ */
+export const initializeGroupCreationPayment = async (
+  groupId: string,
+  amount: number
+): Promise<{ success: boolean; reference?: string; error?: string }> => {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Generate unique payment reference
+    const reference = `GRP_CREATE_${groupId.substring(0, 8)}_${Date.now()}`;
+
+    // Create pending payment record
+    const { error } = await supabase.from('payments').insert({
+      reference,
+      user_id: user.id,
+      amount: amount * 100, // Convert to kobo
+      currency: 'NGN',
+      status: 'pending',
+      email: user.email,
+      channel: 'card', // Default, will be updated after payment
+      verified: false,
+      metadata: {
+        type: 'group_creation',
+        group_id: groupId,
+        user_id: user.id,
+      },
+    });
+
+    if (error) {
+      console.error('Error creating payment record:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, reference };
+  } catch (error) {
+    console.error('Initialize group creation payment error:', error);
+    return { success: false, error: getErrorMessage(error, 'Failed to initialize payment') };
+  }
+};
+
+/**
+ * Initialize payment for joining a group (security deposit + first contribution)
+ * Returns payment reference to be used with Paystack
+ */
+export const initializeGroupJoinPayment = async (
+  groupId: string,
+  amount: number
+): Promise<{ success: boolean; reference?: string; error?: string }> => {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Generate unique payment reference
+    const reference = `GRP_JOIN_${groupId.substring(0, 8)}_${Date.now()}`;
+
+    // Create pending payment record
+    const { error } = await supabase.from('payments').insert({
+      reference,
+      user_id: user.id,
+      amount: amount * 100, // Convert to kobo
+      currency: 'NGN',
+      status: 'pending',
+      email: user.email,
+      channel: 'card', // Default, will be updated after payment
+      verified: false,
+      metadata: {
+        type: 'group_join',
+        group_id: groupId,
+        user_id: user.id,
+      },
+    });
+
+    if (error) {
+      console.error('Error creating payment record:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, reference };
+  } catch (error) {
+    console.error('Initialize group join payment error:', error);
+    return { success: false, error: getErrorMessage(error, 'Failed to initialize payment') };
+  }
+};
+
+/**
  * Verify payment with backend
  * 
  * MANDATORY: All payments MUST be verified via backend before being
