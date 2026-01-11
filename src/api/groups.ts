@@ -475,7 +475,8 @@ export const getAvailableGroups = async (): Promise<{
 export const updateSecurityDepositPayment = async (
   groupId: string,
   userId: string,
-  transactionRef: string
+  transactionRef: string,
+  amount: number
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const supabase = createClient();
@@ -496,16 +497,23 @@ export const updateSecurityDepositPayment = async (
       return { success: false, error: error.message };
     }
 
-    // Create a transaction record
-    await supabase.from('transactions').insert({
+    // Create a transaction record with the actual amount paid
+    const { error: transactionError } = await supabase.from('transactions').insert({
       user_id: userId,
       group_id: groupId,
       type: 'security_deposit',
-      amount: 0, // Amount will be fetched from group_members
+      amount: amount, // Store the actual security deposit amount
       status: 'completed',
       reference: transactionRef,
       description: 'Security deposit payment',
+      completed_at: new Date().toISOString(),
     });
+
+    if (transactionError) {
+      console.error('Error creating transaction record:', transactionError);
+      // Don't fail the whole operation if transaction record fails
+      // The member is already marked as paid
+    }
 
     return { success: true };
   } catch (error) {

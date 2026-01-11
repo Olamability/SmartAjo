@@ -184,11 +184,12 @@ export default function GroupDetailPage() {
         async (response: PaystackResponse) => {
           // Payment successful
           if (response.status === 'success') {
-            // Update database
+            // Update database with the actual amount paid
             const result = await updateSecurityDepositPayment(
               id,
               user.id,
-              response.reference
+              response.reference,
+              group.securityDepositAmount
             );
             
             if (result.success) {
