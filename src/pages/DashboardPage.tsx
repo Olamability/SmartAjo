@@ -255,7 +255,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground">Bank Account</p>
                       <p className="font-medium">
                         {user.bankName && user.accountNumber 
-                          ? `${user.bankName} - ****${user.accountNumber.slice(-4)}`
+                          ? `${user.bankName} - ****${user.accountNumber.length >= 4 ? user.accountNumber.slice(-4) : user.accountNumber}`
                           : 'Not set'}
                       </p>
                     </div>
