@@ -133,7 +133,7 @@ CREATE OR REPLACE FUNCTION process_approved_join_payment(
   p_group_id UUID,
   p_user_id UUID
 )
-RETURNS TABLE(success BOOLEAN, error_message TEXT, position INTEGER) AS $$
+RETURNS TABLE(success BOOLEAN, error_message TEXT, "position" INTEGER) AS $$
 DECLARE
   v_payment_verified BOOLEAN;
   v_payment_amount BIGINT;
