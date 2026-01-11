@@ -268,7 +268,7 @@ export default function DashboardPage() {
                         <Badge variant={user.isVerified ? 'default' : 'secondary'}>
                           {user.isVerified ? 'Verified' : 'Not Verified'}
                         </Badge>
-                        {user.kycStatus === 'approved' && (
+                        {user.kycStatus === 'verified' && (
                           <Badge variant="outline" className="text-green-600 border-green-600">
                             KYC Approved
                           </Badge>
