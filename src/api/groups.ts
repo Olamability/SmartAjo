@@ -41,6 +41,7 @@ export const createGroup = async (
         contribution_amount: data.contributionAmount,
         frequency: data.frequency,
         total_members: data.totalMembers,
+        current_members: 0, // Start at 0, will be incremented when creator is added as member
         security_deposit_amount: securityDepositAmount,
         security_deposit_percentage: data.securityDepositPercentage,
         status: 'forming',

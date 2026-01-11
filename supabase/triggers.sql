@@ -471,11 +471,13 @@ DECLARE
   v_total_members INTEGER;
   v_current_members INTEGER;
 BEGIN
-  -- Get group member counts
-  SELECT total_members, current_members
+  -- Get group member counts (using actual count from group_members table)
+  SELECT g.total_members, COUNT(gm.id)
   INTO v_total_members, v_current_members
-  FROM groups
-  WHERE id = NEW.group_id;
+  FROM groups g
+  LEFT JOIN group_members gm ON gm.group_id = g.id
+  WHERE g.id = NEW.group_id
+  GROUP BY g.total_members;
   
   -- Check if group is full
   IF v_current_members >= v_total_members THEN
@@ -648,4 +650,40 @@ COMMENT ON TRIGGER trigger_validate_security_deposits ON groups IS
 -- - Monitor performance impact of triggers
 -- - Consider async processing for expensive operations
 --
+-- ============================================================================
+-- TRIGGER: Update group current_members count
+-- ============================================================================
+-- Automatically updates the current_members count when members join or leave
+-- ============================================================================
+
+CREATE OR REPLACE FUNCTION update_group_member_count()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') THEN
+    -- Increment current_members when a new member joins
+    UPDATE groups
+    SET current_members = current_members + 1,
+        updated_at = NOW()
+    WHERE id = NEW.group_id;
+    RETURN NEW;
+  ELSIF (TG_OP = 'DELETE') THEN
+    -- Decrement current_members when a member leaves
+    UPDATE groups
+    SET current_members = GREATEST(0, current_members - 1),
+        updated_at = NOW()
+    WHERE id = OLD.group_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trigger_update_group_member_count
+AFTER INSERT OR DELETE ON group_members
+FOR EACH ROW
+EXECUTE FUNCTION update_group_member_count();
+
+COMMENT ON TRIGGER trigger_update_group_member_count ON group_members IS 
+  'Automatically updates the current_members count in groups table when members join or leave';
+
 -- ============================================================================
