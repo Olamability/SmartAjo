@@ -57,7 +57,7 @@ const CTASection = () => {
             </div>
 
             <p className="mt-8 text-sm text-primary-foreground/60">
-              Only 10% service fee per cycle • No hidden charges • Cancel anytime
+              Only 2% service fee per cycle • No hidden charges • Cancel anytime
             </p>
           </div>
         </div>

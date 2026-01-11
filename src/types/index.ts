@@ -44,7 +44,7 @@ export interface Group {
   totalCycles: number;
   rotationOrder: string[]; // Array of user IDs
   members: GroupMember[];
-  serviceFeePercentage: number; // Default 10%
+  serviceFeePercentage: number; // Default 2%
 }
 
 export interface GroupMember {

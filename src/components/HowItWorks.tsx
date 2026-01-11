@@ -22,7 +22,7 @@ const steps = [
   {
     icon: CheckCircle,
     title: "Receive Your Payout",
-    description: "When it's your turn, receive the full pool minus the 10% service fee. Automatic, guaranteed, and on schedule.",
+    description: "When it's your turn, receive the full pool minus the 2% service fee. Automatic, guaranteed, and on schedule.",
     color: "success",
   },
 ];

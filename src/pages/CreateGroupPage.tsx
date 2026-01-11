@@ -154,7 +154,7 @@ export default function CreateGroupPage() {
           <Info className="h-4 w-4" />
           <AlertDescription>
             <strong>How it works:</strong> Members contribute regularly to a shared pool. 
-            Each cycle, one member receives the full payout (minus 10% service fee). 
+            Each cycle, one member receives the full payout (minus 2% service fee). 
             Security deposits ensure commitment.
           </AlertDescription>
         </Alert>
