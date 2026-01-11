@@ -27,6 +27,18 @@ export const createGroup = async (
       return { success: false, error: 'Not authenticated' };
     }
 
+    // Fetch user profile to get phone and profile image
+    const { data: userProfile, error: userError } = await supabase
+      .from('users')
+      .select('phone, avatar_url')
+      .eq('id', user.id)
+      .single();
+
+    if (userError) {
+      console.error('Error fetching user profile for group creation:', userError.message, userError);
+      // Continue even if profile fetch fails - profile info is optional for group creation
+    }
+
     // Calculate security deposit amount
     const securityDepositAmount =
       (data.contributionAmount * data.securityDepositPercentage) / 100;
@@ -38,6 +50,8 @@ export const createGroup = async (
         name: data.name,
         description: data.description,
         created_by: user.id,
+        creator_profile_image: userProfile?.avatar_url || null,
+        creator_phone: userProfile?.phone || null,
         contribution_amount: data.contributionAmount,
         frequency: data.frequency,
         total_members: data.totalMembers,
@@ -69,6 +83,8 @@ export const createGroup = async (
         name: groupData.name,
         description: groupData.description,
         createdBy: groupData.created_by,
+        creatorProfileImage: groupData.creator_profile_image,
+        creatorPhone: groupData.creator_phone,
         contributionAmount: groupData.contribution_amount,
         frequency: groupData.frequency,
         totalMembers: groupData.total_members,
@@ -169,6 +185,8 @@ export const getUserGroups = async (): Promise<{
       name: group.name,
       description: group.description,
       createdBy: group.created_by,
+      creatorProfileImage: group.creator_profile_image,
+      creatorPhone: group.creator_phone,
       contributionAmount: group.contribution_amount,
       frequency: group.frequency,
       totalMembers: group.total_members,
@@ -234,6 +252,8 @@ export const getGroupById = async (
         name: data.name,
         description: data.description,
         createdBy: data.created_by,
+        creatorProfileImage: data.creator_profile_image,
+        creatorPhone: data.creator_phone,
         contributionAmount: data.contribution_amount,
         frequency: data.frequency,
         totalMembers: data.total_members,
@@ -417,6 +437,8 @@ export const getAvailableGroups = async (): Promise<{
       name: group.name,
       description: group.description,
       createdBy: group.created_by,
+      creatorProfileImage: group.creator_profile_image,
+      creatorPhone: group.creator_phone,
       contributionAmount: group.contribution_amount,
       frequency: group.frequency,
       totalMembers: group.total_members,

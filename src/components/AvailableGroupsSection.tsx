@@ -11,8 +11,9 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, DollarSign, Calendar, Loader2, UserPlus, Search } from 'lucide-react';
+import { Users, DollarSign, Calendar, Loader2, UserPlus, Search, Phone, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface AvailableGroupsSectionProps {
   onJoinSuccess?: () => void;
@@ -152,6 +153,26 @@ export default function AvailableGroupsSection({ onJoinSuccess }: AvailableGroup
                     Accepting Members
                   </Badge>
                 </div>
+                {/* Creator Information */}
+                {(group.creatorProfileImage || group.creatorPhone) && (
+                  <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+                    <Avatar className="w-8 h-8">
+                      <AvatarImage src={group.creatorProfileImage || undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary">
+                        <User className="w-4 h-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground">Created by</p>
+                      {group.creatorPhone && (
+                        <div className="flex items-center gap-1 text-xs font-medium">
+                          <Phone className="w-3 h-3" />
+                          <span className="truncate">{group.creatorPhone}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 sm:space-y-3">

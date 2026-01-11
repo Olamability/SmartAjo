@@ -29,6 +29,8 @@ export interface Group {
   name: string;
   description: string;
   createdBy: string;
+  creatorProfileImage?: string;
+  creatorPhone?: string;
   contributionAmount: number;
   frequency: 'daily' | 'weekly' | 'monthly';
   totalMembers: number;
