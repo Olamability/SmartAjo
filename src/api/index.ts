@@ -13,3 +13,4 @@ export * from './contributions';
 export * from './transactions';
 export * from './notifications';
 export * from './stats';
+export * from './profile';
