@@ -188,7 +188,8 @@ export const verifyPayment = async (
  */
 export const processGroupCreationPayment = async (
   reference: string,
-  groupId: string
+  groupId: string,
+  preferredSlot?: number
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const supabase = createClient();
@@ -198,11 +199,12 @@ export const processGroupCreationPayment = async (
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Call database function to process payment
+    // Call database function to process payment with slot selection
     const { data, error } = await supabase.rpc('process_group_creation_payment', {
       p_payment_reference: reference,
       p_group_id: groupId,
       p_user_id: user.id,
+      p_preferred_slot: preferredSlot || 1, // Default to slot 1 if not specified
     });
 
     if (error) {

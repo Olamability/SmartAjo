@@ -644,6 +644,47 @@ export const rejectJoinRequest = async (
 };
 
 /**
+ * Get user's join request status for a specific group
+ */
+export const getUserJoinRequestStatus = async (
+  groupId: string
+): Promise<{ success: boolean; request?: any; error?: string }> => {
+  try {
+    const supabase = createClient();
+
+    // Get current user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const { data, error } = await supabase
+      .from('group_join_requests')
+      .select('*')
+      .eq('group_id', groupId)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      console.error('Error fetching join request status:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, request: data || null };
+  } catch (error) {
+    console.error('Get join request status error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to fetch join request status'),
+    };
+  }
+};
+
+/**
  * Get available payout slots for a group
  */
 export const getAvailableSlots = async (

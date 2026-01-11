@@ -9,7 +9,13 @@ import {
   getPendingJoinRequests,
   approveJoinRequest,
   rejectJoinRequest,
+  getUserJoinRequestStatus,
 } from '@/api';
+import {
+  initializeGroupJoinPayment,
+  verifyPayment,
+  processApprovedJoinPayment,
+} from '@/api/payments';
 import type { Group, GroupMember } from '@/types';
 import { paystackService, PaystackResponse } from '@/lib/paystack';
 import ContributionsList from '@/components/ContributionsList';
@@ -84,6 +90,10 @@ export default function GroupDetailPage() {
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  
+  // State for approved join request payment
+  const [userJoinRequest, setUserJoinRequest] = useState<any>(null);
+  const [showApprovedPaymentDialog, setShowApprovedPaymentDialog] = useState(false);
 
   useEffect(() => {
     if (id) {

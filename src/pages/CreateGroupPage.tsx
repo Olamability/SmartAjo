@@ -1,10 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { createGroup } from '@/api';
+import { 
+  initializeGroupCreationPayment, 
+  verifyPayment, 
+  processGroupCreationPayment 
+} from '@/api/payments';
 import { DEFAULT_SERVICE_FEE_PERCENTAGE } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,9 +29,19 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { ArrowLeft, Loader2, Shield, Info } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { ArrowLeft, Loader2, Shield, Info, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import SlotSelector from '@/components/SlotSelector';
+import { paystackService, PaystackResponse } from '@/lib/paystack';
 
 const createGroupSchema = z.object({
   name: z.string().min(3, 'Group name must be at least 3 characters'),
@@ -47,6 +62,25 @@ export default function CreateGroupPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [frequency, setFrequency] = useState<string>('');
+  
+  // Payment and slot selection state
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [createdGroup, setCreatedGroup] = useState<any>(null);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [paymentReference, setPaymentReference] = useState<string>('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  
+  useEffect(() => {
+    // Load Paystack script on component mount
+    const loadPaystack = async () => {
+      try {
+        await paystackService['loadScript']();
+      } catch (error) {
+        console.error('Failed to load Paystack script:', error);
+      }
+    };
+    loadPaystack();
+  }, []);
 
   const {
     register,
@@ -102,9 +136,10 @@ export default function CreateGroupPage() {
       });
 
       if (result.success && result.group) {
-        toast.success('Group created successfully!');
-        // Navigate to the newly created group's detail page
-        navigate(`/groups/${result.group.id}`);
+        // Store the created group and show payment dialog
+        setCreatedGroup(result.group);
+        setShowPaymentDialog(true);
+        toast.success('Group created! Please complete payment to become the admin.');
       } else {
         toast.error(result.error || 'Failed to create group');
       }
@@ -113,6 +148,85 @@ export default function CreateGroupPage() {
       toast.error('Failed to create group');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!createdGroup || !user || !selectedSlot) {
+      if (!selectedSlot) {
+        toast.error('Please select a payout slot');
+      }
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    try {
+      // Calculate total amount (security deposit + first contribution)
+      const totalAmount = createdGroup.securityDepositAmount + createdGroup.contributionAmount;
+
+      // Initialize payment record
+      const initResult = await initializeGroupCreationPayment(createdGroup.id, totalAmount);
+      
+      if (!initResult.success || !initResult.reference) {
+        toast.error(initResult.error || 'Failed to initialize payment');
+        setIsProcessingPayment(false);
+        return;
+      }
+
+      setPaymentReference(initResult.reference);
+
+      // Open Paystack payment popup
+      await paystackService.initializePayment({
+        email: user.email!,
+        amount: totalAmount * 100, // Convert to kobo
+        reference: initResult.reference,
+        metadata: {
+          type: 'group_creation',
+          group_id: createdGroup.id,
+          user_id: user.id,
+          preferred_slot: selectedSlot,
+        },
+        callback: async (response: PaystackResponse) => {
+          // Payment successful, verify on backend
+          if (response.status === 'success') {
+            toast.info('Payment received! Verifying...');
+            
+            // Verify payment with backend
+            const verifyResult = await verifyPayment(response.reference);
+            
+            if (verifyResult.verified) {
+              // Process payment and add creator as member with selected slot
+              const processResult = await processGroupCreationPayment(
+                response.reference,
+                createdGroup.id,
+                selectedSlot
+              );
+              
+              if (processResult.success) {
+                toast.success('Payment verified! You are now the group admin.');
+                setShowPaymentDialog(false);
+                // Navigate to group detail page
+                navigate(`/groups/${createdGroup.id}`);
+              } else {
+                toast.error(processResult.error || 'Failed to process payment');
+              }
+            } else {
+              toast.error('Payment verification failed. Please contact support.');
+            }
+          } else {
+            toast.error('Payment was not successful');
+          }
+          setIsProcessingPayment(false);
+        },
+        onClose: () => {
+          toast.info('Payment cancelled');
+          setIsProcessingPayment(false);
+        },
+      });
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error('Failed to initialize payment');
+      setIsProcessingPayment(false);
     }
   };
 
@@ -400,6 +514,111 @@ export default function CreateGroupPage() {
             </Button>
           </div>
         </form>
+
+        {/* Payment Dialog */}
+        <Dialog open={showPaymentDialog} onOpenChange={(open) => {
+          if (!open && !isProcessingPayment) {
+            setShowPaymentDialog(false);
+            // If user closes dialog without paying, navigate back to groups
+            navigate('/groups');
+          }
+        }}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Complete Your Payment</DialogTitle>
+              <DialogDescription>
+                Select your preferred payout position and pay the security deposit 
+                + first contribution to become the group admin.
+              </DialogDescription>
+            </DialogHeader>
+
+            {createdGroup && (
+              <div className="space-y-6">
+                {/* Payment Summary */}
+                <Card className="bg-primary/5">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Payment Summary</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Security Deposit:</span>
+                      <span className="font-semibold">
+                        {formatCurrency(createdGroup.securityDepositAmount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">First Contribution:</span>
+                      <span className="font-semibold">
+                        {formatCurrency(createdGroup.contributionAmount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-lg border-t pt-2 mt-2">
+                      <span className="font-semibold">Total Amount:</span>
+                      <span className="font-bold text-green-600">
+                        {formatCurrency(
+                          createdGroup.securityDepositAmount + createdGroup.contributionAmount
+                        )}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Slot Selection */}
+                <div>
+                  <h3 className="text-lg font-semibold mb-4">Select Your Payout Position</h3>
+                  <SlotSelector
+                    groupId={createdGroup.id}
+                    selectedSlot={selectedSlot}
+                    onSlotSelect={setSelectedSlot}
+                    disabled={isProcessingPayment}
+                  />
+                </div>
+
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Important:</strong> Your selected position determines when you'll 
+                    receive your payout during the rotation cycle. Position 1 receives payout 
+                    in the first cycle, position 2 in the second cycle, and so on.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!isProcessingPayment) {
+                    setShowPaymentDialog(false);
+                    navigate('/groups');
+                  }
+                }}
+                disabled={isProcessingPayment}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handlePayment}
+                disabled={isProcessingPayment || !selectedSlot}
+              >
+                {isProcessingPayment ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-4 h-4 mr-2" />
+                    Pay {createdGroup && formatCurrency(
+                      createdGroup.securityDepositAmount + createdGroup.contributionAmount
+                    )}
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
