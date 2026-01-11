@@ -1,9 +1,17 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { getUserProfile, updateUserProfile, NIGERIAN_BANKS } from '@/api';
+import { 
+  getUserProfile, 
+  updateUserProfile, 
+  uploadAvatar,
+  deleteAvatar,
+  changePassword,
+  deactivateAccount,
+  NIGERIAN_BANKS 
+} from '@/api';
 import type { User } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,8 +30,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   ArrowLeft,
   User as UserIcon,
@@ -32,6 +52,10 @@ import {
   Save,
   AlertCircle,
   CheckCircle,
+  Camera,
+  Trash2,
+  Lock,
+  UserX,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -51,8 +75,18 @@ const bankAccountSchema = z.object({
   accountName: z.string().min(2, 'Account name is required'),
 });
 
+// Password change form schema
+const passwordSchema = z.object({
+  newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+  confirmPassword: z.string().min(8, 'Password must be at least 8 characters'),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
 type ProfileFormData = z.infer<typeof profileSchema>;
 type BankAccountFormData = z.infer<typeof bankAccountSchema>;
+type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export default function ProfileSettingsPage() {
   const navigate = useNavigate();
@@ -60,6 +94,8 @@ export default function ProfileSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile form
   const profileForm = useForm<ProfileFormData>({
@@ -80,6 +116,15 @@ export default function ProfileSettingsPage() {
       bankCode: '',
       accountNumber: '',
       accountName: '',
+    },
+  });
+
+  // Password form
+  const passwordForm = useForm<PasswordFormData>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      newPassword: '',
+      confirmPassword: '',
     },
   });
 
@@ -180,6 +225,84 @@ export default function ProfileSettingsPage() {
     }
   };
 
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setAvatarUploading(true);
+    try {
+      const result = await uploadAvatar(file);
+      if (result.success) {
+        toast.success('Profile picture updated successfully');
+        await loadProfile();
+      } else {
+        toast.error(result.error || 'Failed to upload profile picture');
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast.error('Failed to upload profile picture');
+    } finally {
+      setAvatarUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleAvatarDelete = async () => {
+    setAvatarUploading(true);
+    try {
+      const result = await deleteAvatar();
+      if (result.success) {
+        toast.success('Profile picture removed successfully');
+        await loadProfile();
+      } else {
+        toast.error(result.error || 'Failed to remove profile picture');
+      }
+    } catch (error) {
+      console.error('Error deleting avatar:', error);
+      toast.error('Failed to remove profile picture');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const onPasswordSubmit = async (data: PasswordFormData) => {
+    setSaving(true);
+    try {
+      const result = await changePassword(data.newPassword);
+      if (result.success) {
+        toast.success('Password changed successfully');
+        passwordForm.reset();
+      } else {
+        toast.error(result.error || 'Failed to change password');
+      }
+    } catch (error) {
+      console.error('Error changing password:', error);
+      toast.error('Failed to change password');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeactivateAccount = async () => {
+    setSaving(true);
+    try {
+      const result = await deactivateAccount();
+      if (result.success) {
+        toast.success('Account deactivated successfully. You will be signed out.');
+        setTimeout(() => navigate('/'), 2000);
+      } else {
+        toast.error(result.error || 'Failed to deactivate account');
+      }
+    } catch (error) {
+      console.error('Error deactivating account:', error);
+      toast.error('Failed to deactivate account');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -229,7 +352,7 @@ export default function ProfileSettingsPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <UserIcon className="w-4 h-4" />
               Profile
@@ -237,6 +360,14 @@ export default function ProfileSettingsPage() {
             <TabsTrigger value="bank" className="flex items-center gap-2">
               <Building2 className="w-4 h-4" />
               Bank Account
+            </TabsTrigger>
+            <TabsTrigger value="security" className="flex items-center gap-2">
+              <Lock className="w-4 h-4" />
+              Security
+            </TabsTrigger>
+            <TabsTrigger value="account" className="flex items-center gap-2">
+              <UserX className="w-4 h-4" />
+              Account
             </TabsTrigger>
           </TabsList>
 
@@ -250,6 +381,61 @@ export default function ProfileSettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
+                {/* Avatar Upload Section */}
+                <div className="flex items-center gap-6 mb-6 pb-6 border-b">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={profileData?.profileImage} alt={profileData?.fullName} />
+                    <AvatarFallback className="text-2xl">
+                      {profileData?.fullName?.charAt(0).toUpperCase() || 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={avatarUploading}
+                      >
+                        {avatarUploading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="w-4 h-4 mr-2" />
+                            Upload Photo
+                          </>
+                        )}
+                      </Button>
+                      {profileData?.profileImage && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleAvatarDelete}
+                          disabled={avatarUploading}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      JPG, PNG, WEBP or GIF. Max size 2MB.
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
                 <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="fullName">Full Name</Label>
@@ -420,6 +606,139 @@ export default function ProfileSettingsPage() {
                     )}
                   </Button>
                 </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Security Tab */}
+          <TabsContent value="security">
+            <Card>
+              <CardHeader>
+                <CardTitle>Security Settings</CardTitle>
+                <CardDescription>
+                  Change your password and manage security settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="newPassword">New Password</Label>
+                    <Input
+                      id="newPassword"
+                      type="password"
+                      {...passwordForm.register('newPassword')}
+                      placeholder="Enter new password"
+                    />
+                    {passwordForm.formState.errors.newPassword && (
+                      <p className="text-sm text-destructive">
+                        {passwordForm.formState.errors.newPassword.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type="password"
+                      {...passwordForm.register('confirmPassword')}
+                      placeholder="Confirm new password"
+                    />
+                    {passwordForm.formState.errors.confirmPassword && (
+                      <p className="text-sm text-destructive">
+                        {passwordForm.formState.errors.confirmPassword.message}
+                      </p>
+                    )}
+                  </div>
+
+                  <Alert className="bg-blue-50 border-blue-200">
+                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-900 text-sm">
+                      <strong>Password Requirements:</strong> Minimum 8 characters. Choose a strong password you haven't used elsewhere.
+                    </AlertDescription>
+                  </Alert>
+
+                  <Button type="submit" disabled={saving} className="w-full">
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Changing Password...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="w-4 h-4 mr-2" />
+                        Change Password
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Account Management Tab */}
+          <TabsContent value="account">
+            <Card>
+              <CardHeader>
+                <CardTitle>Account Management</CardTitle>
+                <CardDescription>
+                  Manage your account settings and deactivation
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Deactivate Account</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Deactivating your account will prevent you from logging in and accessing your data. 
+                      You must leave or complete all active groups before deactivating.
+                    </p>
+                  </div>
+
+                  <Alert className="bg-red-50 border-red-200">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    <AlertDescription className="text-red-900">
+                      <strong>Warning:</strong> This action will deactivate your account. 
+                      Your data will be preserved but you won't be able to log in. 
+                      Contact support to reactivate your account.
+                    </AlertDescription>
+                  </Alert>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" disabled={saving}>
+                        <UserX className="w-4 h-4 mr-2" />
+                        Deactivate Account
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will deactivate your account and sign you out. You won't be able to log in 
+                          until you contact support to reactivate your account. Make sure you've left all 
+                          active groups before proceeding.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeactivateAccount}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          {saving ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                              Deactivating...
+                            </>
+                          ) : (
+                            'Deactivate Account'
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
