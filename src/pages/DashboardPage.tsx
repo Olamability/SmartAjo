@@ -255,7 +255,7 @@ export default function DashboardPage() {
                       <p className="text-sm text-muted-foreground">Bank Account</p>
                       <p className="font-medium">
                         {user.bankName && user.accountNumber 
-                          ? `${user.bankName} - ****${user.accountNumber.length >= 4 ? user.accountNumber.slice(-4) : user.accountNumber}`
+                          ? `${user.bankName} - ${'*'.repeat(Math.max(0, user.accountNumber.length - 4))}${user.accountNumber.slice(-4)}`
                           : 'Not set'}
                       </p>
                     </div>
@@ -268,7 +268,7 @@ export default function DashboardPage() {
                         <Badge variant={user.isVerified ? 'default' : 'secondary'}>
                           {user.isVerified ? 'Verified' : 'Not Verified'}
                         </Badge>
-                        {user.kycStatus === 'verified' && (
+                        {user?.kycStatus === 'verified' && (
                           <Badge variant="outline" className="text-green-600 border-green-600">
                             KYC Approved
                           </Badge>
