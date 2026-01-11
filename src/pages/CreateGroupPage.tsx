@@ -69,18 +69,6 @@ export default function CreateGroupPage() {
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [paymentReference, setPaymentReference] = useState<string>('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  
-  useEffect(() => {
-    // Load Paystack script on component mount
-    const loadPaystack = async () => {
-      try {
-        await paystackService['loadScript']();
-      } catch (error) {
-        console.error('Failed to load Paystack script:', error);
-      }
-    };
-    loadPaystack();
-  }, []);
 
   const {
     register,

@@ -420,6 +420,33 @@ export default function GroupDetailPage() {
     setSelectedSlot(null);
   };
 
+  // Helper function to determine if user should see join button
+  const shouldShowJoinButton = () => {
+    return (
+      group?.status === 'forming' &&
+      !currentUserMember &&
+      !userJoinRequest
+    );
+  };
+
+  // Helper function to determine if user has approved join request
+  const hasApprovedJoinRequest = () => {
+    return (
+      userJoinRequest &&
+      userJoinRequest.status === 'approved' &&
+      !currentUserMember
+    );
+  };
+
+  // Helper function to determine if user has pending join request
+  const hasPendingJoinRequest = () => {
+    return (
+      userJoinRequest &&
+      userJoinRequest.status === 'pending' &&
+      !currentUserMember
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -472,7 +499,7 @@ export default function GroupDetailPage() {
         </div>
 
         {/* Status Alert - Show approved payment prompt for users with approved join requests */}
-        {userJoinRequest && userJoinRequest.status === 'approved' && !currentUserMember && (
+        {hasApprovedJoinRequest() && (
           <Alert className="bg-green-50 border-green-200">
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertDescription className="flex items-center justify-between">
@@ -499,7 +526,7 @@ export default function GroupDetailPage() {
         )}
 
         {/* Status Alert - Show join button for non-members in forming groups */}
-        {group.status === 'forming' && !currentUserMember && !userJoinRequest && (
+        {shouldShowJoinButton() && (
           <Alert className="bg-blue-50 border-blue-200">
             <UserPlus className="h-4 w-4 text-blue-600" />
             <AlertDescription className="flex items-center justify-between">
@@ -520,7 +547,7 @@ export default function GroupDetailPage() {
         )}
 
         {/* Status Alert - Show pending request notice */}
-        {userJoinRequest && userJoinRequest.status === 'pending' && !currentUserMember && (
+        {hasPendingJoinRequest() && (
           <Alert className="bg-yellow-50 border-yellow-200">
             <Clock className="h-4 w-4 text-yellow-600" />
             <AlertDescription>
