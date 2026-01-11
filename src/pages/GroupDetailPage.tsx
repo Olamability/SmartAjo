@@ -1,7 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getGroupById, getGroupMembers, updateSecurityDepositPayment, joinGroup } from '@/api';
+import { 
+  getGroupById, 
+  getGroupMembers, 
+  updateSecurityDepositPayment, 
+  joinGroup,
+  getPendingJoinRequests,
+  approveJoinRequest,
+  rejectJoinRequest,
+} from '@/api';
 import type { Group, GroupMember } from '@/types';
 import { paystackService, PaystackResponse } from '@/lib/paystack';
 import ContributionsList from '@/components/ContributionsList';
@@ -32,11 +40,22 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle,
+  UserCheck,
+  UserX,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface JoinRequest {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  message: string | null;
+  created_at: string;
+}
 
 export default function GroupDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -49,11 +68,14 @@ export default function GroupDetailPage() {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [currentUserMember, setCurrentUserMember] = useState<GroupMember | null>(null);
   const [isJoining, setIsJoining] = useState(false);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
       loadGroupDetails();
       loadMembers();
+      loadJoinRequests();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -93,6 +115,59 @@ export default function GroupDetailPage() {
       }
     } catch (error) {
       console.error('Error loading members:', error);
+    }
+  };
+
+  const loadJoinRequests = async () => {
+    if (!id) return;
+
+    try {
+      const result = await getPendingJoinRequests(id);
+      if (result.success && result.requests) {
+        setJoinRequests(result.requests);
+      }
+    } catch (error) {
+      console.error('Error loading join requests:', error);
+    }
+  };
+
+  const handleApproveRequest = async (requestId: string) => {
+    setProcessingRequestId(requestId);
+    try {
+      const result = await approveJoinRequest(requestId);
+      if (result.success) {
+        toast.success('Join request approved! User can now pay security deposit.');
+        // Reload join requests and members
+        await loadJoinRequests();
+        await loadMembers();
+        await loadGroupDetails();
+      } else {
+        toast.error(result.error || 'Failed to approve request');
+      }
+    } catch (error) {
+      console.error('Error approving request:', error);
+      toast.error('Failed to approve request');
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    setProcessingRequestId(requestId);
+    try {
+      const result = await rejectJoinRequest(requestId, 'Request rejected by group admin');
+      if (result.success) {
+        toast.success('Join request rejected');
+        // Reload join requests
+        await loadJoinRequests();
+      } else {
+        toast.error(result.error || 'Failed to reject request');
+      }
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      toast.error('Failed to reject request');
+    } finally {
+      setProcessingRequestId(null);
     }
   };
 
@@ -198,16 +273,15 @@ export default function GroupDetailPage() {
     try {
       const result = await joinGroup(id);
       if (result.success) {
-        toast.success('Successfully joined the group!');
-        // Reload group details and members
-        await loadGroupDetails();
-        await loadMembers();
+        toast.success('Join request sent! Please wait for group admin approval.');
+        // Reload join requests to show the new request status
+        await loadJoinRequests();
       } else {
-        toast.error(result.error || 'Failed to join group');
+        toast.error(result.error || 'Failed to send join request');
       }
     } catch (error) {
       console.error('Error joining group:', error);
-      toast.error('Failed to join group');
+      toast.error('Failed to send join request');
     } finally {
       setIsJoining(false);
     }
@@ -525,6 +599,68 @@ export default function GroupDetailPage() {
 
           {/* Members Tab */}
           <TabsContent value="members" className="space-y-4">
+            {/* Join Requests - Only visible to group creator */}
+            {isCreator && joinRequests.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Pending Join Requests</CardTitle>
+                  <CardDescription>
+                    Review and approve or reject join requests
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {joinRequests.map((request) => (
+                      <div key={request.id} className="flex items-center gap-3 p-3 border rounded-lg bg-yellow-50 border-yellow-200">
+                        <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                          <Clock className="w-5 h-5 text-yellow-600" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium">{request.user_name}</p>
+                          <p className="text-sm text-muted-foreground">{request.user_email}</p>
+                          {request.message && (
+                            <p className="text-sm text-muted-foreground mt-1 italic">"{request.message}"</p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={() => handleApproveRequest(request.id)}
+                            disabled={processingRequestId === request.id}
+                          >
+                            {processingRequestId === request.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <UserCheck className="w-4 h-4 mr-1" />
+                                Accept
+                              </>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleRejectRequest(request.id)}
+                            disabled={processingRequestId === request.id}
+                          >
+                            {processingRequestId === request.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <>
+                                <UserX className="w-4 h-4 mr-1" />
+                                Reject
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">

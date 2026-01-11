@@ -338,10 +338,11 @@ export const getGroupMembers = async (
 };
 
 /**
- * Join an existing group
+ * Request to join an existing group (creates a join request for admin approval)
  */
 export const joinGroup = async (
-  groupId: string
+  groupId: string,
+  message?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
     const supabase = createClient();
@@ -354,49 +355,24 @@ export const joinGroup = async (
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Check if group is still accepting members
-    const { data: group, error: groupError } = await supabase
-      .from('groups')
-      .select('status, total_members, current_members, security_deposit_amount')
-      .eq('id', groupId)
-      .single();
-
-    if (groupError) {
-      return { success: false, error: 'Group not found' };
-    }
-
-    if (group.status !== 'forming') {
-      return { success: false, error: 'Group is not accepting new members' };
-    }
-
-    if (group.current_members >= group.total_members) {
-      return { success: false, error: 'Group is full' };
-    }
-
-    // Get the next position (max position + 1)
-    const { data: maxPositionData } = await supabase
-      .from('group_members')
-      .select('position')
-      .eq('group_id', groupId)
-      .order('position', { ascending: false })
-      .limit(1)
-      .single();
-
-    const nextPosition = maxPositionData ? maxPositionData.position + 1 : 1;
-
-    // Add user to group
-    const { error } = await supabase.from('group_members').insert({
-      group_id: groupId,
-      user_id: user.id,
-      position: nextPosition,
-      status: 'active',
-      has_paid_security_deposit: false,
-      security_deposit_amount: group.security_deposit_amount,
+    // Call the database function to create join request
+    const { data, error } = await supabase.rpc('request_to_join_group', {
+      p_group_id: groupId,
+      p_user_id: user.id,
+      p_message: message || null,
     });
 
     if (error) {
-      console.error('Error joining group:', error);
+      console.error('Error requesting to join group:', error);
       return { success: false, error: error.message };
+    }
+
+    // The function returns a table with success and error_message columns
+    if (data && data.length > 0) {
+      const result = data[0];
+      if (!result.success) {
+        return { success: false, error: result.error_message };
+      }
     }
 
     return { success: true };
@@ -404,7 +380,7 @@ export const joinGroup = async (
     console.error('Join group error:', error);
     return {
       success: false,
-      error: getErrorMessage(error, 'Failed to join group'),
+      error: getErrorMessage(error, 'Failed to request to join group'),
     };
   }
 };
@@ -504,11 +480,13 @@ export const updateSecurityDepositPayment = async (
   try {
     const supabase = createClient();
 
+    // Update member status to active and mark security deposit as paid
     const { error } = await supabase
       .from('group_members')
       .update({
         has_paid_security_deposit: true,
         security_deposit_paid_at: new Date().toISOString(),
+        status: 'active', // Activate member after payment
       })
       .eq('group_id', groupId)
       .eq('user_id', userId);
@@ -535,6 +513,126 @@ export const updateSecurityDepositPayment = async (
     return {
       success: false,
       error: getErrorMessage(error, 'Failed to update security deposit'),
+    };
+  }
+};
+
+/**
+ * Get pending join requests for a group (for group creator/admin)
+ */
+export const getPendingJoinRequests = async (
+  groupId: string
+): Promise<{ success: boolean; requests?: any[]; error?: string }> => {
+  try {
+    const supabase = createClient();
+
+    const { data, error } = await supabase.rpc('get_pending_join_requests', {
+      p_group_id: groupId,
+    });
+
+    if (error) {
+      console.error('Error fetching join requests:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, requests: data || [] };
+  } catch (error) {
+    console.error('Get join requests error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to fetch join requests'),
+    };
+  }
+};
+
+/**
+ * Approve a join request (for group creator/admin)
+ */
+export const approveJoinRequest = async (
+  requestId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const supabase = createClient();
+
+    // Get current user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const { data, error } = await supabase.rpc('approve_join_request', {
+      p_request_id: requestId,
+      p_reviewer_id: user.id,
+    });
+
+    if (error) {
+      console.error('Error approving join request:', error);
+      return { success: false, error: error.message };
+    }
+
+    // The function returns a table with success and error_message columns
+    if (data && data.length > 0) {
+      const result = data[0];
+      if (!result.success) {
+        return { success: false, error: result.error_message };
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Approve join request error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to approve join request'),
+    };
+  }
+};
+
+/**
+ * Reject a join request (for group creator/admin)
+ */
+export const rejectJoinRequest = async (
+  requestId: string,
+  reason?: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const supabase = createClient();
+
+    // Get current user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const { data, error } = await supabase.rpc('reject_join_request', {
+      p_request_id: requestId,
+      p_reviewer_id: user.id,
+      p_rejection_reason: reason || null,
+    });
+
+    if (error) {
+      console.error('Error rejecting join request:', error);
+      return { success: false, error: error.message };
+    }
+
+    // The function returns a table with success and error_message columns
+    if (data && data.length > 0) {
+      const result = data[0];
+      if (!result.success) {
+        return { success: false, error: result.error_message };
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Reject join request error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to reject join request'),
     };
   }
 };
