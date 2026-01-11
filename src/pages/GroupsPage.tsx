@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserGroups } from '@/api';
 import type { Group as ApiGroup } from '@/types';
+import AvailableGroupsSection from '@/components/AvailableGroupsSection';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -202,6 +203,11 @@ export default function GroupsPage() {
             ))}
           </div>
         )}
+
+        {/* Available Groups to Join Section */}
+        <div className="mt-8">
+          <AvailableGroupsSection onJoinSuccess={loadGroups} />
+        </div>
       </div>
     </div>
   );
