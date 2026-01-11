@@ -44,6 +44,7 @@ export const createGroup = async (
         current_members: 0, // Start at 0, will be incremented when creator is added as member
         security_deposit_amount: securityDepositAmount,
         security_deposit_percentage: data.securityDepositPercentage,
+        service_fee_percentage: DEFAULT_SERVICE_FEE_PERCENTAGE, // Explicitly set the service fee percentage
         status: 'forming',
         start_date: data.startDate,
         current_cycle: 1,
@@ -81,7 +82,7 @@ export const createGroup = async (
         totalCycles: groupData.total_cycles,
         rotationOrder: [],
         members: [],
-        serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
+        serviceFeePercentage: groupData.service_fee_percentage || DEFAULT_SERVICE_FEE_PERCENTAGE,
       },
     };
   } catch (error) {
@@ -183,7 +184,7 @@ export const getUserGroups = async (): Promise<{
       totalCycles: group.total_cycles,
       rotationOrder: [],
       members: [],
-      serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
+      serviceFeePercentage: group.service_fee_percentage || DEFAULT_SERVICE_FEE_PERCENTAGE,
     }));
 
     return { success: true, groups };
@@ -248,7 +249,7 @@ export const getGroupById = async (
         totalCycles: data.total_cycles,
         rotationOrder: [],
         members: [],
-        serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
+        serviceFeePercentage: data.service_fee_percentage || DEFAULT_SERVICE_FEE_PERCENTAGE,
       },
     };
   } catch (error) {
@@ -431,7 +432,7 @@ export const getAvailableGroups = async (): Promise<{
       totalCycles: group.total_cycles,
       rotationOrder: [],
       members: [],
-      serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
+      serviceFeePercentage: group.service_fee_percentage || DEFAULT_SERVICE_FEE_PERCENTAGE,
     }));
 
     return { success: true, groups };

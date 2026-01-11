@@ -207,7 +207,7 @@ export async function uploadAvatar(
     }
     
     // Sanitize user ID (already a UUID from Supabase, but be explicit)
-    const sanitizedUserId = authUser.id.replace(/[^a-zA-Z0-9\-]/g, '');
+    const sanitizedUserId = authUser.id.replace(/[^a-zA-Z0-9-]/g, '');
     const filePath = `${sanitizedUserId}/avatar.${fileExt}`;
 
     // Delete old avatar if exists

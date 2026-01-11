@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { createGroup } from '@/api';
+import { DEFAULT_SERVICE_FEE_PERCENTAGE } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -75,8 +76,8 @@ export default function CreateGroupPage() {
     ? contributionAmount * totalMembers 
     : 0;
 
-  // Calculate service fee (percentage-based, default 10%)
-  const serviceFeePercentage = 10; // This could be made configurable
+  // Calculate service fee (percentage-based, default from constants)
+  const serviceFeePercentage = DEFAULT_SERVICE_FEE_PERCENTAGE; // Using same constant as API layer
   const serviceFee = totalPool ? Math.round(totalPool * (serviceFeePercentage / 100)) : 0;
 
   // Calculate net payout per member
