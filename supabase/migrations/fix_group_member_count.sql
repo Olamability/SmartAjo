@@ -71,7 +71,7 @@ BEGIN
   FROM groups g
   LEFT JOIN group_members gm ON gm.group_id = g.id
   WHERE g.id = NEW.group_id
-  GROUP BY g.total_members;
+  GROUP BY g.id, g.total_members;
   
   -- If no result, fetch just total_members
   IF v_total_members IS NULL THEN

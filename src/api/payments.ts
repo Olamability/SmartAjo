@@ -45,8 +45,9 @@ export const initializeGroupCreationPayment = async (
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Generate unique payment reference
-    const reference = `GRP_CREATE_${groupId.substring(0, 8)}_${Date.now()}`;
+    // Generate unique payment reference using UUID for better uniqueness
+    const uniqueId = crypto.randomUUID().substring(0, 8);
+    const reference = `GRP_CREATE_${groupId.substring(0, 8)}_${uniqueId}`;
 
     // Create pending payment record
     const { error } = await supabase.from('payments').insert({
@@ -93,8 +94,9 @@ export const initializeGroupJoinPayment = async (
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Generate unique payment reference
-    const reference = `GRP_JOIN_${groupId.substring(0, 8)}_${Date.now()}`;
+    // Generate unique payment reference using UUID for better uniqueness
+    const uniqueId = crypto.randomUUID().substring(0, 8);
+    const reference = `GRP_JOIN_${groupId.substring(0, 8)}_${uniqueId}`;
 
     // Create pending payment record
     const { error } = await supabase.from('payments').insert({
@@ -254,6 +256,53 @@ export const processGroupJoinPayment = async (
     return { success: true };
   } catch (error) {
     console.error('Process group join payment error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to process payment'),
+    };
+  }
+};
+
+/**
+ * Process group join payment after admin approval
+ * Adds the member to the group after payment is verified (for approved join requests)
+ */
+export const processApprovedJoinPayment = async (
+  reference: string,
+  groupId: string
+): Promise<{ success: boolean; position?: number; error?: string }> => {
+  try {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Call database function to process approved join payment
+    const { data, error } = await supabase.rpc('process_approved_join_payment', {
+      p_payment_reference: reference,
+      p_group_id: groupId,
+      p_user_id: user.id,
+    });
+
+    if (error) {
+      console.error('Error processing approved join payment:', error);
+      return { success: false, error: error.message };
+    }
+
+    // Check result from function
+    if (data && data.length > 0) {
+      const result = data[0];
+      if (!result.success) {
+        return { success: false, error: result.error_message };
+      }
+      return { success: true, position: result.position };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Process approved join payment error:', error);
     return {
       success: false,
       error: getErrorMessage(error, 'Failed to process payment'),

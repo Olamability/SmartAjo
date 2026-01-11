@@ -193,8 +193,14 @@ export async function uploadAvatar(
       return { success: false, error: 'File size too large. Maximum size is 2MB.' };
     }
 
-    // Generate file path
-    const fileExt = file.name.split('.').pop();
+    // Safely determine file extension from MIME type
+    const mimeToExt: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/webp': 'webp',
+      'image/gif': 'gif'
+    };
+    const fileExt = mimeToExt[file.type] || 'jpg';
     const filePath = `${authUser.id}/avatar.${fileExt}`;
 
     // Delete old avatar if exists
@@ -335,6 +341,9 @@ export async function deactivateAccount(): Promise<{ success: boolean; error?: s
     }
 
     // Check if user has active groups
+    // We check for members with status 'active' or 'pending' because pending members
+    // have paid but are awaiting full group activation. We only check groups with
+    // status 'active' because 'forming' groups haven't started yet and users can leave freely
     const { data: activeGroups, error: groupsError } = await supabase
       .from('group_members')
       .select('group_id, groups!inner(status)')

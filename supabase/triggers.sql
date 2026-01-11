@@ -472,12 +472,18 @@ DECLARE
   v_current_members INTEGER;
 BEGIN
   -- Get group member counts (using actual count from group_members table)
-  SELECT g.total_members, COUNT(gm.id)
+  SELECT g.total_members, COALESCE(COUNT(gm.id), 0)
   INTO v_total_members, v_current_members
   FROM groups g
   LEFT JOIN group_members gm ON gm.group_id = g.id
   WHERE g.id = NEW.group_id
-  GROUP BY g.total_members;
+  GROUP BY g.id, g.total_members;
+  
+  -- If no result, fetch just total_members
+  IF v_total_members IS NULL THEN
+    SELECT total_members INTO v_total_members FROM groups WHERE id = NEW.group_id;
+    v_current_members := 0;
+  END IF;
   
   -- Check if group is full
   IF v_current_members >= v_total_members THEN
