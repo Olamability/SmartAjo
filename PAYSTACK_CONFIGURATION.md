@@ -241,7 +241,7 @@ When moving to production:
 
 - **Paystack Documentation**: https://paystack.com/docs
 - **Supabase Edge Functions**: https://supabase.com/docs/guides/functions
-- **SmartAjo Issues**: https://github.com/Olamability/SmartAjo/issues
+- **Project Issues**: Contact your development team or system administrator
 
 ---
 

@@ -33,9 +33,18 @@ export default function SystemAdminLoginPage() {
   useEffect(() => {
     isMountedRef.current = true;
     
-    // If user is already logged in and is admin, redirect to admin dashboard
-    if (user?.isAdmin) {
-      navigate('/admin');
+    // Handle admin user redirection and access control
+    if (user) {
+      if (user.isAdmin) {
+        // User is admin, redirect to admin dashboard
+        navigate('/admin');
+      } else {
+        // User is logged in but not admin, show error and redirect
+        toast.error('Access denied. This account is not a system administrator.');
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 2000);
+      }
     }
     
     return () => {
@@ -81,20 +90,6 @@ export default function SystemAdminLoginPage() {
       }
     }
   };
-
-  // If user is logged in but not admin, show error
-  useEffect(() => {
-    if (user && !user.isAdmin) {
-      toast.error('Access denied. This account is not a system administrator.');
-      // Optionally redirect to regular dashboard
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 2000);
-    } else if (user?.isAdmin) {
-      // User is admin, redirect to admin dashboard
-      navigate('/admin');
-    }
-  }, [user, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-primary/10 flex items-center justify-center p-4">

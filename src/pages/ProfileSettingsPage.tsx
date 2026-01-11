@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -83,12 +83,7 @@ export default function ProfileSettingsPage() {
     },
   });
 
-  useEffect(() => {
-    loadProfile();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     setLoading(true);
     try {
       const result = await getUserProfile();
@@ -121,7 +116,11 @@ export default function ProfileSettingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profileForm, bankForm]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const onProfileSubmit = async (data: ProfileFormData) => {
     setSaving(true);

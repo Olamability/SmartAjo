@@ -75,10 +75,10 @@ export async function getUserProfile(): Promise<{ success: boolean; user?: User;
   }
 }
 
-  /**
-   * Update user profile
-   */
-  export async function updateUserProfile(
+/**
+ * Update user profile
+ */
+export async function updateUserProfile(
     updates: UpdateProfileData
   ): Promise<{ success: boolean; error?: string }> {
     try {
