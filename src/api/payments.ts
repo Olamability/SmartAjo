@@ -45,6 +45,12 @@ export const initializeGroupCreationPayment = async (
       return { success: false, error: 'Not authenticated' };
     }
 
+    // Validate groupId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(groupId)) {
+      return { success: false, error: 'Invalid group ID' };
+    }
+
     // Generate unique payment reference using UUID for better uniqueness
     const uniqueId = crypto.randomUUID().substring(0, 8);
     const reference = `GRP_CREATE_${groupId.substring(0, 8)}_${uniqueId}`;
@@ -92,6 +98,12 @@ export const initializeGroupJoinPayment = async (
     
     if (!user) {
       return { success: false, error: 'Not authenticated' };
+    }
+
+    // Validate groupId is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(groupId)) {
+      return { success: false, error: 'Invalid group ID' };
     }
 
     // Generate unique payment reference using UUID for better uniqueness

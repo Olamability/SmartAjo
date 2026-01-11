@@ -200,8 +200,15 @@ export async function uploadAvatar(
       'image/webp': 'webp',
       'image/gif': 'gif'
     };
-    const fileExt = mimeToExt[file.type] || 'jpg';
-    const filePath = `${authUser.id}/avatar.${fileExt}`;
+    const fileExt = mimeToExt[file.type];
+    
+    if (!fileExt) {
+      return { success: false, error: 'Unsupported file type' };
+    }
+    
+    // Sanitize user ID (already a UUID from Supabase, but be explicit)
+    const sanitizedUserId = authUser.id.replace(/[^a-zA-Z0-9\-]/g, '');
+    const filePath = `${sanitizedUserId}/avatar.${fileExt}`;
 
     // Delete old avatar if exists
     const { data: existingFiles } = await supabase.storage

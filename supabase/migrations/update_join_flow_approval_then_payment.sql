@@ -337,25 +337,9 @@ COMMENT ON FUNCTION process_approved_join_payment IS
 GRANT EXECUTE ON FUNCTION process_approved_join_payment TO authenticated;
 
 -- ============================================================================
--- Add completed status to group_join_requests if not exists
+-- Add completed status to group_join_requests
 -- ============================================================================
 
-DO $$ 
-BEGIN
-  -- Check if 'completed' is already in the enum
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_enum 
-    WHERE enumlabel = 'completed' 
-    AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'join_request_status')
-  ) THEN
-    -- Add 'completed' status if it doesn't exist
-    -- Note: This requires creating a new type and migrating data
-    -- For safety, we'll handle this in the constraint instead
-    NULL;
-  END IF;
-END $$;
-
--- Update the check constraint to allow 'completed' status
 ALTER TABLE group_join_requests 
 DROP CONSTRAINT IF EXISTS group_join_requests_status_check;
 
