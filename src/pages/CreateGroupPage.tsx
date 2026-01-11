@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
 import { createGroup } from '@/api';
+import { DEFAULT_SERVICE_FEE_PERCENTAGE } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -75,8 +76,9 @@ export default function CreateGroupPage() {
     ? contributionAmount * totalMembers 
     : 0;
 
-  // Calculate service fee (10% of total pool)
-  const serviceFee = totalPool ? Math.round(totalPool * 0.1) : 0;
+  // Calculate service fee (percentage-based, default from constants)
+  const serviceFeePercentage = DEFAULT_SERVICE_FEE_PERCENTAGE; // Using same constant as API layer
+  const serviceFee = totalPool ? Math.round(totalPool * (serviceFeePercentage / 100)) : 0;
 
   // Calculate net payout per member
   const netPayout = totalPool ? totalPool - serviceFee : 0;
@@ -346,7 +348,9 @@ export default function CreateGroupPage() {
                   <span className="font-semibold">{formatCurrency(totalPool)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Service Fee (10%):</span>
+                  <span className="text-muted-foreground">
+                    Service Fee ({serviceFeePercentage}%):
+                  </span>
                   <span className="font-semibold text-orange-600">
                     -{formatCurrency(serviceFee)}
                   </span>
@@ -361,6 +365,14 @@ export default function CreateGroupPage() {
                   Each member will receive {formatCurrency(netPayout)} when it's their 
                   turn in the rotation.
                 </p>
+                <Alert className="mt-3">
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    <strong>Service Fee:</strong> The {serviceFeePercentage}% platform fee
+                    is deducted once per cycle from the total pool when payouts are made.
+                    This scales fairly with group size and ensures sustainable operations.
+                  </AlertDescription>
+                </Alert>
               </CardContent>
             </Card>
           )}

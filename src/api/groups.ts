@@ -44,6 +44,7 @@ export const createGroup = async (
         current_members: 0, // Start at 0, will be incremented when creator is added as member
         security_deposit_amount: securityDepositAmount,
         security_deposit_percentage: data.securityDepositPercentage,
+        service_fee_percentage: DEFAULT_SERVICE_FEE_PERCENTAGE, // Explicitly set the service fee percentage
         status: 'forming',
         start_date: data.startDate,
         current_cycle: 1,
@@ -81,7 +82,7 @@ export const createGroup = async (
         totalCycles: groupData.total_cycles,
         rotationOrder: [],
         members: [],
-        serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
+        serviceFeePercentage: groupData.service_fee_percentage || DEFAULT_SERVICE_FEE_PERCENTAGE,
       },
     };
   } catch (error) {
@@ -183,7 +184,7 @@ export const getUserGroups = async (): Promise<{
       totalCycles: group.total_cycles,
       rotationOrder: [],
       members: [],
-      serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
+      serviceFeePercentage: group.service_fee_percentage || DEFAULT_SERVICE_FEE_PERCENTAGE,
     }));
 
     return { success: true, groups };
@@ -248,7 +249,7 @@ export const getGroupById = async (
         totalCycles: data.total_cycles,
         rotationOrder: [],
         members: [],
-        serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
+        serviceFeePercentage: data.service_fee_percentage || DEFAULT_SERVICE_FEE_PERCENTAGE,
       },
     };
   } catch (error) {
@@ -315,6 +316,7 @@ export const getGroupMembers = async (
  */
 export const joinGroup = async (
   groupId: string,
+  preferredSlot?: number,
   message?: string
 ): Promise<{ success: boolean; error?: string }> => {
   try {
@@ -328,10 +330,11 @@ export const joinGroup = async (
       return { success: false, error: 'Not authenticated' };
     }
 
-    // Call the database function to create join request
+    // Call the database function to create join request with slot preference
     const { data, error } = await supabase.rpc('request_to_join_group', {
       p_group_id: groupId,
       p_user_id: user.id,
+      p_preferred_slot: preferredSlot || null,
       p_message: message || null,
     });
 
@@ -429,7 +432,7 @@ export const getAvailableGroups = async (): Promise<{
       totalCycles: group.total_cycles,
       rotationOrder: [],
       members: [],
-      serviceFeePercentage: DEFAULT_SERVICE_FEE_PERCENTAGE,
+      serviceFeePercentage: group.service_fee_percentage || DEFAULT_SERVICE_FEE_PERCENTAGE,
     }));
 
     return { success: true, groups };
@@ -614,6 +617,38 @@ export const rejectJoinRequest = async (
     return {
       success: false,
       error: getErrorMessage(error, 'Failed to reject join request'),
+    };
+  }
+};
+
+/**
+ * Get available payout slots for a group
+ */
+export const getAvailableSlots = async (
+  groupId: string
+): Promise<{
+  success: boolean;
+  slots?: { slot_number: number; payout_cycle: number; status: string }[];
+  error?: string;
+}> => {
+  try {
+    const supabase = createClient();
+
+    const { data, error } = await supabase.rpc('get_available_slots', {
+      p_group_id: groupId,
+    });
+
+    if (error) {
+      console.error('Error fetching available slots:', error);
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, slots: data || [] };
+  } catch (error) {
+    console.error('Get available slots error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to fetch available slots'),
     };
   }
 };

@@ -62,6 +62,37 @@ export interface GroupMember {
   payoutAmount?: number;
 }
 
+export interface PayoutSlot {
+  id: string;
+  groupId: string;
+  slotNumber: number;
+  payoutCycle: number;
+  status: 'available' | 'reserved' | 'assigned';
+  assignedTo?: string;
+  assignedAt?: string;
+  reservedBy?: string;
+  reservedAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface JoinRequest {
+  id: string;
+  groupId: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  message?: string;
+  preferredSlot?: number;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface Contribution {
   id: string;
   groupId: string;
