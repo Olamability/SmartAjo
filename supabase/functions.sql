@@ -81,18 +81,14 @@ BEGIN
   
 EXCEPTION WHEN OTHERS THEN
   -- Catch any errors and return them with better messages
-  DECLARE
-    v_error_message TEXT := SQLERRM;
-  BEGIN
-    -- Provide user-friendly error messages for common constraint violations
-    IF v_error_message LIKE '%users_email_key%' THEN
-      RETURN QUERY SELECT FALSE, NULL::UUID, 'Email is already registered'::TEXT;
-    ELSIF v_error_message LIKE '%users_phone_key%' THEN
-      RETURN QUERY SELECT FALSE, NULL::UUID, 'Phone number is already registered'::TEXT;
-    ELSE
-      RETURN QUERY SELECT FALSE, NULL::UUID, v_error_message::TEXT;
-    END IF;
-  END;
+  -- Provide user-friendly error messages for common constraint violations
+  IF SQLERRM LIKE '%users_email_key%' THEN
+    RETURN QUERY SELECT FALSE, NULL::UUID, 'Email is already registered'::TEXT;
+  ELSIF SQLERRM LIKE '%users_phone_key%' THEN
+    RETURN QUERY SELECT FALSE, NULL::UUID, 'Phone number is already registered'::TEXT;
+  ELSE
+    RETURN QUERY SELECT FALSE, NULL::UUID, SQLERRM::TEXT;
+  END IF;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -141,11 +137,11 @@ BEGIN
   
   -- Return results
   -- Note: If email and phone belong to different users, both flags can be true
-  -- The user_id returns the first found conflict (email takes precedence)
+  -- The user_id returns the conflicting user ID (email takes precedence if both exist)
   RETURN QUERY SELECT 
     v_email_user_id IS NOT NULL,
     v_phone_user_id IS NOT NULL,
-    v_email_user_id; -- Return email user ID if exists, otherwise NULL
+    COALESCE(v_email_user_id, v_phone_user_id); -- Return email ID first, fallback to phone ID
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

@@ -114,9 +114,17 @@ async function checkUserExists(email: string, phone: string): Promise<{
     
     // For critical errors (network, timeout), we should throw to prevent bad UX
     // For other errors, allow signup to proceed and handle at profile creation
-    const isCriticalError = error.message?.includes('network') || 
-                           error.message?.includes('timeout') ||
-                           error.message?.includes('connection');
+    // Check both error codes and messages for better coverage
+    const errorCode = (error as { code?: string }).code || '';
+    const errorMessage = error.message || '';
+    
+    const isCriticalError = 
+      errorCode === 'PGRST301' || // PostgREST network error
+      errorCode === '08000' ||    // PostgreSQL connection error
+      errorMessage.includes('network') || 
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('connection') ||
+      errorMessage.includes('fetch');
     
     if (isCriticalError) {
       console.error('checkUserExists: Critical error detected, rethrowing');
@@ -128,9 +136,9 @@ async function checkUserExists(email: string, phone: string): Promise<{
     return { emailExists: false, phoneExists: false, userId: null };
   }
   
-  // The RPC function returns a single-row result, but Supabase client may wrap it in an array
-  // We handle both cases to be defensive
-  const result = Array.isArray(data) ? data[0] : data;
+  // The RPC function is defined to return TABLE(...) which Supabase returns as an array of rows
+  // Even for single-row results, it's wrapped in an array: [{ email_exists: true, ... }]
+  const result = Array.isArray(data) && data.length > 0 ? data[0] : data;
   
   console.log('checkUserExists: Result:', result);
   
