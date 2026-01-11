@@ -138,6 +138,9 @@ const Header = () => {
                       <DropdownMenuItem onClick={() => navigate('/groups')}>
                         My Groups
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/profile/settings')}>
+                        Profile Settings
+                      </DropdownMenuItem>
                       {isAdmin && (
                         <>
                           <DropdownMenuSeparator />

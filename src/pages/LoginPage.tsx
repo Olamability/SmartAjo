@@ -137,6 +137,12 @@ export default function LoginPage() {
               Sign up
             </Link>
           </div>
+          <div className="text-xs text-muted-foreground text-center">
+            System administrator?{' '}
+            <Link to="/admin/login" className="text-primary hover:underline font-medium">
+              Admin login
+            </Link>
+          </div>
         </CardFooter>
       </Card>
     </div>

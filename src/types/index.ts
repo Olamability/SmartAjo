@@ -17,6 +17,11 @@ export interface User {
   address?: string;
   updatedAt?: string;
   lastLoginAt?: string;
+  // Bank Account Details for Payouts
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  bankCode?: string;
 }
 
 export interface Group {

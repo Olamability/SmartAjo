@@ -15,8 +15,10 @@ import AuthCallbackPage from '@/pages/AuthCallbackPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 import AdminPanelPage from '@/pages/AdminPanelPage';
 import SystemAdminDashboard from '@/pages/SystemAdminDashboard';
+import SystemAdminLoginPage from '@/pages/SystemAdminLoginPage';
 import KYCVerificationPage from '@/pages/KYCVerificationPage';
 import TransactionsPage from '@/pages/TransactionsPage';
+import ProfileSettingsPage from '@/pages/ProfileSettingsPage';
 
 function App() {
   return (
@@ -76,6 +78,7 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+            <Route path="/admin/login" element={<SystemAdminLoginPage />} />
             <Route 
               path="/kyc-verification" 
               element={
@@ -89,6 +92,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <TransactionsPage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/profile/settings" 
+              element={
+                <ProtectedRoute>
+                  <ProfileSettingsPage />
                 </ProtectedRoute>
               } 
             />
