@@ -110,8 +110,16 @@ export default function AdminPanelPage() {
 
       if (groupError) throw groupError;
 
-      // Check if user is the creator
-      if (groupData.created_by !== user?.id) {
+      // Check if user is the creator or platform admin
+      const { data: userData } = await supabase
+        .from('users')
+        .select('is_admin')
+        .eq('id', user?.id)
+        .single();
+
+      const isAdmin = userData?.is_admin || false;
+
+      if (groupData.created_by !== user?.id && !isAdmin) {
         toast.error('You do not have permission to access this admin panel');
         navigate('/groups');
         return;

@@ -101,7 +101,8 @@ export default function CreateGroupPage() {
 
       if (result.success && result.group) {
         toast.success('Group created successfully!');
-        navigate(`/groups`);
+        // Navigate to the newly created group's detail page
+        navigate(`/groups/${result.group.id}`);
       } else {
         toast.error(result.error || 'Failed to create group');
       }
