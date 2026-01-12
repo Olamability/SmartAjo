@@ -28,7 +28,7 @@ export async function ensureUserProfile(
     .from('users')
     .select('*')
     .eq('id', authUser.id)
-    .single();
+    .maybeSingle();
   
   if (profile) {
     console.log('ensureUserProfile: Profile already exists');

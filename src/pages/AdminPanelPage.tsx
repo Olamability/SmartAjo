@@ -106,16 +106,21 @@ export default function AdminPanelPage() {
         .from('groups')
         .select('*')
         .eq('id', groupId)
-        .single();
+        .maybeSingle();
 
       if (groupError) throw groupError;
+      if (!groupData) {
+        toast.error('Group not found');
+        navigate('/groups');
+        return;
+      }
 
       // Check if user is the creator or platform admin
       const { data: userData } = await supabase
         .from('users')
         .select('is_admin')
         .eq('id', user?.id)
-        .single();
+        .maybeSingle();
 
       const isAdmin = userData?.is_admin || false;
 

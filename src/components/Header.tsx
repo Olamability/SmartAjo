@@ -30,7 +30,7 @@ const Header = () => {
           .from('users')
           .select('is_admin')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
         
         if (!error && data) {
           setIsAdmin(data.is_admin || false);
