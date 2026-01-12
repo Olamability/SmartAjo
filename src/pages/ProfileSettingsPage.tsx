@@ -356,22 +356,26 @@ export default function ProfileSettingsPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+            <TabsTrigger value="profile" className="flex items-center gap-1 sm:gap-2">
               <UserIcon className="w-4 h-4" />
-              Profile
+              <span className="hidden xs:inline sm:inline">Profile</span>
+              <span className="inline xs:hidden sm:hidden">Prof</span>
             </TabsTrigger>
-            <TabsTrigger value="bank" className="flex items-center gap-2">
+            <TabsTrigger value="bank" className="flex items-center gap-1 sm:gap-2">
               <Building2 className="w-4 h-4" />
-              Bank Account
+              <span className="hidden xs:inline sm:inline">Bank Account</span>
+              <span className="inline xs:hidden sm:hidden">Bank</span>
             </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-2">
+            <TabsTrigger value="security" className="flex items-center gap-1 sm:gap-2">
               <Lock className="w-4 h-4" />
-              Security
+              <span className="hidden xs:inline sm:inline">Security</span>
+              <span className="inline xs:hidden sm:hidden">Sec</span>
             </TabsTrigger>
-            <TabsTrigger value="account" className="flex items-center gap-2">
+            <TabsTrigger value="account" className="flex items-center gap-1 sm:gap-2">
               <UserX className="w-4 h-4" />
-              Account
+              <span className="hidden xs:inline sm:inline">Account</span>
+              <span className="inline xs:hidden sm:hidden">Acct</span>
             </TabsTrigger>
           </TabsList>
 

@@ -592,7 +592,7 @@ export default function GroupDetailPage() {
             setShowApprovedPaymentDialog(false);
           }
         }}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl w-[95vw] sm:w-full">
             <DialogHeader>
               <DialogTitle>Complete Your Payment</DialogTitle>
               <DialogDescription>
@@ -683,7 +683,7 @@ export default function GroupDetailPage() {
 
         {/* Join Group Dialog with Slot Selection */}
         <Dialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
             <DialogHeader>
               <DialogTitle>Join {group.name}</DialogTitle>
               <DialogDescription>
