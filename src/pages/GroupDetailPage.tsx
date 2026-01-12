@@ -425,7 +425,8 @@ export default function GroupDetailPage() {
     return (
       group?.status === 'forming' &&
       !currentUserMember &&
-      !userJoinRequest
+      !userJoinRequest &&
+      !isCreator // Don't show join button to group creator
     );
   };
 
@@ -497,6 +498,24 @@ export default function GroupDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Status Alert - Show payment prompt for group creator who hasn't paid */}
+        {isCreator && !currentUserMember && group?.status === 'forming' && (
+          <Alert className="bg-orange-50 border-orange-200">
+            <AlertCircle className="h-4 w-4 text-orange-600" />
+            <AlertDescription>
+              <div>
+                <span className="text-orange-900 font-semibold">
+                  Complete Your Payment to Become Group Admin
+                </span>
+                <p className="text-sm text-orange-700 mt-1">
+                  You created this group but haven't completed your payment yet. 
+                  Please complete your payment (security deposit + first contribution) to become the group admin and activate your membership.
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Status Alert - Show approved payment prompt for users with approved join requests */}
         {hasApprovedJoinRequest() && (
