@@ -234,7 +234,7 @@ export const getGroupById = async (
         )
       `)
       .eq('id', groupId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching group:', error);
