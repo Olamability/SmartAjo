@@ -563,38 +563,45 @@ AFTER INSERT OR DELETE ON group_members
 FOR EACH ROW EXECUTE FUNCTION sync_group_member_count();
 
 -- ============================================================================
--- TRIGGER: Auto-create group membership for creator
+-- TRIGGER: Auto-create group membership for creator (DISABLED)
+-- ============================================================================
+-- NOTE: This trigger is disabled in favor of payment-based membership system.
+-- The creator is added as a member AFTER payment is completed via the
+-- process_group_creation_payment() function. This ensures payment-first
+-- membership and prevents groups from being created without payment.
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION auto_add_group_creator()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- Automatically add the creator as the first member with position 1
-  INSERT INTO group_members (
-    group_id,
-    user_id,
-    position,
-    has_paid_security_deposit,
-    security_deposit_amount,
-    status,
-    is_creator
-  ) VALUES (
-    NEW.id,
-    NEW.created_by,
-    1,
-    FALSE,
-    NEW.security_deposit_amount,
-    'active',
-    TRUE
-  );
-  
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- Function kept for reference but trigger is not created
+-- CREATE OR REPLACE FUNCTION auto_add_group_creator()
+-- RETURNS TRIGGER AS $$
+-- BEGIN
+--   -- Automatically add the creator as the first member with position 1
+--   INSERT INTO group_members (
+--     group_id,
+--     user_id,
+--     position,
+--     has_paid_security_deposit,
+--     security_deposit_amount,
+--     status,
+--     is_creator
+--   ) VALUES (
+--     NEW.id,
+--     NEW.created_by,
+--     1,
+--     FALSE,
+--     NEW.security_deposit_amount,
+--     'active',
+--     TRUE
+--   );
+--   
+--   RETURN NEW;
+-- END;
+-- $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER auto_add_group_creator_trigger
-AFTER INSERT ON groups
-FOR EACH ROW EXECUTE FUNCTION auto_add_group_creator();
+-- TRIGGER DISABLED - Creator is added after payment via process_group_creation_payment()
+-- CREATE TRIGGER auto_add_group_creator_trigger
+-- AFTER INSERT ON groups
+-- FOR EACH ROW EXECUTE FUNCTION auto_add_group_creator();
 
 -- ============================================================================
 -- FUNCTION: Get user statistics
@@ -1073,6 +1080,107 @@ CREATE POLICY audit_logs_insert_own ON audit_logs
 
 -- Only service role can read/update/delete audit logs
 CREATE POLICY audit_logs_service_role_all ON audit_logs
+  FOR ALL
+  USING (
+    CASE 
+      WHEN current_setting('role', true) = 'service_role' THEN true
+      ELSE false
+    END
+  );
+
+-- ============================================================================
+-- TABLE: payments
+-- ============================================================================
+-- Stores complete Paystack payment data for audit and reconciliation
+-- Separate from transactions table for payment gateway specific data
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  
+  -- Core Payment Identifiers (MANDATORY)
+  reference VARCHAR(255) UNIQUE NOT NULL,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  
+  -- Payment Amount (MANDATORY - stored in kobo)
+  amount BIGINT NOT NULL CHECK (amount > 0),
+  currency VARCHAR(3) NOT NULL DEFAULT 'NGN' CHECK (currency = 'NGN'),
+  
+  -- Payment Status (MANDATORY)
+  status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'success', 'failed', 'abandoned')),
+  
+  -- Customer Information (MANDATORY)
+  email VARCHAR(255) NOT NULL,
+  
+  -- Payment Channel (MANDATORY)
+  channel VARCHAR(50) NOT NULL CHECK (channel IN ('card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer', 'eft')),
+  
+  -- Paystack Customer Data (MANDATORY for future charges)
+  authorization_code VARCHAR(255),
+  customer_code VARCHAR(255),
+  
+  -- Gateway Response (MANDATORY for debugging)
+  gateway_response TEXT,
+  
+  -- Fees (MANDATORY)
+  fees BIGINT DEFAULT 0,
+  
+  -- Payment Timestamp (MANDATORY)
+  paid_at TIMESTAMPTZ,
+  
+  -- Verification Status (MANDATORY - default false)
+  verified BOOLEAN NOT NULL DEFAULT FALSE,
+  
+  -- Metadata (MANDATORY - contains app, user_id, purpose, entity_id)
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  
+  -- Additional Paystack Fields (for completeness)
+  paystack_id BIGINT,
+  transaction_id BIGINT,
+  domain VARCHAR(10) CHECK (domain IN ('test', 'live')),
+  
+  -- Timestamps (MANDATORY)
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for payments table
+CREATE INDEX idx_payments_reference ON payments(reference);
+CREATE INDEX idx_payments_user_id ON payments(user_id);
+CREATE INDEX idx_payments_status ON payments(status);
+CREATE INDEX idx_payments_verified ON payments(verified);
+CREATE INDEX idx_payments_created_at ON payments(created_at DESC);
+CREATE INDEX idx_payments_email ON payments(email);
+CREATE INDEX idx_payments_customer_code ON payments(customer_code);
+CREATE INDEX idx_payments_metadata ON payments USING GIN (metadata);
+
+-- Trigger for payments table
+CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Enable RLS on payments table
+ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================================
+-- RLS POLICIES: payments
+-- ============================================================================
+
+-- Users can view their own payments
+CREATE POLICY payments_select_own ON payments
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Users can only insert payments for themselves with status 'pending' and verified 'false'
+CREATE POLICY payments_insert_own ON payments
+  FOR INSERT
+  WITH CHECK (
+    auth.uid() = user_id 
+    AND status = 'pending'
+    AND verified = false
+  );
+
+-- Service role can do anything (for payment verification and updates)
+CREATE POLICY payments_service_role_all ON payments
   FOR ALL
   USING (
     CASE 
