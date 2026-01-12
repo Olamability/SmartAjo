@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, DollarSign, Calendar, UserPlus, Search, Phone, User } from 'lucide-react';
+import { Users, DollarSign, Calendar, Loader2, UserPlus, Search, Phone, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface AvailableGroupsSectionProps {
