@@ -357,25 +357,25 @@ export default function ProfileSettingsPage() {
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
-            <TabsTrigger value="profile" className="flex items-center gap-1 sm:gap-2">
+            <TabsTrigger value="profile" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <UserIcon className="w-4 h-4" />
-              <span className="hidden xs:inline sm:inline">Profile</span>
-              <span className="inline xs:hidden sm:hidden">Prof</span>
+              <span className="hidden sm:inline">Profile</span>
+              <span className="sm:hidden">Prof</span>
             </TabsTrigger>
-            <TabsTrigger value="bank" className="flex items-center gap-1 sm:gap-2">
+            <TabsTrigger value="bank" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <Building2 className="w-4 h-4" />
-              <span className="hidden xs:inline sm:inline">Bank Account</span>
-              <span className="inline xs:hidden sm:hidden">Bank</span>
+              <span className="hidden sm:inline">Bank Account</span>
+              <span className="sm:hidden">Bank</span>
             </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-1 sm:gap-2">
+            <TabsTrigger value="security" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <Lock className="w-4 h-4" />
-              <span className="hidden xs:inline sm:inline">Security</span>
-              <span className="inline xs:hidden sm:hidden">Sec</span>
+              <span className="hidden sm:inline">Security</span>
+              <span className="sm:hidden">Sec</span>
             </TabsTrigger>
-            <TabsTrigger value="account" className="flex items-center gap-1 sm:gap-2">
+            <TabsTrigger value="account" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <UserX className="w-4 h-4" />
-              <span className="hidden xs:inline sm:inline">Account</span>
-              <span className="inline xs:hidden sm:hidden">Acct</span>
+              <span className="hidden sm:inline">Account</span>
+              <span className="sm:hidden">Acct</span>
             </TabsTrigger>
           </TabsList>
 

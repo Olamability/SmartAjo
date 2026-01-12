@@ -251,15 +251,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         kycStatus: convertKycStatus(result.kyc_status),
         bvn: result.kyc_data?.bvn,
         profileImage: result.avatar_url,
-        dateOfBirth: result.date_of_birth || undefined,
-        address: result.address || undefined,
+        dateOfBirth: result.date_of_birth ?? undefined,
+        address: result.address ?? undefined,
         isActive: result.is_active ?? true, // Default to true if not set
-        updatedAt: result.updated_at || undefined,
-        lastLoginAt: result.last_login_at || undefined,
-        bankName: result.bank_name || undefined,
-        accountNumber: result.account_number || undefined,
-        accountName: result.account_name || undefined,
-        bankCode: result.bank_code || undefined,
+        updatedAt: result.updated_at ?? undefined,
+        lastLoginAt: result.last_login_at ?? undefined,
+        bankName: result.bank_name ?? undefined,
+        accountNumber: result.account_number ?? undefined,
+        accountName: result.account_name ?? undefined,
+        bankCode: result.bank_code ?? undefined,
       });
       
       return true;

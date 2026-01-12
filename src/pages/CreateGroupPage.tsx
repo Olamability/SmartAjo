@@ -68,7 +68,7 @@ export default function CreateGroupPage() {
   const [createdGroup, setCreatedGroup] = useState<any>(null);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const paymentCallbackExecutedRef = useRef(false); // Use ref for thread-safe synchronization
+  const paymentCallbackExecutedRef = useRef(false); // Persists across renders to prevent race condition between callback and onClose
 
   const {
     register,
@@ -238,8 +238,9 @@ export default function CreateGroupPage() {
           } catch (error) {
             console.error('Error in payment callback:', error);
             toast.error('An error occurred while processing your payment. Please contact support with reference: ' + response.reference);
-            // Don't delete the group here - the payment may have succeeded
-            // User should contact support to resolve
+            // IMPORTANT: Group is NOT deleted here because payment may have succeeded in Paystack
+            // Support team can verify payment status and manually process if needed
+            // Alternative: Mark group as 'pending_verification' status for admin review
           } finally {
             setIsProcessingPayment(false);
           }
