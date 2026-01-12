@@ -1170,7 +1170,6 @@ CREATE POLICY payments_select_own ON payments
   FOR SELECT
   USING (auth.uid() = user_id);
 
--- Users can insert their own pending payment records
 -- Users can only insert payments for themselves with status 'pending' and verified 'false'
 CREATE POLICY payments_insert_own ON payments
   FOR INSERT

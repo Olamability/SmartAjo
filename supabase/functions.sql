@@ -1090,14 +1090,14 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Calculate required amount (in kobo)
+  -- Calculate required amount in kobo (100 kobo = 1 NGN)
   v_required_amount := (v_contribution_amount + v_security_deposit_amount) * 100;
 
   -- Verify payment amount matches
   IF v_payment_amount < v_required_amount THEN
     RETURN QUERY SELECT FALSE, 
-      'Payment amount insufficient. Expected: ₦' || (v_required_amount/100)::TEXT || 
-      ', Received: ₦' || (v_payment_amount/100)::TEXT;
+      'Payment amount insufficient. Expected: ₦' || (v_required_amount/100.0)::TEXT || 
+      ', Received: ₦' || (v_payment_amount/100.0)::TEXT;
     RETURN;
   END IF;
 
