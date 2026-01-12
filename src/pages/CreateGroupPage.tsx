@@ -544,12 +544,16 @@ export default function CreateGroupPage() {
         </form>
 
         {/* Payment Dialog */}
-        <Dialog open={showPaymentDialog} onOpenChange={async (open) => {
+        <Dialog open={showPaymentDialog} onOpenChange={(open) => {
           if (!open && !isProcessingPayment && createdGroup) {
             setShowPaymentDialog(false);
             // If user closes dialog without paying, delete group and navigate back
-            await handleGroupCleanup(createdGroup.id, 'User closed payment dialog');
-            navigate('/groups');
+            handleGroupCleanup(createdGroup.id, 'User closed payment dialog')
+              .then(() => navigate('/groups'))
+              .catch((error) => {
+                console.error('Error during cleanup:', error);
+                navigate('/groups');
+              });
           }
         }}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -617,12 +621,16 @@ export default function CreateGroupPage() {
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={async () => {
+                onClick={() => {
                   if (!isProcessingPayment && createdGroup) {
                     setShowPaymentDialog(false);
                     // Delete group since user cancelled
-                    await handleGroupCleanup(createdGroup.id, 'User cancelled payment dialog');
-                    navigate('/groups');
+                    handleGroupCleanup(createdGroup.id, 'User cancelled payment dialog')
+                      .then(() => navigate('/groups'))
+                      .catch((error) => {
+                        console.error('Error during cleanup:', error);
+                        navigate('/groups');
+                      });
                   }
                 }}
                 disabled={isProcessingPayment}

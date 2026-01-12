@@ -67,7 +67,7 @@ BEGIN
   IF p_preferred_slot IS NOT NULL THEN
     IF p_preferred_slot < 1 OR p_preferred_slot > v_total_members THEN
       RETURN QUERY SELECT FALSE, 
-        'Invalid slot number. Must be between 1 and ' || v_total_members::TEXT::TEXT;
+        'Invalid slot number. Must be between 1 and ' || v_total_members::TEXT;
       RETURN;
     END IF;
     
