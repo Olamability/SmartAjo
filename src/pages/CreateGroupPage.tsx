@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useAuth } from '@/contexts/AuthContext';
-import { createGroup } from '@/api';
+import { createGroup, deleteGroup } from '@/api';
 import { 
   initializeGroupCreationPayment, 
   verifyPayment, 
@@ -139,6 +139,20 @@ export default function CreateGroupPage() {
     }
   };
 
+  // Helper function to cleanup (delete) the group if payment fails or is cancelled
+  const handleGroupCleanup = async (groupId: string, reason: string) => {
+    try {
+      const result = await deleteGroup(groupId);
+      if (result.success) {
+        console.log(`Group ${groupId} deleted due to: ${reason}`);
+      } else {
+        console.error(`Failed to delete group ${groupId}:`, result.error);
+      }
+    } catch (error) {
+      console.error('Error during group cleanup:', error);
+    }
+  };
+
   const handlePayment = async () => {
     if (!createdGroup || !user || !selectedSlot) {
       if (!selectedSlot) {
@@ -158,6 +172,10 @@ export default function CreateGroupPage() {
       if (!initResult.success || !initResult.reference) {
         toast.error(initResult.error || 'Failed to initialize payment');
         setIsProcessingPayment(false);
+        // Delete group since payment initialization failed
+        await handleGroupCleanup(createdGroup.id, 'Payment initialization failed');
+        setShowPaymentDialog(false);
+        navigate('/groups');
         return;
       }
 
@@ -197,24 +215,46 @@ export default function CreateGroupPage() {
                 navigate(`/groups/${createdGroup.id}`);
               } else {
                 toast.error(processResult.error || 'Failed to process payment');
+                // Delete group since payment processing failed
+                await handleGroupCleanup(createdGroup.id, 'Payment processing failed');
+                setShowPaymentDialog(false);
+                navigate('/groups');
               }
             } else {
               toast.error('Payment verification failed. Please contact support.');
+              // Delete group since payment verification failed
+              await handleGroupCleanup(createdGroup.id, 'Payment verification failed');
+              setShowPaymentDialog(false);
+              navigate('/groups');
             }
           } else {
             toast.error('Payment was not successful');
+            // Delete group since payment was not successful
+            await handleGroupCleanup(createdGroup.id, 'Payment not successful');
+            setShowPaymentDialog(false);
+            navigate('/groups');
           }
           setIsProcessingPayment(false);
         },
         onClose: () => {
           toast.info('Payment cancelled');
           setIsProcessingPayment(false);
+          // Delete group since payment was cancelled by user
+          handleGroupCleanup(createdGroup.id, 'Payment cancelled by user');
+          setShowPaymentDialog(false);
+          navigate('/groups');
         },
       });
     } catch (error) {
       console.error('Payment error:', error);
       toast.error('Failed to initialize payment');
       setIsProcessingPayment(false);
+      // Delete group since there was an error
+      if (createdGroup) {
+        await handleGroupCleanup(createdGroup.id, 'Payment error');
+        setShowPaymentDialog(false);
+        navigate('/groups');
+      }
     }
   };
 
@@ -505,10 +545,15 @@ export default function CreateGroupPage() {
 
         {/* Payment Dialog */}
         <Dialog open={showPaymentDialog} onOpenChange={(open) => {
-          if (!open && !isProcessingPayment) {
+          if (!open && !isProcessingPayment && createdGroup) {
             setShowPaymentDialog(false);
-            // If user closes dialog without paying, navigate back to groups
-            navigate('/groups');
+            // If user closes dialog without paying, delete group and navigate back
+            handleGroupCleanup(createdGroup.id, 'User closed payment dialog')
+              .then(() => navigate('/groups'))
+              .catch((error) => {
+                console.error('Error during cleanup:', error);
+                navigate('/groups');
+              });
           }
         }}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -577,9 +622,15 @@ export default function CreateGroupPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  if (!isProcessingPayment) {
+                  if (!isProcessingPayment && createdGroup) {
                     setShowPaymentDialog(false);
-                    navigate('/groups');
+                    // Delete group since user cancelled
+                    handleGroupCleanup(createdGroup.id, 'User cancelled payment dialog')
+                      .then(() => navigate('/groups'))
+                      .catch((error) => {
+                        console.error('Error during cleanup:', error);
+                        navigate('/groups');
+                      });
                   }
                 }}
                 disabled={isProcessingPayment}

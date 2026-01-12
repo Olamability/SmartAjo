@@ -715,3 +715,62 @@ export const getAvailableSlots = async (
     };
   }
 };
+
+/**
+ * Delete a group (only if creator and no members have paid)
+ * Used for cleanup when group creation payment fails or is cancelled
+ */
+export const deleteGroup = async (
+  groupId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const supabase = createClient();
+
+    // Get current user
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    // Verify user is the creator
+    const { data: group, error: fetchError } = await supabase
+      .from('groups')
+      .select('created_by, current_members')
+      .eq('id', groupId)
+      .single();
+
+    if (fetchError) {
+      return { success: false, error: 'Group not found' };
+    }
+
+    if (group.created_by !== user.id) {
+      return { success: false, error: 'Only the group creator can delete this group' };
+    }
+
+    // Only allow deletion if no members have joined (current_members = 0)
+    if (group.current_members > 0) {
+      return { success: false, error: 'Cannot delete group with active members' };
+    }
+
+    // Delete the group (cascade will handle related records)
+    const { error: deleteError } = await supabase
+      .from('groups')
+      .delete()
+      .eq('id', groupId);
+
+    if (deleteError) {
+      console.error('Error deleting group:', deleteError);
+      return { success: false, error: deleteError.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Delete group error:', error);
+    return {
+      success: false,
+      error: getErrorMessage(error, 'Failed to delete group'),
+    };
+  }
+};
