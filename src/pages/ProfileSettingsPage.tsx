@@ -13,6 +13,7 @@ import {
   NIGERIAN_BANKS 
 } from '@/api';
 import type { User } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -90,6 +91,7 @@ type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export default function ProfileSettingsPage() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState<User | null>(null);
@@ -206,6 +208,8 @@ export default function ProfileSettingsPage() {
       if (result.success) {
         toast.success('Bank account details updated successfully');
         await loadProfile();
+        // Refresh AuthContext to update user state globally
+        await refreshUser();
       } else {
         toast.error(result.error || 'Failed to update bank account');
       }
@@ -352,22 +356,26 @@ export default function ProfileSettingsPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile" className="flex items-center gap-2">
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+            <TabsTrigger value="profile" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <UserIcon className="w-4 h-4" />
-              Profile
+              <span className="hidden sm:inline">Profile</span>
+              <span className="sm:hidden">Prof</span>
             </TabsTrigger>
-            <TabsTrigger value="bank" className="flex items-center gap-2">
+            <TabsTrigger value="bank" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <Building2 className="w-4 h-4" />
-              Bank Account
+              <span className="hidden sm:inline">Bank Account</span>
+              <span className="sm:hidden">Bank</span>
             </TabsTrigger>
-            <TabsTrigger value="security" className="flex items-center gap-2">
+            <TabsTrigger value="security" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <Lock className="w-4 h-4" />
-              Security
+              <span className="hidden sm:inline">Security</span>
+              <span className="sm:hidden">Sec</span>
             </TabsTrigger>
-            <TabsTrigger value="account" className="flex items-center gap-2">
+            <TabsTrigger value="account" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
               <UserX className="w-4 h-4" />
-              Account
+              <span className="hidden sm:inline">Account</span>
+              <span className="sm:hidden">Acct</span>
             </TabsTrigger>
           </TabsList>
 
