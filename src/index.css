@@ -68,6 +68,10 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Paystack z-index values - max safe integer to ensure it's always on top */
+    --z-index-paystack-modal: 2147483647;
+    --z-index-paystack-overlay: 2147483646;
   }
 
   .dark {
@@ -269,20 +273,20 @@
 
 /* Target Paystack's main container div (usually has z-index: 999999999 in inline styles) */
 body > div[style*="z-index: 999999999"] {
-  z-index: 2147483647 !important; /* Maximum safe integer for z-index */
+  z-index: var(--z-index-paystack-modal) !important;
   pointer-events: auto !important;
 }
 
 /* Target Paystack's overlay/backdrop (usually has z-index: 999999998) */
 body > div[style*="z-index: 999999998"] {
-  z-index: 2147483646 !important;
+  z-index: var(--z-index-paystack-overlay) !important;
   pointer-events: auto !important;
 }
 
 /* Target any Paystack iframes directly - use exact domain patterns */
 iframe[src*="paystack.co"],
 iframe[src*="checkout.paystack.com"] {
-  z-index: 2147483647 !important;
+  z-index: var(--z-index-paystack-modal) !important;
   pointer-events: auto !important;
 }
 
