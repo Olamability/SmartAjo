@@ -268,14 +268,12 @@
 /* Paystack typically creates elements with inline styles containing high z-index values */
 
 /* Target Paystack's main container div (usually has z-index: 999999999 in inline styles) */
-body > div[style*="z-index"][style*="999999999"],
 body > div[style*="z-index: 999999999"] {
   z-index: 2147483647 !important; /* Maximum safe integer for z-index */
   pointer-events: auto !important;
 }
 
 /* Target Paystack's overlay/backdrop (usually has z-index: 999999998) */
-body > div[style*="z-index"][style*="999999998"],
 body > div[style*="z-index: 999999998"] {
   z-index: 2147483646 !important;
   pointer-events: auto !important;
@@ -293,8 +291,8 @@ body > div[style*="position"] > iframe[src*="paystack"] {
   pointer-events: auto !important;
 }
 
-/* Enable interaction with all Paystack modal content */
-body > div[style*="z-index"] * {
+/* Enable interaction with all Paystack modal content - only target high z-index divs */
+body > div[style*="z-index: 99999"] * {
   user-select: auto !important;
   -webkit-user-select: auto !important;
   -moz-user-select: auto !important;
@@ -302,7 +300,7 @@ body > div[style*="z-index"] * {
   pointer-events: auto !important;
 }
 
-/* Specifically target Paystack's container with fixed positioning */
-body > div[style*="position: fixed"][style*="z-index"] {
+/* Specifically target Paystack's container with fixed positioning and high z-index */
+body > div[style*="position: fixed"][style*="z-index: 99999"] {
   pointer-events: auto !important;
 }
