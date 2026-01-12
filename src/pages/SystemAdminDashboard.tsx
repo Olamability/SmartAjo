@@ -77,7 +77,7 @@ export default function SystemAdminDashboard() {
         .from('users')
         .select('is_admin')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 

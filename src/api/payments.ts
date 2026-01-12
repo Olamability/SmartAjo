@@ -349,11 +349,15 @@ export const getPaymentStatus = async (
       .from('payments')
       .select('id, reference, status, verified, amount, paid_at')
       .eq('reference', reference)
-      .single();
+      .maybeSingle();
 
     if (error) {
       console.error('Error fetching payment status:', error);
       return { success: false, error: error.message };
+    }
+
+    if (!data) {
+      return { success: false, error: 'Payment not found' };
     }
 
     return { success: true, payment: data };

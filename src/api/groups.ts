@@ -666,15 +666,15 @@ export const getUserJoinRequestStatus = async (
       .eq('group_id', groupId)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+    if (error) {
       console.error('Error fetching join request status:', error);
       return { success: false, error: error.message };
     }
 
-    return { success: true, request: data || null };
+    // Return the first result if available, otherwise null
+    return { success: true, request: data && data.length > 0 ? data[0] : null };
   } catch (error) {
     console.error('Get join request status error:', error);
     return {

@@ -119,11 +119,19 @@ async function storePaymentRecord(
   };
 
   // Check if payment already exists (idempotency for duplicate webhooks)
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('payments')
     .select('id, verified, status')
     .eq('reference', data.reference)
-    .single();
+    .maybeSingle();
+
+  if (existingError) {
+    console.error('Error checking existing payment:', existingError);
+    return {
+      success: false,
+      message: 'Failed to check payment status',
+    };
+  }
 
   if (existing) {
     // Payment exists - update it only if status changed
@@ -197,7 +205,7 @@ async function processContributionPayment(
     .eq('user_id', userId)
     .eq('group_id', groupId)
     .eq('cycle_number', cycleNumber)
-    .single();
+    .maybeSingle();
 
   if (findError || !contribution) {
     console.error('Contribution not found:', findError);
