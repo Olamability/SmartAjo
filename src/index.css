@@ -262,3 +262,47 @@
     opacity: 0.7;
   }
 }
+
+/* Paystack Payment Modal Z-Index Fix */
+/* Ensures Paystack payment interface appears above all application content and is clickable */
+/* Paystack typically creates elements with inline styles containing high z-index values */
+
+/* Target Paystack's main container div (usually has z-index: 999999999 in inline styles) */
+body > div[style*="z-index"][style*="999999999"],
+body > div[style*="z-index: 999999999"] {
+  z-index: 2147483647 !important; /* Maximum safe integer for z-index */
+  pointer-events: auto !important;
+}
+
+/* Target Paystack's overlay/backdrop (usually has z-index: 999999998) */
+body > div[style*="z-index"][style*="999999998"],
+body > div[style*="z-index: 999999998"] {
+  z-index: 2147483646 !important;
+  pointer-events: auto !important;
+}
+
+/* Target any Paystack iframes directly */
+iframe[src*="paystack"],
+iframe[src*="checkout.paystack.com"] {
+  z-index: 2147483647 !important;
+  pointer-events: auto !important;
+}
+
+/* Ensure parent containers of Paystack iframes don't block pointer events */
+body > div[style*="position"] > iframe[src*="paystack"] {
+  pointer-events: auto !important;
+}
+
+/* Enable interaction with all Paystack modal content */
+body > div[style*="z-index"] * {
+  user-select: auto !important;
+  -webkit-user-select: auto !important;
+  -moz-user-select: auto !important;
+  -ms-user-select: auto !important;
+  pointer-events: auto !important;
+}
+
+/* Specifically target Paystack's container with fixed positioning */
+body > div[style*="position: fixed"][style*="z-index"] {
+  pointer-events: auto !important;
+}
