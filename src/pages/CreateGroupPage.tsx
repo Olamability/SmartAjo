@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -67,8 +67,8 @@ export default function CreateGroupPage() {
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [createdGroup, setCreatedGroup] = useState<any>(null);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
-  const [paymentReference, setPaymentReference] = useState<string>('');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentCallbackExecuted, setPaymentCallbackExecuted] = useState(false);
 
   const {
     register,
@@ -162,6 +162,7 @@ export default function CreateGroupPage() {
     }
 
     setIsProcessingPayment(true);
+    setPaymentCallbackExecuted(false); // Reset callback flag for new payment attempt
     try {
       // Calculate total amount (security deposit + first contribution)
       const totalAmount = createdGroup.securityDepositAmount + createdGroup.contributionAmount;
@@ -179,8 +180,6 @@ export default function CreateGroupPage() {
         return;
       }
 
-      setPaymentReference(initResult.reference);
-
       // Open Paystack payment popup
       await paystackService.initializePayment({
         email: user.email!,
@@ -193,56 +192,73 @@ export default function CreateGroupPage() {
           preferred_slot: selectedSlot,
         },
         callback: async (response: PaystackResponse) => {
-          // Payment successful, verify on backend
-          if (response.status === 'success') {
-            toast.info('Payment received! Verifying...');
-            
-            // Verify payment with backend
-            const verifyResult = await verifyPayment(response.reference);
-            
-            if (verifyResult.verified) {
-              // Process payment and add creator as member with selected slot
-              const processResult = await processGroupCreationPayment(
-                response.reference,
-                createdGroup.id,
-                selectedSlot
-              );
+          try {
+            setPaymentCallbackExecuted(true); // Mark callback as executed
+            // Payment successful, verify on backend
+            if (response.status === 'success') {
+              toast.info('Payment received! Verifying...');
               
-              if (processResult.success) {
-                toast.success('Payment verified! You are now the group admin.');
-                setShowPaymentDialog(false);
-                // Navigate to group detail page
-                navigate(`/groups/${createdGroup.id}`);
+              // Verify payment with backend
+              const verifyResult = await verifyPayment(response.reference);
+              
+              if (verifyResult.verified) {
+                // Process payment and add creator as member with selected slot
+                const processResult = await processGroupCreationPayment(
+                  response.reference,
+                  createdGroup.id,
+                  selectedSlot
+                );
+                
+                if (processResult.success) {
+                  toast.success('Payment verified! You are now the group admin.');
+                  setShowPaymentDialog(false);
+                  // Navigate to group detail page
+                  navigate(`/groups/${createdGroup.id}`);
+                } else {
+                  toast.error(processResult.error || 'Failed to process payment');
+                  // Delete group since payment processing failed
+                  await handleGroupCleanup(createdGroup.id, 'Payment processing failed');
+                  setShowPaymentDialog(false);
+                  navigate('/groups');
+                }
               } else {
-                toast.error(processResult.error || 'Failed to process payment');
-                // Delete group since payment processing failed
-                await handleGroupCleanup(createdGroup.id, 'Payment processing failed');
+                toast.error('Payment verification failed. Please contact support.');
+                // Delete group since payment verification failed
+                await handleGroupCleanup(createdGroup.id, 'Payment verification failed');
                 setShowPaymentDialog(false);
                 navigate('/groups');
               }
             } else {
-              toast.error('Payment verification failed. Please contact support.');
-              // Delete group since payment verification failed
-              await handleGroupCleanup(createdGroup.id, 'Payment verification failed');
+              toast.error('Payment was not successful');
+              // Delete group since payment was not successful
+              await handleGroupCleanup(createdGroup.id, 'Payment not successful');
               setShowPaymentDialog(false);
               navigate('/groups');
             }
-          } else {
-            toast.error('Payment was not successful');
-            // Delete group since payment was not successful
-            await handleGroupCleanup(createdGroup.id, 'Payment not successful');
-            setShowPaymentDialog(false);
-            navigate('/groups');
+          } catch (error) {
+            console.error('Error in payment callback:', error);
+            toast.error('An error occurred while processing your payment. Please contact support with reference: ' + response.reference);
+            // Don't delete the group here - the payment may have succeeded
+            // User should contact support to resolve
+          } finally {
+            setIsProcessingPayment(false);
           }
-          setIsProcessingPayment(false);
         },
         onClose: () => {
-          toast.info('Payment cancelled');
-          setIsProcessingPayment(false);
-          // Delete group since payment was cancelled by user
-          handleGroupCleanup(createdGroup.id, 'Payment cancelled by user');
-          setShowPaymentDialog(false);
-          navigate('/groups');
+          // Only clean up if payment callback hasn't been executed
+          // This prevents deleting group if user closes popup after successful payment
+          if (!paymentCallbackExecuted) {
+            toast.info('Payment cancelled');
+            setIsProcessingPayment(false);
+            // Delete group since payment was cancelled by user
+            handleGroupCleanup(createdGroup.id, 'Payment cancelled by user');
+            setShowPaymentDialog(false);
+            navigate('/groups');
+          } else {
+            // Callback was executed, so just close the dialog
+            console.log('Payment callback already executed, not cleaning up group');
+            setIsProcessingPayment(false);
+          }
         },
       });
     } catch (error) {

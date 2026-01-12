@@ -140,6 +140,7 @@
   th,
   pre,
   code {
+    cursor: default; /* Keep default cursor, not text cursor */
     user-select: text;
     -webkit-user-select: text;
     -moz-user-select: text;

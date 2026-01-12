@@ -13,6 +13,7 @@ import {
   NIGERIAN_BANKS 
 } from '@/api';
 import type { User } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -90,6 +91,7 @@ type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export default function ProfileSettingsPage() {
   const navigate = useNavigate();
+  const { refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState<User | null>(null);
@@ -206,6 +208,8 @@ export default function ProfileSettingsPage() {
       if (result.success) {
         toast.success('Bank account details updated successfully');
         await loadProfile();
+        // Refresh AuthContext to update user state globally
+        await refreshUser();
       } else {
         toast.error(result.error || 'Failed to update bank account');
       }

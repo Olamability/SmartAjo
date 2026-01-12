@@ -251,6 +251,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         kycStatus: convertKycStatus(result.kyc_status),
         bvn: result.kyc_data?.bvn,
         profileImage: result.avatar_url,
+        dateOfBirth: result.date_of_birth,
+        address: result.address,
+        isActive: result.is_active,
+        updatedAt: result.updated_at,
+        lastLoginAt: result.last_login_at,
+        bankName: result.bank_name,
+        accountNumber: result.account_number,
+        accountName: result.account_name,
+        bankCode: result.bank_code,
       });
       
       return true;

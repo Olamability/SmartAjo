@@ -244,37 +244,43 @@ export default function GroupDetailPage() {
           preferred_slot: userJoinRequest.preferred_slot,
         },
         callback: async (response: PaystackResponse) => {
-          // Payment successful, verify on backend
-          if (response.status === 'success') {
-            toast.info('Payment received! Verifying...');
-            
-            // Verify payment with backend
-            const verifyResult = await verifyPayment(response.reference);
-            
-            if (verifyResult.verified) {
-              // Process approved join payment
-              const processResult = await processApprovedJoinPayment(
-                response.reference,
-                id
-              );
+          try {
+            // Payment successful, verify on backend
+            if (response.status === 'success') {
+              toast.info('Payment received! Verifying...');
               
-              if (processResult.success) {
-                toast.success(`Payment verified! You are now a member at position ${processResult.position}.`);
-                setShowApprovedPaymentDialog(false);
-                // Reload data
-                await loadGroupDetails();
-                await loadMembers();
-                await loadUserJoinRequestStatus();
+              // Verify payment with backend
+              const verifyResult = await verifyPayment(response.reference);
+              
+              if (verifyResult.verified) {
+                // Process approved join payment
+                const processResult = await processApprovedJoinPayment(
+                  response.reference,
+                  id
+                );
+                
+                if (processResult.success) {
+                  toast.success(`Payment verified! You are now a member at position ${processResult.position}.`);
+                  setShowApprovedPaymentDialog(false);
+                  // Reload data
+                  await loadGroupDetails();
+                  await loadMembers();
+                  await loadUserJoinRequestStatus();
+                } else {
+                  toast.error(processResult.error || 'Failed to process payment');
+                }
               } else {
-                toast.error(processResult.error || 'Failed to process payment');
+                toast.error('Payment verification failed. Please contact support.');
               }
             } else {
-              toast.error('Payment verification failed. Please contact support.');
+              toast.error('Payment was not successful');
             }
-          } else {
-            toast.error('Payment was not successful');
+          } catch (error) {
+            console.error('Error in payment callback:', error);
+            toast.error('An error occurred while processing your payment. Please contact support with reference: ' + response.reference);
+          } finally {
+            setIsProcessingPayment(false);
           }
-          setIsProcessingPayment(false);
         },
         onClose: () => {
           toast.info('Payment cancelled');
