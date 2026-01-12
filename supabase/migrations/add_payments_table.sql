@@ -91,8 +91,9 @@ CREATE POLICY "Users can view their own payments"
   FOR SELECT
   USING (auth.uid() = user_id);
 
--- Policy: Only service role can insert payments (via Edge Functions)
--- No user-facing policy for INSERT - only backend can create payments
+-- Policy: Users can insert pending payments (see fix_payments_insert_policy.sql)
+-- Users are allowed to create pending payment records when initiating payments
+-- Backend verifies and updates payment status via Edge Functions
 
 -- Policy: Only service role can update payments (via Edge Functions)
 -- No user-facing policy for UPDATE - only backend can update payments

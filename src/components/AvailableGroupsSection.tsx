@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAvailableGroups, joinGroup } from '@/api';
+import { getAvailableGroups } from '@/api';
 import type { Group } from '@/types';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,19 +11,17 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Users, DollarSign, Calendar, Loader2, UserPlus, Search, Phone, User } from 'lucide-react';
-import { toast } from 'sonner';
+import { Users, DollarSign, Calendar, UserPlus, Search, Phone, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface AvailableGroupsSectionProps {
   onJoinSuccess?: () => void;
 }
 
-export default function AvailableGroupsSection({ onJoinSuccess }: AvailableGroupsSectionProps) {
+export default function AvailableGroupsSection({ onJoinSuccess: _onJoinSuccess }: AvailableGroupsSectionProps) {
   const navigate = useNavigate();
   const [availableGroups, setAvailableGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
-  const [joiningGroupId, setJoiningGroupId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAvailableGroups();
@@ -46,27 +44,8 @@ export default function AvailableGroupsSection({ onJoinSuccess }: AvailableGroup
   };
 
   const handleJoinGroup = async (groupId: string) => {
-    setJoiningGroupId(groupId);
-    try {
-      const result = await joinGroup(groupId);
-      if (result.success) {
-        toast.success('Successfully joined the group!');
-        // Reload available groups to remove the joined group
-        await loadAvailableGroups();
-        if (onJoinSuccess) {
-          onJoinSuccess();
-        }
-        // Navigate to the group detail page
-        navigate(`/groups/${groupId}`);
-      } else {
-        toast.error(result.error || 'Failed to join group');
-      }
-    } catch (error) {
-      console.error('Error joining group:', error);
-      toast.error('Failed to join group');
-    } finally {
-      setJoiningGroupId(null);
-    }
+    // Navigate to group detail page where user can select slot and send join request
+    navigate(`/groups/${groupId}`);
   };
 
   const formatCurrency = (amount: number) => {
@@ -208,21 +187,11 @@ export default function AvailableGroupsSection({ onJoinSuccess }: AvailableGroup
                       e.stopPropagation();
                       handleJoinGroup(group.id);
                     }}
-                    disabled={joiningGroupId === group.id}
                     className="w-full gap-2"
                     size="sm"
                   >
-                    {joiningGroupId === group.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Joining...
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4" />
-                        Join Group
-                      </>
-                    )}
+                    <UserPlus className="w-4 h-4" />
+                    View & Join Group
                   </Button>
                 </div>
               </CardContent>
