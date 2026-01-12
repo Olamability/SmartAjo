@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -68,7 +68,7 @@ export default function CreateGroupPage() {
   const [createdGroup, setCreatedGroup] = useState<any>(null);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [paymentCallbackExecuted, setPaymentCallbackExecuted] = useState(false);
+  const paymentCallbackExecutedRef = useRef(false); // Use ref for thread-safe synchronization
 
   const {
     register,
@@ -162,7 +162,7 @@ export default function CreateGroupPage() {
     }
 
     setIsProcessingPayment(true);
-    setPaymentCallbackExecuted(false); // Reset callback flag for new payment attempt
+    paymentCallbackExecutedRef.current = false; // Reset callback flag for new payment attempt
     try {
       // Calculate total amount (security deposit + first contribution)
       const totalAmount = createdGroup.securityDepositAmount + createdGroup.contributionAmount;
@@ -193,7 +193,7 @@ export default function CreateGroupPage() {
         },
         callback: async (response: PaystackResponse) => {
           try {
-            setPaymentCallbackExecuted(true); // Mark callback as executed
+            paymentCallbackExecutedRef.current = true; // Mark callback as executed
             // Payment successful, verify on backend
             if (response.status === 'success') {
               toast.info('Payment received! Verifying...');
@@ -247,7 +247,7 @@ export default function CreateGroupPage() {
         onClose: () => {
           // Only clean up if payment callback hasn't been executed
           // This prevents deleting group if user closes popup after successful payment
-          if (!paymentCallbackExecuted) {
+          if (!paymentCallbackExecutedRef.current) {
             toast.info('Payment cancelled');
             setIsProcessingPayment(false);
             // Delete group since payment was cancelled by user
