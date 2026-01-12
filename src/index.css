@@ -109,6 +109,37 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    /* Prevent text cursor on non-editable elements */
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+  }
+
+  /* Allow text selection and cursor for input elements */
+  input,
+  textarea,
+  [contenteditable="true"] {
+    cursor: text;
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  /* Allow text selection for readable content */
+  p,
+  span,
+  li,
+  td,
+  th,
+  pre,
+  code {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
   }
 
   h1,
