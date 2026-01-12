@@ -279,20 +279,21 @@ body > div[style*="z-index: 999999998"] {
   pointer-events: auto !important;
 }
 
-/* Target any Paystack iframes directly */
-iframe[src*="paystack"],
+/* Target any Paystack iframes directly - use exact domain patterns */
+iframe[src*="paystack.co"],
 iframe[src*="checkout.paystack.com"] {
   z-index: 2147483647 !important;
   pointer-events: auto !important;
 }
 
 /* Ensure parent containers of Paystack iframes don't block pointer events */
-body > div[style*="position"] > iframe[src*="paystack"] {
+body > div[style*="position"][style*="z-index"] > iframe[src*="paystack"] {
   pointer-events: auto !important;
 }
 
-/* Enable interaction with all Paystack modal content - only target high z-index divs */
-body > div[style*="z-index: 99999"] * {
+/* Enable interaction with all Paystack modal content - target specific Paystack z-index values */
+body > div[style*="z-index: 999999999"] *,
+body > div[style*="z-index: 999999998"] * {
   user-select: auto !important;
   -webkit-user-select: auto !important;
   -moz-user-select: auto !important;
@@ -300,7 +301,8 @@ body > div[style*="z-index: 99999"] * {
   pointer-events: auto !important;
 }
 
-/* Specifically target Paystack's container with fixed positioning and high z-index */
-body > div[style*="position: fixed"][style*="z-index: 99999"] {
+/* Specifically target Paystack's container with fixed positioning and exact z-index values */
+body > div[style*="position: fixed"][style*="z-index: 999999999"],
+body > div[style*="position: fixed"][style*="z-index: 999999998"] {
   pointer-events: auto !important;
 }
